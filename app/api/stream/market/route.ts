@@ -2,12 +2,27 @@ import { getLiveMarketSnapshot } from "@/lib/trading/market";
 import { getPaperAccount } from "@/lib/trading/paperTrading";
 import { orchestrateNINE } from "@/lib/trading/orchestrator";
 import { getOrders } from "@/lib/trading/orders";
-import { marketFeedStatus, NINE_VERSION, runtimeSafety } from "@/lib/trading/runtime";
+import {
+  marketFeedStatus,
+  NINE_VERSION,
+  runtimeSafety,
+} from "@/lib/trading/runtime";
+import type { MarketSymbol } from "@/lib/trading/types";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
+const SYMBOLS: MarketSymbol[] = ["XAUUSD", "NIFTY", "BANKNIFTY"];
+
+function requestedSymbol(request: Request): MarketSymbol {
+  const value = new URL(request.url).searchParams.get("symbol")?.toUpperCase();
+  return SYMBOLS.includes(value as MarketSymbol)
+    ? (value as MarketSymbol)
+    : "XAUUSD";
+}
+
 export async function GET(request: Request) {
+  const symbol = requestedSymbol(request);
   const encoder = new TextEncoder();
   const intervalMs = Math.max(
     2500,
@@ -25,21 +40,20 @@ export async function GET(request: Request) {
       const send = async () => {
         if (closed || inFlight) return;
         inFlight = true;
+
         try {
-          const market =
-            await getLiveMarketSnapshot("XAUUSD");
-          const account =
-            getPaperAccount(market.price);
-          const orchestration =
-            await orchestrateNINE(
-              market,
-              account,
-            );
+          const market = await getLiveMarketSnapshot(symbol);
+          const account = getPaperAccount(market.price);
+          const orchestration = await orchestrateNINE(
+            market,
+            account,
+          );
 
           controller.enqueue(
             encoder.encode(
               `event: market\ndata: ${JSON.stringify({
                 version: NINE_VERSION,
+                symbol,
                 runtime: runtimeSafety(),
                 market,
                 feed: marketFeedStatus(market),
@@ -47,27 +61,30 @@ export async function GET(request: Request) {
                 account,
                 orders: getOrders(20),
                 chart:
-                  market.timeframes?.["1min"]?.candles.slice(-80) ??
+                  market.timeframes?.["1min"]?.candles.slice(-120) ??
                   [],
                 ts: Date.now(),
               })}\n\n`,
             ),
           );
         } catch (error) {
-          controller.enqueue(
-            encoder.encode(
-              `event: error\ndata: ${JSON.stringify({
-                version: NINE_VERSION,
-                runtime: runtimeSafety(),
-                feed: marketFeedStatus(null),
-                message:
-                  error instanceof Error
-                    ? error.message
-                    : "Market stream error.",
-                ts: Date.now(),
-              })}\n\n`,
-            ),
-          );
+          if (!closed) {
+            controller.enqueue(
+              encoder.encode(
+                `event: error\ndata: ${JSON.stringify({
+                  version: NINE_VERSION,
+                  symbol,
+                  runtime: runtimeSafety(),
+                  feed: marketFeedStatus(null),
+                  message:
+                    error instanceof Error
+                      ? error.message
+                      : "Market stream error.",
+                  ts: Date.now(),
+                })}\n\n`,
+              ),
+            );
+          }
         } finally {
           inFlight = false;
         }
@@ -75,17 +92,11 @@ export async function GET(request: Request) {
 
       await send();
 
-      const timer = setInterval(
-        () => void send(),
-        intervalMs,
-      );
-
+      const timer = setInterval(() => void send(), intervalMs);
       const heartbeat = setInterval(() => {
         if (!closed) {
           controller.enqueue(
-            encoder.encode(
-              `: heartbeat ${Date.now()}\n\n`,
-            ),
+            encoder.encode(`: heartbeat ${Date.now()}\n\n`),
           );
         }
       }, 15000);
@@ -101,26 +112,20 @@ export async function GET(request: Request) {
         }
       };
 
-      request.signal.addEventListener(
-        "abort",
-        abort,
-        { once: true },
-      );
+      request.signal.addEventListener("abort", abort, { once: true });
 
-      controller.enqueue(
-        encoder.encode(
-          `: connected ${Date.now()}\n\n`,
-        ),
-      );
+      if (!closed) {
+        controller.enqueue(
+          encoder.encode(`: connected ${Date.now()}\n\n`),
+        );
+      }
     },
   });
 
   return new Response(stream, {
     headers: {
-      "Content-Type":
-        "text/event-stream; charset=utf-8",
-      "Cache-Control":
-        "no-cache, no-transform",
+      "Content-Type": "text/event-stream; charset=utf-8",
+      "Cache-Control": "no-cache, no-transform",
       Connection: "keep-alive",
       "X-Accel-Buffering": "no",
     },

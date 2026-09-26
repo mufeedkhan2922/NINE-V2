@@ -1,4 +1,3 @@
-
 import { NextResponse } from "next/server";
 
 import { getLiveMarketSnapshot } from "@/lib/trading/market";
@@ -8,7 +7,7 @@ import {
   getPaperEvents,
 } from "@/lib/trading/paperTrading";
 import { getOrders } from "@/lib/trading/orders";
-import { MarketSymbol } from "@/lib/trading/types";
+import type { MarketSymbol } from "@/lib/trading/types";
 import {
   buildBrainDecision,
   buildMarketHealthV26,
@@ -25,50 +24,46 @@ import {
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-export async function GET() {
-  try {
-    const symbol: MarketSymbol = "XAUUSD";
+const SYMBOLS: MarketSymbol[] = ["XAUUSD", "NIFTY", "BANKNIFTY"];
 
+function requestedSymbol(request: Request): MarketSymbol {
+  const value = new URL(request.url).searchParams.get("symbol")?.toUpperCase();
+  return SYMBOLS.includes(value as MarketSymbol)
+    ? (value as MarketSymbol)
+    : "XAUUSD";
+}
+
+export async function GET(request: Request) {
+  const symbol = requestedSymbol(request);
+
+  try {
     const market = await getLiveMarketSnapshot(symbol);
     const account = getPaperAccount(market.price);
-
-    const orchestration = await orchestrateNINE(
-      market,
-      account,
-    );
+    const orchestration = await orchestrateNINE(market, account);
 
     const feed = marketFeedStatus(market);
-    const setupV26 = buildSetupV26(market, orchestration.setup);
-    const marketHealthV26 = buildMarketHealthV26(market);
-    const brainV26 = buildBrainDecision(
-      market,
-      setupV26,
-      orchestration.atlas,
-      orchestration.sentinel,
-    );
-    const riskTelemetryV26 = buildRiskTelemetryV26(
-      account,
-      setupV26,
-      orchestration.sentinel,
-    );
-    const signalEventsV26 = buildSignalEvents(
-      market,
-      setupV26,
-      orchestration.sentinel,
-    );
+    const setupV26 = orchestration.v26.setup;
+    const marketHealthV26 = orchestration.v26.marketHealth;
+    const brainV26 = orchestration.v26.brain;
+    const riskTelemetryV26 = orchestration.v26.riskTelemetry;
+    const signalEventsV26 = orchestration.v26.signalEvents;
 
     return NextResponse.json({
       ok: true,
       version: NINE_VERSION,
       mode: "LIVE_DATA_PAPER_TRADING",
-      provider:
-        orchestration.marketHealth?.feed.provider ??
-        feed.provider,
+      symbol,
+      provider: feed.provider,
       runtime: runtimeSafety(),
       feed,
       market,
       orchestration,
-      v26: {
+      v27: {
+        commandCenter: {
+          status: brainV26.action,
+          executionMode: orchestration.executionMode,
+          tradingAllowed: market.tradingAllowed === true && feed.tradingAllowed,
+        },
         brain: brainV26,
         setup: setupV26,
         marketHealth: marketHealthV26,
@@ -78,28 +73,29 @@ export async function GET() {
       account,
       orders: getOrders(50),
       events: getPaperEvents(30),
-      chart:
-        market.timeframes?.["1min"]?.candles.slice(-80) ??
-        [],
+      chart: market.timeframes?.["1min"]?.candles.slice(-120) ?? [],
       generatedAt: new Date().toISOString(),
     });
   } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Unknown market-data error.";
+
     return NextResponse.json(
       {
         ok: false,
         version: NINE_VERSION,
         mode: "LIVE_DATA_PAPER_TRADING",
+        symbol,
         runtime: runtimeSafety(),
         feed: marketFeedStatus(null),
-        error:
-          error instanceof Error
-            ? error.message
-            : "Unknown market-data error.",
+        error: message,
         market: null,
         orchestration: null,
+        v27: null,
         account: getPaperAccount(),
         orders: getOrders(50),
         events: getPaperEvents(30),
+        chart: [],
         generatedAt: new Date().toISOString(),
       },
       { status: 503 },

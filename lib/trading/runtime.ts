@@ -1,7 +1,7 @@
 import { MarketFeedStatus } from "./types";
 import { providerName } from "./provider";
 
-export const NINE_VERSION = "2.6.0";
+export const NINE_VERSION = "2.7.0";
 
 export function liveTradingEnabled(): boolean {
   return (
