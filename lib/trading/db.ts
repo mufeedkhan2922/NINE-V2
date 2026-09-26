@@ -1,16 +1,42 @@
+/// <reference path="../../types/node-sqlite.d.ts" />
 import { DatabaseSync } from "node:sqlite";
 import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 
-const dbPath = process.env.NINE_DB_PATH || join(process.cwd(), ".nine-data", "nine.db");
+const dbPath =
+  process.env.NINE_DB_PATH ||
+  join(".nine-data", "nine.db");
+
 mkdirSync(dirname(dbPath), { recursive: true });
 
-const globalDb = globalThis as typeof globalThis & { __nineDatabase?: DatabaseSync };
+const globalDb = globalThis as typeof globalThis & {
+  __nineDatabase?: DatabaseSync;
+};
 
-export const db = globalDb.__nineDatabase ?? new DatabaseSync(dbPath);
+export const db =
+  globalDb.__nineDatabase ?? new DatabaseSync(dbPath);
+
 globalDb.__nineDatabase = db;
 
-function exec(sql: string): void { db.exec(sql); }
+function exec(sql: string): void {
+  db.exec(sql);
+}
+
+function ensureColumn(
+  table: string,
+  column: string,
+  definition: string,
+): void {
+  const columns = db
+    .prepare(`PRAGMA table_info(${table})`)
+    .all() as Array<{ name: string }>;
+
+  if (!columns.some((item) => item.name === column)) {
+    db.exec(
+      `ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`,
+    );
+  }
+}
 
 exec(`
 PRAGMA journal_mode = WAL;
@@ -76,13 +102,49 @@ CREATE TABLE IF NOT EXISTS execution_ledger (
   metadata_json TEXT
 );
 
+CREATE TABLE IF NOT EXISTS orders (
+  id TEXT PRIMARY KEY,
+  account_id TEXT REFERENCES accounts(id),
+  symbol TEXT NOT NULL,
+  mode TEXT NOT NULL,
+  side TEXT NOT NULL,
+  quantity REAL NOT NULL,
+  requested_price REAL NOT NULL,
+  filled_price REAL,
+  stop_loss REAL NOT NULL,
+  take_profit REAL NOT NULL,
+  status TEXT NOT NULL,
+  broker_order_id TEXT,
+  sentinel_approved INTEGER NOT NULL DEFAULT 0,
+  request_hash TEXT NOT NULL,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
+  metadata_json TEXT
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS orders_request_hash_idx
+ON orders(request_hash);
+
+CREATE INDEX IF NOT EXISTS orders_created_at_idx
+ON orders(created_at DESC);
+
+CREATE INDEX IF NOT EXISTS orders_broker_order_id_idx
+ON orders(broker_order_id);
+
+CREATE INDEX IF NOT EXISTS orders_status_idx
+ON orders(status);
+
 CREATE TRIGGER IF NOT EXISTS execution_ledger_no_update
 BEFORE UPDATE ON execution_ledger
-BEGIN SELECT RAISE(ABORT, 'execution_ledger is immutable'); END;
+BEGIN
+  SELECT RAISE(ABORT, 'execution_ledger is immutable');
+END;
 
 CREATE TRIGGER IF NOT EXISTS execution_ledger_no_delete
 BEFORE DELETE ON execution_ledger
-BEGIN SELECT RAISE(ABORT, 'execution_ledger is immutable'); END;
+BEGIN
+  SELECT RAISE(ABORT, 'execution_ledger is immutable');
+END;
 
 CREATE TABLE IF NOT EXISTS users (
   id TEXT PRIMARY KEY,
@@ -100,7 +162,9 @@ CREATE TABLE IF NOT EXISTS sessions (
   created_at INTEGER NOT NULL,
   expires_at INTEGER NOT NULL
 );
-CREATE INDEX IF NOT EXISTS sessions_token_hash_idx ON sessions(token_hash);
+
+CREATE INDEX IF NOT EXISTS sessions_token_hash_idx
+ON sessions(token_hash);
 
 CREATE TABLE IF NOT EXISTS backtest_runs (
   id TEXT PRIMARY KEY,
@@ -138,52 +202,243 @@ CREATE TABLE IF NOT EXISTS backtest_trades (
 );
 `);
 
+ensureColumn("positions", "order_id", "TEXT");
+ensureColumn("execution_ledger", "order_id", "TEXT");
+
 function importLegacyState(): void {
-  const accountExists = db.prepare("SELECT 1 AS ok FROM accounts WHERE id = ?").get("paper-main");
+  const accountExists = db
+    .prepare(
+      "SELECT 1 AS ok FROM accounts WHERE id = ?",
+    )
+    .get("paper-main");
+
   if (accountExists) return;
-  const legacy = join(dirname(dbPath), "state.json");
+
+  const legacy = join(
+    dirname(dbPath),
+    "state.json",
+  );
+
   if (!existsSync(legacy)) return;
+
   try {
-    const parsed = JSON.parse(readFileSync(legacy, "utf8")) as { account?: any; events?: any[] };
+    const parsed = JSON.parse(
+      readFileSync(legacy, "utf8"),
+    ) as {
+      account?: any;
+      events?: any[];
+    };
+
     if (!parsed.account) return;
+
     const a = parsed.account;
+
     db.exec("BEGIN IMMEDIATE");
+
     try {
-      db.prepare(`INSERT INTO accounts (id,currency,initial_balance,balance,equity,realized_pnl,unrealized_pnl,peak_equity,daily_start_balance,daily_realized_pnl,trading_day,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`).run(
-        "paper-main", a.currency ?? "USD", a.initialBalance, a.balance, a.equity, a.realizedPnl ?? 0, a.unrealizedPnl ?? 0, a.peakEquity ?? a.equity, a.dailyStartBalance ?? a.balance, a.dailyRealizedPnl ?? 0, a.tradingDay ?? new Date().toISOString().slice(0,10), a.updatedAt ?? Date.now());
-      for (const p of Array.isArray(a.positions) ? a.positions : []) {
-        db.prepare(`INSERT OR IGNORE INTO positions (id,account_id,symbol,side,quantity,entry_price,stop_loss,take_profit,opened_at,status,exit_price,closed_at,realized_pnl) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(p.id,"paper-main",p.symbol,p.side,p.quantity,p.entryPrice,p.stopLoss,p.takeProfit,p.openedAt,p.status,p.exitPrice ?? null,p.closedAt ?? null,p.realizedPnl ?? null);
+      db.prepare(
+        `
+        INSERT INTO accounts (
+          id,
+          currency,
+          initial_balance,
+          balance,
+          equity,
+          realized_pnl,
+          unrealized_pnl,
+          peak_equity,
+          daily_start_balance,
+          daily_realized_pnl,
+          trading_day,
+          updated_at
+        )
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
+        `,
+      ).run(
+        "paper-main",
+        a.currency ?? "USD",
+        a.initialBalance,
+        a.balance,
+        a.equity,
+        a.realizedPnl ?? 0,
+        a.unrealizedPnl ?? 0,
+        a.peakEquity ?? a.equity,
+        a.dailyStartBalance ?? a.balance,
+        a.dailyRealizedPnl ?? 0,
+        a.tradingDay ??
+          new Date()
+            .toISOString()
+            .slice(0, 10),
+        a.updatedAt ?? Date.now(),
+      );
+
+      for (const p of Array.isArray(a.positions)
+        ? a.positions
+        : []) {
+        db.prepare(
+          `
+          INSERT OR IGNORE INTO positions (
+            id,
+            account_id,
+            symbol,
+            side,
+            quantity,
+            entry_price,
+            stop_loss,
+            take_profit,
+            opened_at,
+            status,
+            exit_price,
+            closed_at,
+            realized_pnl,
+            order_id
+          )
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+          `,
+        ).run(
+          p.id,
+          "paper-main",
+          p.symbol,
+          p.side,
+          p.quantity,
+          p.entryPrice,
+          p.stopLoss,
+          p.takeProfit,
+          p.openedAt,
+          p.status,
+          p.exitPrice ?? null,
+          p.closedAt ?? null,
+          p.realizedPnl ?? null,
+          p.orderId ?? null,
+        );
       }
-      for (const e of Array.isArray(parsed.events) ? parsed.events : []) {
-        db.prepare(`INSERT OR IGNORE INTO trading_events (id,type,timestamp,message,symbol,position_id,metadata_json) VALUES (?,?,?,?,?,?,?)`).run(e.id,e.type,e.timestamp,e.message,e.symbol ?? null,e.positionId ?? null,JSON.stringify(e.metadata ?? {}));
+
+      for (const e of Array.isArray(
+        parsed.events,
+      )
+        ? parsed.events
+        : []) {
+        db.prepare(
+          `
+          INSERT OR IGNORE INTO trading_events (
+            id,
+            type,
+            timestamp,
+            message,
+            symbol,
+            position_id,
+            metadata_json
+          )
+          VALUES (?,?,?,?,?,?,?)
+          `,
+        ).run(
+          e.id,
+          e.type,
+          e.timestamp,
+          e.message,
+          e.symbol ?? null,
+          e.positionId ?? null,
+          JSON.stringify(e.metadata ?? {}),
+        );
       }
+
       db.exec("COMMIT");
-    } catch (error) { db.exec("ROLLBACK"); throw error; }
-  } catch { /* A corrupt legacy file must not prevent a fresh database from starting. */ }
+    } catch (error) {
+      db.exec("ROLLBACK");
+      throw error;
+    }
+  } catch {
+    // A corrupt legacy file must not prevent a fresh database from starting.
+  }
 }
 
 importLegacyState();
 
-const balance = Number(process.env.NINE_PAPER_BALANCE_USD ?? 10_000);
-const initial = Number.isFinite(balance) && balance > 0 ? balance : 10_000;
-if (!db.prepare("SELECT 1 AS ok FROM accounts WHERE id = ?").get("paper-main")) {
+const balance = Number(
+  process.env.NINE_PAPER_BALANCE_USD ?? 10_000,
+);
+
+const initial =
+  Number.isFinite(balance) && balance > 0
+    ? balance
+    : 10_000;
+
+if (
+  !db
+    .prepare(
+      "SELECT 1 AS ok FROM accounts WHERE id = ?",
+    )
+    .get("paper-main")
+) {
   const now = Date.now();
-  db.prepare(`INSERT INTO accounts (id,currency,initial_balance,balance,equity,realized_pnl,unrealized_pnl,peak_equity,daily_start_balance,daily_realized_pnl,trading_day,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`).run("paper-main","USD",initial,initial,initial,0,0,initial,initial,0,new Date(now).toISOString().slice(0,10),now);
+
+  db.prepare(
+    `
+    INSERT INTO accounts (
+      id,
+      currency,
+      initial_balance,
+      balance,
+      equity,
+      realized_pnl,
+      unrealized_pnl,
+      peak_equity,
+      daily_start_balance,
+      daily_realized_pnl,
+      trading_day,
+      updated_at
+    )
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
+    `,
+  ).run(
+    "paper-main",
+    "USD",
+    initial,
+    initial,
+    initial,
+    0,
+    0,
+    initial,
+    initial,
+    0,
+    new Date(now)
+      .toISOString()
+      .slice(0, 10),
+    now,
+  );
 }
 
-export function transaction<T>(fn: () => T): T {
+export function transaction<T>(
+  fn: () => T,
+): T {
   db.exec("BEGIN IMMEDIATE");
+
   try {
     const result = fn();
+
     db.exec("COMMIT");
+
     return result;
   } catch (error) {
-    try { db.exec("ROLLBACK"); } catch { /* no-op */ }
+    try {
+      db.exec("ROLLBACK");
+    } catch {
+      // no-op
+    }
+
     throw error;
   }
 }
 
-export function jsonParse<T>(value: string | null | undefined, fallback: T): T {
+export function jsonParse<T>(
+  value: string | null | undefined,
+  fallback: T,
+): T {
   if (!value) return fallback;
-  try { return JSON.parse(value) as T; } catch { return fallback; }
+
+  try {
+    return JSON.parse(value) as T;
+  } catch {
+    return fallback;
+  }
 }

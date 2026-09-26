@@ -1,16 +1,37 @@
 export type MarketSymbol = "XAUUSD" | "NIFTY" | "BANKNIFTY";
 
-export type Timeframe = "1min" | "5min" | "15min" | "1h" | "4h" | "1day";
+export type Timeframe =
+  | "1min"
+  | "5min"
+  | "15min"
+  | "1h"
+  | "4h"
+  | "1day";
+
 export type TradeDirection = "LONG" | "SHORT" | "NONE";
 export type MarketBias = "BULLISH" | "BEARISH" | "NEUTRAL";
 export type SetupStatus = "WATCHING" | "VALID" | "BLOCKED" | "INVALID";
 export type MarketState = "OPEN" | "CLOSED" | "PRE_OPEN" | "UNKNOWN";
-export type DataState = "LIVE" | "DELAYED" | "STALE" | "SUSPICIOUS" | "UNKNOWN";
+export type DataState =
+  | "LIVE"
+  | "DELAYED"
+  | "STALE"
+  | "SUSPICIOUS"
+  | "UNKNOWN";
 export type TradingPermission = "ALLOWED" | "BLOCKED";
 export type AgentId = "ATLAS" | "CHARTIST" | "SENTINEL" | "NINE";
 export type AgentStatus = "ONLINE" | "DEGRADED" | "BLOCKED";
 export type OrderSide = "BUY" | "SELL";
-export type OrderStatus = "PENDING" | "FILLED" | "CLOSED" | "REJECTED";
+
+export type OrderStatus =
+  | "PENDING"
+  | "SUBMITTING"
+  | "SUBMITTED"
+  | "FILLED"
+  | "CLOSED"
+  | "CANCELLED"
+  | "REJECTED";
+
 export type ExecutionMode = "PAPER" | "LIVE";
 
 export interface Candle {
@@ -208,6 +229,7 @@ export interface NINEOrchestration {
 
 export interface PaperPosition {
   id: string;
+  orderId: string;
   symbol: MarketSymbol;
   side: OrderSide;
   quantity: number;
@@ -236,7 +258,14 @@ export interface PaperAccount {
   tradingDay: string;
 }
 
-export type TradingEventType = "PAPER_OPEN" | "PAPER_CLOSE" | "PAPER_REJECT" | "RISK_GUARD" | "BROKER_REJECT" | "BROKER_SUBMIT" | "COMMAND";
+export type TradingEventType =
+  | "PAPER_OPEN"
+  | "PAPER_CLOSE"
+  | "PAPER_REJECT"
+  | "RISK_GUARD"
+  | "BROKER_REJECT"
+  | "BROKER_SUBMIT"
+  | "COMMAND";
 
 export interface TradingEvent {
   id: string;
@@ -265,12 +294,19 @@ export interface ExecutionResult {
   status: "SIMULATED" | "SUBMITTED" | "REJECTED";
   message: string;
   brokerOrderId?: string;
+  orderId?: string;
   timestamp: number;
 }
 
 export interface ExecutionLedgerRecord {
   id: string;
-  eventType: "SUBMIT" | "FILL" | "REJECT" | "CANCEL" | "CLOSE" | "RISK_BLOCK";
+  eventType:
+    | "SUBMIT"
+    | "FILL"
+    | "REJECT"
+    | "CANCEL"
+    | "CLOSE"
+    | "RISK_BLOCK";
   timestamp: number;
   symbol: MarketSymbol;
   mode: ExecutionMode;
@@ -281,7 +317,28 @@ export interface ExecutionLedgerRecord {
   takeProfit: number;
   status: string;
   brokerOrderId?: string;
+  orderId?: string;
   requestHash?: string;
+  metadata?: Record<string, string | number | boolean | null>;
+}
+
+export interface TradingOrder {
+  id: string;
+  accountId?: string;
+  symbol: MarketSymbol;
+  mode: ExecutionMode;
+  side: OrderSide;
+  quantity: number;
+  requestedPrice: number;
+  filledPrice?: number;
+  stopLoss: number;
+  takeProfit: number;
+  status: OrderStatus;
+  brokerOrderId?: string;
+  sentinelApproved: boolean;
+  requestHash: string;
+  createdAt: number;
+  updatedAt: number;
   metadata?: Record<string, string | number | boolean | null>;
 }
 
@@ -309,7 +366,13 @@ export interface AtlasContext {
   bullish: number;
   bearish: number;
   neutral: number;
-  headlines: Array<{ title: string; source: string; url?: string; sentiment: "BULLISH" | "BEARISH" | "NEUTRAL"; publishedAt?: string }>;
+  headlines: Array<{
+    title: string;
+    source: string;
+    url?: string;
+    sentiment: "BULLISH" | "BEARISH" | "NEUTRAL";
+    publishedAt?: string;
+  }>;
   macroBias: MarketBias;
   summary: string;
   generatedAt: number;
