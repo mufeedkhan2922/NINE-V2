@@ -10,6 +10,13 @@ import {
 import { getOrders } from "@/lib/trading/orders";
 import { MarketSymbol } from "@/lib/trading/types";
 import {
+  buildBrainDecision,
+  buildMarketHealthV26,
+  buildRiskTelemetryV26,
+  buildSetupV26,
+  buildSignalEvents,
+} from "@/lib/trading/v26";
+import {
   marketFeedStatus,
   runtimeSafety,
   NINE_VERSION,
@@ -31,6 +38,24 @@ export async function GET() {
     );
 
     const feed = marketFeedStatus(market);
+    const setupV26 = buildSetupV26(market, orchestration.setup);
+    const marketHealthV26 = buildMarketHealthV26(market);
+    const brainV26 = buildBrainDecision(
+      market,
+      setupV26,
+      orchestration.atlas,
+      orchestration.sentinel,
+    );
+    const riskTelemetryV26 = buildRiskTelemetryV26(
+      account,
+      setupV26,
+      orchestration.sentinel,
+    );
+    const signalEventsV26 = buildSignalEvents(
+      market,
+      setupV26,
+      orchestration.sentinel,
+    );
 
     return NextResponse.json({
       ok: true,
@@ -43,6 +68,13 @@ export async function GET() {
       feed,
       market,
       orchestration,
+      v26: {
+        brain: brainV26,
+        setup: setupV26,
+        marketHealth: marketHealthV26,
+        risk: riskTelemetryV26,
+        events: signalEventsV26,
+      },
       account,
       orders: getOrders(50),
       events: getPaperEvents(30),

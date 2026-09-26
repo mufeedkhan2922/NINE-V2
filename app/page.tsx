@@ -6,7 +6,7 @@ import CityScene from "./city-scene";
 
 type Candle = { time: number; open: number; high: number; low: number; close: number };
 type Position = { id: string; symbol: string; side: "BUY" | "SELL"; quantity: number; entryPrice: number; stopLoss: number; takeProfit: number; status: "OPEN" | "CLOSED"; realizedPnl?: number };
-type Dashboard = { ok: boolean; error?: string; feed?: any; runtime?: any; market: any; orchestration: any; account: any; chart?: Candle[]; events?: any[]; orders?: any[] };
+type Dashboard = { ok: boolean; error?: string; feed?: any; runtime?: any; market: any; orchestration: any; v26?: any; account: any; chart?: Candle[]; events?: any[]; orders?: any[] };
 type User = { id: string; email: string; role: string } | null;
 type SpeechRecognitionLike = { lang: string; interimResults: boolean; continuous: boolean; start: () => void; stop: () => void; onresult: ((event: any) => void) | null; onend: (() => void) | null; onerror: (() => void) | null };
 type SpeechRecognitionConstructor = new () => SpeechRecognitionLike;
@@ -146,6 +146,16 @@ export default function Home() {
       <button className="backtest-button" onClick={() => void runBacktest()} disabled={backtestBusy || !user}>{backtestBusy ? "REPLAY RUNNING…" : "RUN PAPER REPLAY / BACKTEST"}</button>
       {backtest && <div className="backtest-box"><div className="validation-title">LAST REPLAY</div><div className="backtest-grid"><span>TRADES <b>{backtest.totalTrades}</b></span><span>WIN RATE <b>{fmt(backtest.winRate, 1)}%</b></span><span>NET P&L <b>{fmt(backtest.netPnl)}</b></span><span>DD <b>{fmt(backtest.maxDrawdown, 1)}%</b></span></div></div>}
       <div className="safety-strip"><span>LIVE TRADING</span><b>{dashboard?.runtime?.liveTradingEnabled ? "ENABLED" : "HARD LOCKED"}</b></div>
+      {dashboard?.v26 && <div className="v26-box">
+        <div className="validation-title">V2.6 INTELLIGENCE CORE</div>
+        <div className="backtest-grid">
+          <span>BRAIN <b>{dashboard.v26.brain.action}</b></span>
+          <span>SETUP <b>{dashboard.v26.setup.lifecycle}</b></span>
+          <span>CONFLUENCE <b>{dashboard.v26.setup.confluenceScore}%</b></span>
+          <span>HEALTH <b>{dashboard.v26.marketHealth.state}</b></span>
+        </div>
+        <small>{dashboard.v26.brain.rationale}</small>
+      </div>}
     </section>
 
     <section className="dashboard-panel glass-panel">
