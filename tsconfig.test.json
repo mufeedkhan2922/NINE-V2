@@ -6,7 +6,16 @@
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "outDir": ".test-dist"
+    "outDir": ".test-dist",
+    "types": [
+      "node"
+    ],
+    "baseUrl": ".",
+    "paths": {
+      "@/*": [
+        "./*"
+      ]
+    }
   },
   "include": [
     "lib/trading/types.ts",
@@ -17,6 +26,14 @@
     "tests/**/*.test.ts",
     "tests/assert.ts",
     "tests/testRunner.ts",
-    "types/test-globals.d.ts"
+    "types/test-globals.d.ts",
+    "lib/trading/runtime.ts",
+    "lib/trading/provider.ts",
+    "lib/security/rateLimit.ts",
+    "lib/security/requestSecurity.ts",
+    "tests/runtime.test.ts",
+    "tests/security.test.ts",
+    "lib/trading/*.ts",
+    "lib/security/*.ts"
   ]
 }

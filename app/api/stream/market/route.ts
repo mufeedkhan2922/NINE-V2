@@ -2,7 +2,7 @@ import { getLiveMarketSnapshot } from "@/lib/trading/market";
 import { getPaperAccount } from "@/lib/trading/paperTrading";
 import { orchestrateNINE } from "@/lib/trading/orchestrator";
 import { getOrders } from "@/lib/trading/orders";
-import { marketFeedStatus, NINE_VERSION } from "@/lib/trading/runtime";
+import { marketFeedStatus, NINE_VERSION, runtimeSafety } from "@/lib/trading/runtime";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -20,10 +20,11 @@ export async function GET(request: Request) {
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
       let closed = false;
+      let inFlight = false;
 
       const send = async () => {
-        if (closed) return;
-
+        if (closed || inFlight) return;
+        inFlight = true;
         try {
           const market =
             await getLiveMarketSnapshot("XAUUSD");
@@ -39,6 +40,7 @@ export async function GET(request: Request) {
             encoder.encode(
               `event: market\ndata: ${JSON.stringify({
                 version: NINE_VERSION,
+                runtime: runtimeSafety(),
                 market,
                 feed: marketFeedStatus(market),
                 orchestration,
@@ -56,6 +58,7 @@ export async function GET(request: Request) {
             encoder.encode(
               `event: error\ndata: ${JSON.stringify({
                 version: NINE_VERSION,
+                runtime: runtimeSafety(),
                 feed: marketFeedStatus(null),
                 message:
                   error instanceof Error
@@ -65,6 +68,8 @@ export async function GET(request: Request) {
               })}\n\n`,
             ),
           );
+        } finally {
+          inFlight = false;
         }
       };
 

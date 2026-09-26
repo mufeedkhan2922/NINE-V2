@@ -8,6 +8,8 @@ import { runBacktestTest } from "./backtest.test";
 import { runOrdersTests } from "./orders.test";
 import { runPaperOrdersTests } from "./paperOrders.test";
 import { runSentinelTests } from "./sentinel.test";
+import { runRuntimeTest } from "./runtime.test";
+import { runSecurityTest } from "./security.test";
 
 const tests: Array<[string, () => void | Promise<void>]> = [
   ["technical", runTechnicalTest],
@@ -18,6 +20,8 @@ const tests: Array<[string, () => void | Promise<void>]> = [
   ["orders", runOrdersTests],
   ["paper orders", runPaperOrdersTests],
   ["sentinel", runSentinelTests],
+  ["runtime safety", runRuntimeTest],
+  ["security", runSecurityTest],
 ];
 
 async function main(): Promise<void> {

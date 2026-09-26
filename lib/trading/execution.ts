@@ -21,6 +21,7 @@ import {
 } from "./orders";
 
 import { getBrokerAdapter } from "./broker";
+import { liveTradingEnabled } from "./runtime";
 
 const MAX_LIVE_NOTIONAL_USD = Number(
   process.env.NINE_LIVE_MAX_NOTIONAL_USD ?? 5_000,
@@ -132,6 +133,16 @@ export async function executeBrokerOrder(
   request: ExecutionRequest,
 ): Promise<ExecutionResult> {
   const timestamp = Date.now();
+
+  if (request.mode === "LIVE" && !liveTradingEnabled()) {
+    return {
+      accepted: false,
+      mode: "LIVE",
+      status: "REJECTED",
+      message: "Live trading is hard-locked by NINE safety configuration.",
+      timestamp,
+    };
+  }
 
   const hash =
     requestHash(request);

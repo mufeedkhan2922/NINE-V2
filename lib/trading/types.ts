@@ -215,6 +215,8 @@ export interface SentinelDecision {
   approved: boolean;
   reason: string;
   checks: string[];
+  risk?: SentinelRiskSnapshot;
+  blockers?: string[];
 }
 
 export interface NINEOrchestration {
@@ -225,6 +227,11 @@ export interface NINEOrchestration {
   executionMode: ExecutionMode;
   commandSummary: string;
   generatedAt: number;
+  marketHealth?: {
+    feed: MarketFeedStatus;
+    validated: boolean;
+    blockers: string[];
+  };
 }
 
 export interface PaperPosition {
@@ -359,6 +366,9 @@ export interface ChartistAnalysis {
   session: "ASIA" | "LONDON" | "NEW_YORK" | "OFF_SESSION";
   sessionHigh: number | null;
   sessionLow: number | null;
+  higherTimeframeBias: TradeDirection;
+  confluenceScore: number;
+  confluenceReasons: string[];
 }
 
 export interface AtlasContext {
@@ -377,6 +387,8 @@ export interface AtlasContext {
   summary: string;
   generatedAt: number;
   macroEvents: AtlasMacroEvent[];
+  sourceStatus: "LIVE" | "LIMITED" | "UNAVAILABLE";
+  freshnessSeconds: number | null;
 }
 
 export interface AdvancedRiskAssessment extends RiskAssessment {

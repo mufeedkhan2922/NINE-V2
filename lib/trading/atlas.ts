@@ -95,6 +95,7 @@ async function fetchFinnhubNews(): Promise<NewsItem[]> {
       url,
       {
         cache: "no-store",
+        signal: AbortSignal.timeout(7000),
       },
     );
 
@@ -150,6 +151,7 @@ async function fetchEconomicCalendar(): Promise<AtlasMacroEvent[]> {
       url,
       {
         cache: "no-store",
+        signal: AbortSignal.timeout(7000),
       },
     );
 
@@ -295,20 +297,24 @@ export async function buildAtlasContext(
     `${highImpactCount} event(s) are marked high impact. ` +
     `Price is ${market.changePercent.toFixed(2)}% versus the previous-day close.`;
 
+  const sourceStatus: AtlasContext["sourceStatus"] = !process.env.FINNHUB_API_KEY
+    ? "UNAVAILABLE"
+    : headlines.length || macroEvents.length
+      ? "LIVE"
+      : "LIMITED";
+  const freshnessSeconds = raw.length || macroEvents.length ? 0 : null;
+
   return {
-    headlineCount:
-      headlines.length,
+    headlineCount: headlines.length,
     bullish,
     bearish,
-    neutral:
-      headlines.length -
-      bullish -
-      bearish,
+    neutral: headlines.length - bullish - bearish,
     headlines,
     macroBias,
     summary,
-    generatedAt:
-      Date.now(),
+    generatedAt: Date.now(),
     macroEvents,
+    sourceStatus,
+    freshnessSeconds,
   };
 }

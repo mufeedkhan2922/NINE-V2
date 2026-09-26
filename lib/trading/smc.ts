@@ -113,7 +113,15 @@ export function analyzeChartist(candles: Candle[]): ChartistAnalysis {
   const session = currentSession(candles.at(-1)?.time ?? Date.now());
   const range = sessionRange(candles, session);
   const structure = structureShift(candles);
-  return { liquidityHigh: levels.high, liquidityLow: levels.low, fairValueGaps: detectFVGs(candles), orderBlocks: detectOrderBlocks(candles), mssDirection: structure.mss, chochDirection: structure.choch, session, sessionHigh: range.high, sessionLow: range.low };
+  const fairValueGaps = detectFVGs(candles);
+  const orderBlocks = detectOrderBlocks(candles);
+  const reasons: string[] = [];
+  if (levels.high !== null || levels.low !== null) reasons.push("Liquidity reference levels available");
+  if (structure.mss !== "NONE") reasons.push(`${structure.mss} market structure shift`);
+  if (structure.choch !== "NONE") reasons.push(`${structure.choch} change of character`);
+  if (fairValueGaps.length) reasons.push(`${fairValueGaps.length} fair-value gap zone(s)`);
+  if (orderBlocks.length) reasons.push(`${orderBlocks.length} order-block zone(s)`);
+  return { liquidityHigh: levels.high, liquidityLow: levels.low, fairValueGaps, orderBlocks, mssDirection: structure.mss, chochDirection: structure.choch, session, sessionHigh: range.high, sessionLow: range.low, higherTimeframeBias: "NONE", confluenceScore: Math.min(100, reasons.length * 20), confluenceReasons: reasons };
 }
 
 export function analyzeSMC(candles: Candle[]): SMCAnalysis {
