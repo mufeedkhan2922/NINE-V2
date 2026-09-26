@@ -58,3 +58,21 @@ export function sessionCookie(token: string, maxAgeSeconds = SESSION_TTL_MS / 10
   return `${SESSION_COOKIE}=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${Math.floor(maxAgeSeconds)}${secure}`;
 }
 export function clearSessionCookie(): string { return `${SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`; }
+
+
+export function requireRole(
+  request: Request,
+  roles: string[],
+): User {
+  const user = requireUser(request);
+  if (!roles.includes(user.role)) {
+    throw new Error("FORBIDDEN");
+  }
+  return user;
+}
+
+export function requireAdmin(
+  request: Request,
+): User {
+  return requireRole(request, ["ADMIN"]);
+}

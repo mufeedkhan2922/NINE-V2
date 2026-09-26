@@ -7,6 +7,7 @@ import {
 import { runBacktestTest } from "./backtest.test";
 import { runOrdersTests } from "./orders.test";
 import { runPaperOrdersTests } from "./paperOrders.test";
+import { runSentinelTests } from "./sentinel.test";
 
 const tests: Array<[string, () => void | Promise<void>]> = [
   ["technical", runTechnicalTest],
@@ -16,6 +17,7 @@ const tests: Array<[string, () => void | Promise<void>]> = [
   ["backtest", runBacktestTest],
   ["orders", runOrdersTests],
   ["paper orders", runPaperOrdersTests],
+  ["sentinel", runSentinelTests],
 ];
 
 async function main(): Promise<void> {

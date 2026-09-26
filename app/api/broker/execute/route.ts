@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireUser } from "@/lib/security/auth";
+import { requireUser, requireAdmin } from "@/lib/security/auth";
 import { getLiveMarketSnapshot } from "@/lib/trading/market";
 import { orchestrateNINE } from "@/lib/trading/orchestrator";
 import {
@@ -14,7 +14,7 @@ export async function POST(
   request: Request,
 ) {
   try {
-    requireUser(request);
+    const user = requireUser(request);
 
     const body =
       (await request.json().catch(
@@ -28,6 +28,20 @@ export async function POST(
       body.mode === "LIVE"
         ? "LIVE"
         : "PAPER";
+
+    if (mode === "LIVE" && user.role !== "ADMIN") {
+      requireAdmin(request);
+    }
+
+    if (mode === "LIVE" && process.env.NINE_LIVE_TRADING_ENABLED !== "true") {
+      return NextResponse.json({
+        accepted: false,
+        mode,
+        status: "REJECTED",
+        message: "Live trading is disabled by NINE safety configuration.",
+        timestamp: Date.now(),
+      }, { status: 403 });
+    }
 
     const market =
       await getLiveMarketSnapshot(

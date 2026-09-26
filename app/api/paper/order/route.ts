@@ -16,6 +16,10 @@ export async function POST(
   try {
     requireUser(request);
 
+    if (request.method !== "POST") {
+      return NextResponse.json({ ok: false, error: "Method not allowed." }, { status: 405 });
+    }
+
     const body =
       (await request.json()) as {
         action?: "OPEN" | "CLOSE";

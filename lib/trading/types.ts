@@ -376,6 +376,7 @@ export interface AtlasContext {
   macroBias: MarketBias;
   summary: string;
   generatedAt: number;
+  macroEvents: AtlasMacroEvent[];
 }
 
 export interface AdvancedRiskAssessment extends RiskAssessment {
@@ -386,4 +387,51 @@ export interface AdvancedRiskAssessment extends RiskAssessment {
   riskBudgetDollars: number;
   projectedLossDollars: number;
   warnings: string[];
+}
+
+export type MarketFeedConnection =
+  | "CONNECTED"
+  | "DEGRADED"
+  | "DISCONNECTED";
+
+export interface MarketFeedStatus {
+  provider: string;
+  connection: MarketFeedConnection;
+  hasCredentials: boolean;
+  lastUpdate: number | null;
+  ageSeconds: number | null;
+  stale: boolean;
+  priceSource: "QUOTE" | "CANDLE" | "NONE";
+  tradingAllowed: boolean;
+  reason: string;
+}
+
+export interface SentinelRiskSnapshot {
+  equity: number;
+  openPositions: number;
+  openNotional: number;
+  dailyRealizedPnl: number;
+  dailyLossPercent: number;
+  drawdownPercent: number;
+  projectedLoss: number;
+  riskPercent: number;
+  maxRiskPercent: number;
+  exposurePercent: number;
+}
+
+export interface SentinelGateResult {
+  approved: boolean;
+  reason: string;
+  checks: string[];
+  risk: SentinelRiskSnapshot;
+}
+
+export interface AtlasMacroEvent {
+  title: string;
+  country?: string;
+  impact?: "HIGH" | "MEDIUM" | "LOW" | "UNKNOWN";
+  actual?: string | null;
+  forecast?: string | null;
+  previous?: string | null;
+  time?: string;
 }
