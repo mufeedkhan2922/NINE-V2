@@ -84,7 +84,7 @@ function evaluateRegime(candles: Candle[], techTrend: string): StrategyConsensus
   return "MIXED";
 }
 
-function scoreStrategy(strategy: StrategyDefinition, market: MarketSnapshot, candles: Candle[]): StrategyCandidate {
+function scoreStrategy(strategy: StrategyDefinition, market: MarketSnapshot, candles: Candle[], useMemory = true): StrategyCandidate {
   const closes = candles.map((c) => c.close);
   const last = candles.at(-1);
   const previous = candles.at(-2);
@@ -99,7 +99,7 @@ function scoreStrategy(strategy: StrategyDefinition, market: MarketSnapshot, can
   const rangeLow = range20.length ? Math.min(...range20.map((c) => c.low)) : null;
   const trendDirection: TradeDirection = tech.trend === "BULLISH" ? "LONG" : tech.trend === "BEARISH" ? "SHORT" : "NONE";
   const regime = evaluateRegime(candles, tech.trend);
-  const memory = getStrategyMemoryWeight(market, strategy.id, session(last), regime);
+  const memory = useMemory ? getStrategyMemoryWeight(market, strategy.id, session(last), regime) : { adjustment: 0, sampleTrades: 0, expectancyR: 0, winRate: 0, source: null };
   let direction: TradeDirection = trendDirection;
   let score = 0;
   const matchedConcepts: string[] = [];
@@ -195,9 +195,9 @@ function scoreStrategy(strategy: StrategyDefinition, market: MarketSnapshot, can
   return { strategyId: strategy.id, strategyName: strategy.name, family: strategy.family, direction, score, confidence, matchedConcepts: [...new Set(matchedConcepts)], reasons, blockers };
 }
 
-export function evaluateStrategyBook(market: MarketSnapshot): StrategyConsensus {
+export function evaluateStrategyBook(market: MarketSnapshot, options: { useMemory?: boolean } = {}): StrategyConsensus {
   if (market.candles.length < 40) return { direction: "NONE", score: 0, confidence: 0, candidates: [], activeStrategies: 0, alignedStrategies: 0, regime: "MIXED", generatedAt: Date.now() };
-  const candidates = NINE_STRATEGIES.map((strategy) => scoreStrategy(strategy, market, market.candles)).sort((a, b) => b.score - a.score);
+  const candidates = NINE_STRATEGIES.map((strategy) => scoreStrategy(strategy, market, market.candles, options.useMemory !== false)).sort((a, b) => b.score - a.score);
   const active = candidates.filter((candidate) => candidate.score >= 50 && candidate.direction !== "NONE");
   const long = active.filter((candidate) => candidate.direction === "LONG");
   const short = active.filter((candidate) => candidate.direction === "SHORT");
