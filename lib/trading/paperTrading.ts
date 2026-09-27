@@ -22,6 +22,7 @@ import {
   getOrderByRequestHash,
   updateOrder,
 } from "./orders";
+import { validatePaperAccountCore } from "./coreSafety";
 
 const MAX_OPEN_POSITIONS = Number(
   process.env.NINE_PAPER_MAX_OPEN_POSITIONS ?? 3,
@@ -322,6 +323,21 @@ export function executePaperSetup(
   return withStore((store) => {
     const account =
       store.account;
+
+    const accountSafety = validatePaperAccountCore(account);
+    if (!accountSafety.valid) {
+      const message = `Paper account safety validation failed: ${accountSafety.blockers.join(" ")}`;
+      appendEvent(store, {
+        type: "RISK_GUARD",
+        message,
+        symbol: setup.symbol,
+      });
+      return {
+        ok: false,
+        message,
+        account,
+      };
+    }
 
     resetDailyCounters(
       account,

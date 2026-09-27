@@ -1,8 +1,14 @@
 import { EngineValidation, MarketSnapshot, TradingSetup } from "./types";
+import { validateMarketSnapshotCore, validateSetupCore } from "./coreSafety";
 
 export function validateTradingEngine(market: MarketSnapshot, setup: TradingSetup): EngineValidation {
   const blockers: string[] = [];
   const warnings: string[] = [];
+
+  const coreMarket = validateMarketSnapshotCore(market);
+  const coreSetup = validateSetupCore(setup);
+  blockers.push(...coreMarket.blockers, ...coreSetup.blockers);
+  warnings.push(...coreMarket.warnings, ...coreSetup.warnings);
   const marketData = Number.isFinite(market.price) && market.price > 0 && market.candles.length >= 30;
   const quality = Object.values(market.dataQuality ?? {}).every((item) => item?.valid === true);
   const crossTimeframe = market.crossTimeframeValidation?.valid === true;
