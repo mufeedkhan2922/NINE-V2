@@ -13,6 +13,7 @@ import {
 import { getOrders } from "@/lib/trading/orders";
 import { buildStrategyLabSnapshot } from "@/lib/trading/strategyLab";
 import { db } from "@/lib/trading/db";
+import { reconcilePaperState } from "@/lib/trading/paperReconciliation";
 import type { MarketSymbol } from "@/lib/trading/types";
 import {
   buildBrainDecision,
@@ -65,6 +66,7 @@ export async function GET(request: Request) {
     const signalEventsV26 = orchestration.v26.signalEvents;
     const decisionExplanation = buildDecisionExplanation(orchestration);
     const strategyLab = buildStrategyLabSnapshot(market);
+    const paperReconciliation = reconcilePaperState();
     const strategyMemory = db.prepare(
       "SELECT strategy_id AS strategyId, strategy_name AS strategyName, session, regime, trades, wins, win_rate AS winRate, expectancy_r AS expectancyR, profit_factor AS profitFactor, max_drawdown_r AS maxDrawdownR, updated_at AS updatedAt FROM strategy_memory WHERE symbol = ? ORDER BY expectancy_r DESC, trades DESC, updated_at DESC LIMIT 24",
     ).all(market.symbol);
@@ -95,6 +97,7 @@ export async function GET(request: Request) {
       },
       strategyLab,
       strategyMemory,
+      paperReconciliation,
       v210: {
         decision: decisionExplanation,
         backtestAnalytics: null,
