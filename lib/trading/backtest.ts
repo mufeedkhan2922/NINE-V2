@@ -234,7 +234,6 @@ export function runBacktest(
     winRate: trades.length ? (wins.length / trades.length) * 100 : 0,
     netPnl: balance - initialBalance,
     maxDrawdown,
-    profitFactor,
     trades,
     config: {
       riskPercent,
