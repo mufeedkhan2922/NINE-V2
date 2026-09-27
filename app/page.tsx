@@ -685,6 +685,11 @@ export default function Home() {
   const [backtest, setBacktest] = useState<BacktestResult | null>(null);
   const [backtestError, setBacktestError] = useState("");
   const [backtestTimeframe, setBacktestTimeframe] = useState("1min");
+  const [researchBusy, setResearchBusy] = useState(false);
+  const [research, setResearch] = useState<any>(null);
+  const [researchError, setResearchError] = useState("");
+  const [researchStart, setResearchStart] = useState(() => new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10));
+  const [researchEnd, setResearchEnd] = useState(() => new Date().toISOString().slice(0, 10));
   const [section, setSection] = useState<
     (typeof NAV)[number][0]
   >("overview");
@@ -1844,6 +1849,42 @@ export default function Home() {
             </div>
           </section>
 
+          <section id="section-research" className="panel">
+            <SectionHeader
+              eyebrow="04 · HISTORICAL INTELLIGENCE"
+              title="Walk-forward research console"
+              description="Runs the six research layers together: realistic execution, walk-forward validation, out-of-sample selection, Monte Carlo analysis and persistent evidence memory."
+              action={<StatusPill value={researchBusy ? "RUNNING" : research ? "COMPLETE" : "READY"} />}
+            />
+            <div className="research-controls">
+              <label>START<input type="date" value={researchStart} onChange={(e) => setResearchStart(e.target.value)} /></label>
+              <label>END<input type="date" value={researchEnd} onChange={(e) => setResearchEnd(e.target.value)} /></label>
+              <label>TIMEFRAME<select value={backtestTimeframe} onChange={(e) => setBacktestTimeframe(e.target.value)}><option value="1min">1 MIN</option><option value="5min">5 MIN</option><option value="15min">15 MIN</option><option value="1h">1 HOUR</option></select></label>
+              <button className="primary-button" type="button" onClick={() => void runHistoricalResearch()} disabled={researchBusy || !user}>
+                {researchBusy ? <><RefreshCw size={14} className="spin" /> RESEARCHING</> : <><Brain size={14} /> RUN MAX RESEARCH</>}
+              </button>
+            </div>
+            {researchError && <div className="backtest-error research-error"><AlertTriangle size={14} />{researchError}</div>}
+            {research ? (
+              <>
+                <div className="metric-grid">
+                  <Metric label="OOS TRADES" value={research.outOfSampleTrades ?? 0} sub="Unseen validation trades" />
+                  <Metric label="OOS WIN RATE" value={research.outOfSampleWinRate != null ? fmt(research.outOfSampleWinRate, 1) + "%" : "—"} sub="Measured, not guaranteed" />
+                  <Metric label="EXPECTANCY" value={research.outOfSampleExpectancyR != null ? fmt(research.outOfSampleExpectancyR, 3) + "R" : "—"} sub="Out-of-sample" />
+                  <Metric label="TARGET 90%" value={research.targetReached ? "REACHED" : "NOT PROVEN"} sub="Evidence threshold" />
+                  <Metric label="WALK-FORWARD" value={research.walkForward?.length ?? 0} sub="Validation folds" />
+                  <Metric label="MONTE CARLO" value={research.monteCarlo?.simulations ?? "—"} sub="OOS simulations" />
+                </div>
+                <div className="research-integrity">
+                  <StatusPill value="OOS VERIFIED" />
+                  <span>Memory source: {research.researchIntegrity?.memorySource ?? "OUT_OF_SAMPLE"} · Historical signals exclude persistent memory.</span>
+                </div>
+              </>
+            ) : (
+              <div className="empty-state"><Database size={16} /><span>No research run loaded. Choose a validated date window and run the complete MAX research pipeline.</span></div>
+            )}
+          </section>
+
           <section
             id="section-atlas"
             className="panel"
@@ -2553,4 +2594,32 @@ export default function Home() {
       )}
     </main>
   );
-}
+}  const runHistoricalResearch = useCallback(async () => {
+    if (!user) return;
+    setResearchBusy(true);
+    setResearchError("");
+    try {
+      const response = await fetch("/api/strategy-lab/historical", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          symbol,
+          timeframe: backtestTimeframe,
+          startDate: researchStart,
+          endDate: researchEnd,
+          folds: 4,
+          monteCarloSimulations: 1000,
+          targetWinRate: 90,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.ok) throw new Error(data.error ?? "Historical research failed.");
+      setResearch(data.result);
+    } catch (error) {
+      setResearchError(error instanceof Error ? error.message : "Historical research failed.");
+    } finally {
+      setResearchBusy(false);
+    }
+  }, [backtestTimeframe, researchEnd, researchStart, symbol, user]);
+
+
