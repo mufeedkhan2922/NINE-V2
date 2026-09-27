@@ -11,7 +11,10 @@ export function runAgentOrchestrationTest(): void {
   assert.equal(result.executionAuthority, "SENTINEL_ONLY", "Sentinel must remain execution authority");
   assert.equal(result.decision, "PAPER_READY", "valid paper setup should be paper ready");
   assert.equal(result.messages.length, 3, "core agent trio must be present");
-  assert.equal(routeVoiceIntent("Nine, analyze gold"), { intent: "ANALYZE_GOLD", requiresSentinel: false }, "gold voice intent should route");
-  assert.equal(routeVoiceIntent("what is the risk status"), { intent: "RISK", requiresSentinel: true }, "risk voice intent should route to Sentinel");
+  const goldIntent = routeVoiceIntent("Nine, analyze gold");
+  assert.equal(goldIntent.intent, "ANALYZE_GOLD", "gold voice intent should route");
+  const riskIntent = routeVoiceIntent("what is the risk status");
+  assert.equal(riskIntent.intent, "RISK", "risk voice intent should route to Sentinel");
+  assert.equal(riskIntent.requiresSentinel, true, "risk voice intent must require Sentinel");
   assert.ok(buildSpokenResponse("ANALYZE_GOLD", result).length > 0, "spoken response should be generated");
 }
