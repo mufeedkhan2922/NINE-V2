@@ -11,6 +11,7 @@ import {
   getPaperEvents,
 } from "@/lib/trading/paperTrading";
 import { getOrders } from "@/lib/trading/orders";
+import { buildStrategyLabSnapshot } from "@/lib/trading/strategyLab";
 import type { MarketSymbol } from "@/lib/trading/types";
 import {
   buildBrainDecision,
@@ -62,6 +63,7 @@ export async function GET(request: Request) {
     const riskTelemetryV26 = orchestration.v26.riskTelemetry;
     const signalEventsV26 = orchestration.v26.signalEvents;
     const decisionExplanation = buildDecisionExplanation(orchestration);
+    const strategyLab = buildStrategyLabSnapshot(market);
 
     return NextResponse.json({
       ok: true,
@@ -86,6 +88,7 @@ export async function GET(request: Request) {
         risk: riskTelemetryV26,
         events: signalEventsV26,
       },
+      strategyLab,
       v210: {
         decision: decisionExplanation,
         backtestAnalytics: null,
