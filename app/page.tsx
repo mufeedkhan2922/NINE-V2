@@ -78,6 +78,7 @@ type Dashboard = {
   v27?: any;
   v29?: any;
   diagnostics?: any;
+  strategyLab?: any;
   account?: any;
   chart?: Candle[];
   events?: any[];
@@ -1705,6 +1706,90 @@ export default function Home() {
                   <small>Strategy selection adapts to the observed market regime.</small>
                 </div>
               </div>
+            </div>
+          </section>
+
+          <section id="section-learning-lab" className="panel">
+            <SectionHeader
+              eyebrow="02 · NINE LEARNING LAB"
+              title="Adaptive research & concept laboratory"
+              description="NINE learns from measured outcomes, current market structure and explicit concept rules. Learning never overrides Sentinel or fabricates missing data."
+              action={<StatusPill value={dashboard?.strategyLab?.regime ?? "MIXED"} />}
+            />
+
+            <div className="metric-grid">
+              <Metric
+                label="LAB REGIME"
+                value={dashboard?.strategyLab?.regime ?? "MIXED"}
+                sub={`${dashboard?.strategyLab?.session ?? "OFF_SESSION"} session`}
+              />
+              <Metric
+                label="VOLATILITY"
+                value={fmt(dashboard?.strategyLab?.volatility, 3)}
+                sub="Recent / baseline range"
+              />
+              <Metric
+                label="CONCEPT COVERAGE"
+                value={`${dashboard?.strategyLab?.conceptCoverage ?? 0}%`}
+                sub="Observed concepts in current window"
+              />
+              <Metric
+                label="LEARNING WIN RATE"
+                value={
+                  v27?.brain?.learning?.bestWinRate != null
+                    ? `${fmt(v27.brain.learning.bestWinRate, 1)}%`
+                    : "—"
+                }
+                sub={
+                  v27?.brain?.learning?.totalEvaluatedSignals
+                    ? `${v27.brain.learning.totalEvaluatedSignals} evaluated signals`
+                    : "Waiting for sufficient history"
+                }
+              />
+            </div>
+
+            <div className="signal-grid">
+              <div className="signal-list">
+                <div className="eyebrow">LIVE CONCEPT EVENTS</div>
+                {(dashboard?.strategyLab?.events ?? []).map((event: any) => (
+                  <div className="signal-row" key={event.id}>
+                    <div className="signal-icon"><Sparkles size={15} /></div>
+                    <div>
+                      <b>{event.concept}</b>
+                      <span>{event.evidence}</span>
+                    </div>
+                    <small>{event.strength}/100</small>
+                  </div>
+                ))}
+                {!dashboard?.strategyLab?.events?.length && (
+                  <div className="empty-state">No validated concept events in the current window.</div>
+                )}
+              </div>
+
+              <div className="signal-list">
+                <div className="eyebrow">SETUP LAB</div>
+                {(dashboard?.strategyLab?.setups ?? []).slice(0, 6).map((setup: any) => (
+                  <div className="signal-row" key={setup.id}>
+                    <div className="signal-icon"><Target size={15} /></div>
+                    <div>
+                      <b>{setup.name}</b>
+                      <span>{setup.status} · {setup.direction} · {setup.matchedConcepts.length}/{setup.requiredConcepts.length} concepts</span>
+                    </div>
+                    <small>{setup.score}</small>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="command-history">
+              <div className="eyebrow">NINE CURRICULUM</div>
+              {(dashboard?.strategyLab?.lessons ?? []).slice(0, 8).map((lesson: any) => (
+                <div className="command-history-row" key={lesson.id}>
+                  <span>{lesson.level}</span>
+                  <b>{lesson.title}</b>
+                  <small>{lesson.objective}</small>
+                </div>
+              ))}
             </div>
           </section>
 
