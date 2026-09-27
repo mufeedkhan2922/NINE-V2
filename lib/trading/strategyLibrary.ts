@@ -10,7 +10,7 @@ export type StrategyFamily =
 export interface NINEConcept {
   id: string;
   name: string;
-  category: "STRUCTURE" | "LIQUIDITY" | "MOMENTUM" | "RISK" | "SESSION" | "EXECUTION";
+  category: "STRUCTURE" | "LIQUIDITY" | "MOMENTUM" | "RISK" | "SESSION" | "EXECUTION" | "BREAKOUT" | "MEAN_REVERSION";
   description: string;
   rules: string[];
 }
