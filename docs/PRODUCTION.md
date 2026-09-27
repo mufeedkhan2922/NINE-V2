@@ -1,6 +1,6 @@
 # NINE production deployment
 
-NINE 2.2 uses SQLite through Node 22's built-in `node:sqlite`. For production, run the included Docker image with the `/app/.nine-data` persistent volume. Do not deploy the database onto ephemeral storage.
+NINE 2.10.2 uses SQLite through Node 24's built-in `node:sqlite`. For production, run the included Docker image with the `/app/.nine-data` persistent volume. Do not deploy the database onto ephemeral storage.
 
 ## Deploy
 
