@@ -3026,3 +3026,5 @@ body {
 @media(max-width:1200px){.xau-shell{grid-template-columns:205px minmax(0,1fr)}.xau-right{grid-column:1/-1;display:grid;grid-template-columns:repeat(4,1fr)}.xau-topbar{grid-template-columns:220px 200px 1fr auto}.xau-instrument>span:last-child{display:none}}
 @media(max-width:850px){.xau-topbar{grid-template-columns:1fr auto;height:auto;min-height:62px;padding:10px}.xau-instrument,.xau-price{display:none}.xau-shell{grid-template-columns:1fr;padding:7px}.xau-left,.xau-right{display:grid;grid-template-columns:1fr 1fr}.xau-center{grid-row:1}.xau-agent-grid,.xau-battle-grid{grid-template-columns:1fr}.xau-right{grid-column:auto}.xau-footer{flex-direction:column}.xau-chart-tags{display:none}}
 @media(max-width:560px){.xau-left,.xau-right{display:flex}.xau-top-status{font-size:0}.xau-top-status button{font-size:initial}.xau-chart-header{align-items:flex-start}.xau-chart-header h1{font-size:17px}.xau-chart-card .market-chart-shell{min-width:0}}
+
+/* CI validation trigger: NINE V4 workstation */
