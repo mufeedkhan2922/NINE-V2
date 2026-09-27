@@ -77,6 +77,7 @@ type Dashboard = {
   orchestration?: any;
   agents?: any;
   workstation?: any;
+  decisionEngine?: any;
   v27?: any;
   v29?: any;
   diagnostics?: any;
@@ -216,6 +217,7 @@ function CandlestickChart({
   chartist,
   setup,
   workstation,
+  decisionEngine,
   height = 440,
 }: {
   candles: Candle[];
@@ -223,6 +225,7 @@ function CandlestickChart({
   chartist?: any;
   setup?: any;
   workstation?: any;
+  decisionEngine?: any;
   height?: number;
 }) {
   const [timeframe, setTimeframe] = useState("1m");
@@ -504,6 +507,19 @@ function CandlestickChart({
                 <rect x={plotLeft + 6} y={annotationY - 10} width={Math.max(58, String(annotation.label ?? type).length * 7 + 18)} height="20" rx="4" className="workstation-level-tag" />
                 <text x={plotLeft + 14} y={annotationY + 3} className="workstation-level-text">{annotation.label ?? type}</text>
                 <text x={width - plotRight - 6} y={annotationY - 4} textAnchor="end" className="workstation-level-price">{formatPrice(price)}</text>
+              </g>
+            );
+          })}
+
+          {(decisionEngine?.events ?? []).filter((item: any) => item?.timestamp).map((item: any, index: number) => {
+            const eventIndex = visible.findIndex((candle) => candle.time >= Number(item.timestamp));
+            if (eventIndex < 0) return null;
+            const eventX = x(eventIndex);
+            return (
+              <g key={`decision-event-${item.id ?? index}`} className={`decision-event decision-event-${String(item.importance ?? "LOW").toLowerCase()}`}>
+                <line x1={eventX} x2={eventX} y1={plotTop} y2={volumeBottom} className="decision-event-line" />
+                <circle cx={eventX} cy={plotTop + 24 + (index % 3) * 10} r="4" className="decision-event-dot" />
+                <title>{`${item.title}: ${item.detail}`}</title>
               </g>
             );
           })}
@@ -880,6 +896,7 @@ export default function Home() {
   const chartist = setup?.smc?.chartist;
   const agents = dashboard?.agents;
   const workstation = dashboard?.workstation;
+  const decisionEngine = dashboard?.decisionEngine;
   const account = dashboard?.account;
   const feed = dashboard?.feed;
   const feedState = feedDisplayState(feed, streaming);
@@ -1212,19 +1229,22 @@ export default function Home() {
         </aside>
         <section className="xau-center">
           <div className="xau-chart-header"><div><span className="xau-kicker">MARKET STRUCTURE ENGINE</span><h1>XAUUSD <em>{fmt(market?.price, 2)}</em></h1><p>{setup?.technical?.structure ?? "Awaiting structure analysis."}</p></div><div className="xau-chart-tags"><span>LIQUIDITY</span><span>FVG</span><span>ORDER BLOCK</span><span>MSS / CHoCH</span></div></div>
-          <div className="xau-chart-card"><CandlestickChart candles={dashboard?.chart ?? []} live={streaming && feed?.tradingAllowed === true} chartist={chartist} setup={setup} workstation={workstation} height={500} /></div>
-          <div className="xau-intel-grid"><section className="xau-panel xau-lifecycle"><div className="xau-panel-head"><span>SETUP LIFECYCLE</span><b className={`xau-life-${String(workstation?.lifecycle ?? "WATCH").toLowerCase()}`}>{workstation?.lifecycle ?? "WATCH"}</b></div><div className="xau-life-track"><span className={["WATCH","FORMING","PAPER_READY","BLOCKED"].includes(workstation?.lifecycle) ? "on" : ""}>WATCH</span><i /><span className={["FORMING","PAPER_READY"].includes(workstation?.lifecycle) ? "on" : ""}>FORMING</span><i /><span className={workstation?.lifecycle === "PAPER_READY" ? "on" : ""}>READY</span></div><p>{workstation?.nextTrigger ?? "Awaiting next validated trigger."}</p><small>{workstation?.invalidation ?? "No active invalidation rule."}</small></section><section className="xau-panel xau-evidence-ledger"><div className="xau-panel-head"><span>EVIDENCE LEDGER</span><span>{workstation?.confluenceScore ?? 0}/100</span></div>{(workstation?.evidence ?? []).map((item:any,i:number)=><div className="xau-ledger-row" key={i}><b>{item.source}</b><span className={`ledger-${String(item.state ?? "").toLowerCase()}`}>{item.state}</span><p>{item.signal}</p></div>)}</section></div>
+          <div className="xau-chart-card"><CandlestickChart candles={dashboard?.chart ?? []} live={streaming && feed?.tradingAllowed === true} chartist={chartist} setup={setup} workstation={workstation} decisionEngine={decisionEngine} height={500} /></div>
+          <div className="xau-intel-grid"><section className="xau-panel xau-lifecycle"><div className="xau-panel-head"><span>SETUP LIFECYCLE</span><b className={`xau-life-${String(decisionEngine?.lifecycle ?? "WATCH").toLowerCase()}`}>{decisionEngine?.lifecycle ?? "WATCH"}</b></div><div className="xau-life-track"><span className={["WATCH","FORMING","PAPER_READY","BLOCKED","PAPER_ACTIVE","EXPIRED"].includes(workstation?.lifecycle) ? "on" : ""}>WATCH</span><i /><span className={["FORMING","PAPER_READY","PAPER_ACTIVE"].includes(workstation?.lifecycle) ? "on" : ""}>FORMING</span><i /><span className={["PAPER_READY","PAPER_ACTIVE"].includes(workstation?.lifecycle) ? "on" : ""}>READY</span></div><div className="xau-session-strip"><b>{decisionEngine?.session ?? decisionEngine?.session ?? "OFF_SESSION"}</b><span>{decisionEngine?.sessionPhase ?? "RANGE MAPPING"}</span></div><p>{decisionEngine?.sessionRule ?? workstation?.nextTrigger ?? "Awaiting next validated trigger."}</p><small>{decisionEngine?.invalidation?.reason ?? decisionEngine?.invalidation?.reason ?? "No active invalidation rule."}</small></section><section className="xau-panel xau-evidence-ledger"><div className="xau-panel-head"><span>EVIDENCE LEDGER</span><span>{workstation?.confluenceScore ?? 0}/100</span></div>{(decisionEngine?.evidenceChain ?? workstation?.evidence ?? []).slice(0,7).map((item:any,i:number)=><div className="xau-ledger-row" key={item.id ?? i}><b>{item.source}</b><span className={`ledger-${String(item.strength ?? item.state ?? "").toLowerCase()}`}>{item.strength ?? item.state ?? "—"}</span><p>{item.evidence ?? item.signal}</p></div>)}</section></div>
           <div className="xau-analysis-tabs"><div className="xau-analysis-title"><Brain size={15} /> MULTI-AGENT ANALYSIS <span className="xau-agent-authority">{agents?.decision ?? "WATCHING"} · SENTINEL ONLY</span></div><div className="xau-agent-grid">{(agents?.messages ?? dashboard?.orchestration?.agentReports ?? []).map((agent: any, i: number) => <article className={`xau-agent xau-agent-${String(agent.status ?? "ONLINE").toLowerCase()}`} key={agent.id ?? i}><div className="xau-agent-top"><b>{agent.name ?? agent.agent ?? agent.id}</b><span>{agent.status ?? "—"}</span></div><strong>{agent.confidence != null ? agent.confidence + "% confidence" : "No confidence"}</strong><p>{agent.summary ?? "No validated report."}</p><div className="xau-evidence">{(agent.evidence ?? agent.signals ?? []).slice(0,3).map((s: string, j: number) => <span key={j}>{s}</span>)}</div></article>)}</div></div>
+          <div className="xau-debate"><div className="xau-battle-head"><span><Brain size={15} /> AGENT DEBATE</span><small>Independent evidence → challenge → synthesis</small></div><div className="xau-debate-grid">{(decisionEngine?.debate ?? []).map((item:any,i:number)=><article className={`xau-debate-card debate-${String(item.stance ?? "CHALLENGE").toLowerCase()}`} key={item.agent ?? i}><div><b>{item.agent}</b><span>{item.stance}</span></div><p>{item.message}</p><div>{(item.evidence ?? []).slice(0,3).map((e:string,j:number)=><small key={j}>{e}</small>)}</div></article>)}</div></div>
+          <div className="xau-event-timeline"><div className="xau-battle-head"><span><Bell size={15} /> SMC EVENT TIMELINE</span><small>{(decisionEngine?.events ?? []).length} validated events</small></div><div className="xau-event-stream">{(decisionEngine?.events ?? []).slice(0,10).map((item:any,i:number)=><article key={item.id ?? i} className={`decision-timeline-${String(item.importance ?? "LOW").toLowerCase()}`}><div className="xau-event-time">{new Date(Number(item.timestamp)).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"})}</div><div className="xau-event-node" /><div><b>{item.title}</b><p>{item.detail}</p><small>{item.source} · {item.direction}</small></div></article>)}</div></div>
           <div className="xau-battle"><div className="xau-battle-head"><span><Activity size={15} /> BULL vs BEAR ENGINE</span><small>Evidence, not prediction</small></div><div className="xau-battle-grid"><article className="xau-bull"><div><b>BULL CASE</b><span>{setup?.direction === "LONG" ? "ACTIVE" : "NOT CONFIRMED"}</span></div><p>{setup?.direction === "LONG" ? "Current validated evidence supports a bullish setup." : "No validated long confluence at the current snapshot."}</p><ul><li>Trend: {setup?.technical?.trend ?? "—"}</li><li>Structure: {setup?.smc?.structureDirection ?? "—"}</li><li>HTF: {chartist?.higherTimeframeBias ?? "—"}</li></ul></article><article className="xau-bear"><div><b>BEAR CASE</b><span>{setup?.direction === "SHORT" ? "ACTIVE" : "NOT CONFIRMED"}</span></div><p>{setup?.direction === "SHORT" ? "Current validated evidence supports a bearish setup." : "No validated short confluence at the current snapshot."}</p><ul><li>Trend: {setup?.technical?.trend ?? "—"}</li><li>Structure: {setup?.smc?.structureDirection ?? "—"}</li><li>Premium/Discount: {setup?.smc?.premiumDiscount ?? "—"}</li></ul></article></div></div>
         </section>
         <aside className="xau-right">
-          <section className="xau-panel xau-decision"><div className="xau-panel-head"><span><Target size={14} /> SETUP ENGINE</span><StatusPill value={setup?.status ?? "WATCHING"} /></div><div className="xau-life-chip">{workstation?.lifecycle ?? "WATCH"} · {workstation?.session ?? "OFF_SESSION"}</div><div className="xau-decision-direction">{setup?.direction ?? "NONE"}</div><div className="xau-decision-grid"><Metric label="ENTRY" value={fmt(setup?.entry,2)} /><Metric label="STOP LOSS" value={fmt(setup?.stopLoss,2)} /><Metric label="TAKE PROFIT" value={fmt(setup?.takeProfit,2)} /><Metric label="R:R" value={fmt(setup?.riskReward,2)} /></div><div className="xau-score"><span>VALIDATION SCORE</span><b>{fmt(setup?.validation?.score,0)}/100</b></div>{(setup?.validation?.blockers ?? []).slice(0,4).map((b: string,i:number)=><div className="xau-blocker" key={i}><AlertTriangle size={12}/>{b}</div>)}</section>
+          <section className="xau-panel xau-decision"><div className="xau-panel-head"><span><Target size={14} /> SETUP ENGINE</span><StatusPill value={setup?.status ?? "WATCHING"} /></div><div className="xau-life-chip">{decisionEngine?.lifecycle ?? "WATCH"} · {decisionEngine?.session ?? "OFF_SESSION"}</div><div className="xau-decision-direction">{setup?.direction ?? "NONE"}</div><div className="xau-decision-grid"><Metric label="ENTRY" value={fmt(setup?.entry,2)} /><Metric label="STOP LOSS" value={fmt(setup?.stopLoss,2)} /><Metric label="TAKE PROFIT" value={fmt(setup?.takeProfit,2)} /><Metric label="R:R" value={fmt(setup?.riskReward,2)} /></div><div className="xau-score"><span>VALIDATION SCORE</span><b>{fmt(setup?.validation?.score,0)}/100</b></div>{(setup?.validation?.blockers ?? []).slice(0,4).map((b: string,i:number)=><div className="xau-blocker" key={i}><AlertTriangle size={12}/>{b}</div>)}</section>
           <section className="xau-panel xau-atlas"><div className="xau-panel-head"><span><Radio size={14}/> ATLAS · MACRO</span><span>{atlas?.sourceStatus ?? "—"}</span></div><div className="xau-macro-bias">{atlas?.bias ?? "NEUTRAL"}</div><p>{atlas?.summary ?? "Macro/news context is unavailable for this snapshot."}</p><div className="xau-headlines">{(atlas?.headlines ?? []).slice(0,4).map((h:any,i:number)=><div key={i}><b>{h.sentiment ?? "—"}</b><span>{h.title ?? "Untitled headline"}</span></div>)}</div></section>
           <section className="xau-panel xau-sentinel"><div className="xau-panel-head"><span><Shield size={14}/> SENTINEL</span><span className={sentinel?.approved ? "xau-approved" : "xau-blocked"}>{sentinel?.approved ? "APPROVED" : "BLOCKED"}</span></div><div className="xau-lock">PAPER ONLY</div><p>{sentinel?.reason ?? "Sentinel authorization unavailable."}</p><div className="xau-safety-list"><div><span>LIVE BROKER</span><b className="xau-blocked">LOCKED</b></div><div><span>EXECUTION</span><b>PAPER</b></div><div><span>RISK</span><b>{fmt(risk?.exposurePercent,2)}%</b></div><div><span>DRAWDOWN</span><b>{fmt(risk?.drawdownPercent,2)}%</b></div></div></section>
+          <section className="xau-panel xau-tracking"><div className="xau-panel-head"><span><Target size={14}/> PAPER SETUP TRACKER</span><span>{decisionEngine?.tracking?.setupId ? String(decisionEngine.tracking.setupId).slice(0,8) : "—"}</span></div><div className="xau-tracking-state"><b>{decisionEngine?.tracking?.lifecycle ?? "WATCH"}</b><span>{decisionEngine?.tracking?.ageSeconds ?? 0}s tracked</span></div><div className="xau-safety-list"><div><span>DIRECTION</span><b>{decisionEngine?.tracking?.direction ?? "NONE"}</b></div><div><span>PAPER POSITION</span><b>{decisionEngine?.tracking?.matchedPaperPositionId ? "MATCHED" : "NONE"}</b></div><div><span>ENTRY</span><b>{fmt(decisionEngine?.tracking?.entry,2)}</b></div><div><span>STATUS</span><b>{decisionEngine?.tracking?.statusReason ?? "—"}</b></div></div></section>
           <section className="xau-panel xau-events"><div className="xau-panel-head"><span><Bell size={14}/> LIVE EVENTS</span><span>{events.length}</span></div>{events.slice(0,5).map((event:any,i:number)=><div className="xau-event" key={i}><span>{event.type ?? "EVENT"}</span><p>{event.message ?? "Signal event."}</p></div>)}{!events.length && <p className="xau-muted">No new validated events.</p>}</section>
         </aside>
       </div>
-      <footer className="xau-footer"><span>NINE XAUUSD AI WORKSTATION · V4.2</span><span>{feed?.provider ?? "—"} · {feedState.label}</span><span>LIVE BROKER <b className="xau-blocked">HARD LOCKED</b></span></footer>
+      <footer className="xau-footer"><span>NINE XAUUSD AI WORKSTATION · V4.3</span><span>{feed?.provider ?? "—"} · {feedState.label}</span><span>LIVE BROKER <b className="xau-blocked">HARD LOCKED</b></span></footer>
       {!user && <div className="auth-overlay"><form className="auth-card" onSubmit={loginSubmit}><div className="auth-mark">N</div><div className="eyebrow">NINE SECURE ACCESS</div><h2>Sign in to control NINE</h2><p>Market intelligence remains visible, while commands and paper execution require authentication.</p><input value={login.email} onChange={event => setLogin({...login,email:event.target.value})} placeholder="Admin email" type="email" autoComplete="username" required /><input value={login.password} onChange={event => setLogin({...login,password:event.target.value})} placeholder="Password" type="password" autoComplete="current-password" required />{loginError && <div className="login-error"><AlertTriangle size={14}/>{loginError}</div>}<button className="login-button" type="submit">AUTHENTICATE</button></form></div>}
     </main>
   );

@@ -6,6 +6,7 @@ import { rateLimit, requestKey } from "@/lib/security/rateLimit";
 import { getLiveMarketSnapshot } from "@/lib/trading/market";
 import { orchestrateNINE } from "@/lib/trading/orchestrator";
 import { buildAgentOrchestration } from "@/lib/trading/agentOrchestrator";
+import { buildXAUDecisionEngine, createSetupTracking, type XAUSetupTracking } from "@/lib/trading/xauDecisionEngine";
 import { buildDecisionExplanation } from "@/lib/trading/v210";
 import {
   getPaperAccount,
@@ -84,6 +85,60 @@ function buildWorkstationIntelligence(market: Awaited<ReturnType<typeof getLiveM
   };
 }
 
+function loadXAUSetupTracking(setup: Awaited<ReturnType<typeof orchestrateNINE>>["setup"], account: Awaited<ReturnType<typeof getPaperAccount>>): XAUSetupTracking {
+  const row = db.prepare(
+    "SELECT setup_id AS setupId, lifecycle, first_seen_at AS firstSeenAt, last_seen_at AS lastSeenAt, direction, entry, stop_loss AS stopLoss, take_profit AS takeProfit, matched_paper_position_id AS matchedPaperPositionId, status_reason AS statusReason FROM xau_setup_tracking WHERE symbol = ? ORDER BY last_seen_at DESC LIMIT 1",
+  ).get(setup.symbol) as Record<string, unknown> | undefined;
+
+  const existing = row
+    ? {
+        setupId: String(row.setupId),
+        lifecycle: String(row.lifecycle) as XAUSetupTracking["lifecycle"],
+        firstSeenAt: Number(row.firstSeenAt),
+        lastSeenAt: Number(row.lastSeenAt),
+        direction: String(row.direction) as XAUSetupTracking["direction"],
+        entry: row.entry == null ? null : Number(row.entry),
+        stopLoss: row.stopLoss == null ? null : Number(row.stopLoss),
+        takeProfit: row.takeProfit == null ? null : Number(row.takeProfit),
+        ageSeconds: Math.max(0, Math.round((Date.now() - Number(row.firstSeenAt)) / 1000)),
+        matchedPaperPositionId: row.matchedPaperPositionId == null ? null : String(row.matchedPaperPositionId),
+        statusReason: String(row.statusReason ?? ""),
+      }
+    : undefined;
+
+  return createSetupTracking(setup, account, existing);
+}
+
+function persistXAUSetupTracking(tracking: XAUSetupTracking, symbol: MarketSymbol): void {
+  db.prepare(
+    `INSERT INTO xau_setup_tracking (
+      setup_id, symbol, lifecycle, first_seen_at, last_seen_at, direction,
+      entry, stop_loss, take_profit, matched_paper_position_id, status_reason
+    ) VALUES (?,?,?,?,?,?,?,?,?,?,?)
+    ON CONFLICT(setup_id) DO UPDATE SET
+      lifecycle=excluded.lifecycle,
+      last_seen_at=excluded.last_seen_at,
+      direction=excluded.direction,
+      entry=excluded.entry,
+      stop_loss=excluded.stop_loss,
+      take_profit=excluded.take_profit,
+      matched_paper_position_id=excluded.matched_paper_position_id,
+      status_reason=excluded.status_reason`,
+  ).run(
+    tracking.setupId,
+    symbol,
+    tracking.lifecycle,
+    tracking.firstSeenAt,
+    tracking.lastSeenAt,
+    tracking.direction,
+    tracking.entry,
+    tracking.stopLoss,
+    tracking.takeProfit,
+    tracking.matchedPaperPositionId,
+    tracking.statusReason,
+  );
+}
+
 function requestedSymbol(request: Request): MarketSymbol {
   const value = new URL(request.url).searchParams.get("symbol")?.toUpperCase();
   return SYMBOLS.includes(value as MarketSymbol)
@@ -109,6 +164,21 @@ export async function GET(request: Request) {
     const orchestration = await orchestrateNINE(market, account);
     const agentOrchestration = buildAgentOrchestration(market, orchestration.setup, orchestration.atlas, orchestration.sentinel);
     const workstation = buildWorkstationIntelligence(market, orchestration);
+    const decisionEngine = symbol === "XAUUSD"
+      ? buildXAUDecisionEngine(
+          market,
+          orchestration.setup,
+          orchestration.atlas,
+          orchestration.sentinel,
+          account,
+          (() => {
+            const tracking = loadXAUSetupTracking(orchestration.setup, account);
+            const engine = buildXAUDecisionEngine(market, orchestration.setup, orchestration.atlas, orchestration.sentinel, account, tracking);
+            persistXAUSetupTracking(engine.tracking, symbol);
+            return engine.tracking;
+          })(),
+        )
+      : null;
 
     const feed = marketFeedStatus(market);
     const setupV26 = orchestration.v26.setup;
@@ -145,6 +215,7 @@ export async function GET(request: Request) {
       orchestration,
       agents: agentOrchestration,
       workstation,
+      decisionEngine,
       v27: {
         commandCenter: {
           status: brainV26.action,
