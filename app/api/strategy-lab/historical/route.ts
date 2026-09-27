@@ -133,6 +133,14 @@ export async function GET(request: Request) {
 
     const url = new URL(request.url);
     const requested = url.searchParams.get("symbol");
+    if (url.searchParams.get("view") === "memory") {
+      const memorySymbol = SYMBOLS.includes(requested as MarketSymbol) ? requested as MarketSymbol : "XAUUSD";
+      const memoryLimit = Math.max(1, Math.min(200, numberOr(url.searchParams.get("limit"), 50)));
+      const records = db.prepare(
+        "SELECT strategy_id AS strategyId, strategy_name AS strategyName, symbol, timeframe, session, regime, trades, wins, win_rate AS winRate, expectancy_r AS expectancyR, profit_factor AS profitFactor, max_drawdown_r AS maxDrawdownR, sample_start AS sampleStart, sample_end AS sampleEnd, source, updated_at AS updatedAt FROM strategy_memory WHERE symbol = ? ORDER BY expectancy_r DESC, trades DESC, updated_at DESC LIMIT ?",
+      ).all(memorySymbol, memoryLimit);
+      return NextResponse.json({ ok: true, version: NINE_VERSION, symbol: memorySymbol, records, generatedAt: new Date().toISOString() });
+    }
     const symbol = SYMBOLS.includes(requested as MarketSymbol) ? requested as MarketSymbol : "XAUUSD";
     const timeframe = url.searchParams.get("timeframe");
     const limitRows = Math.max(1, Math.min(100, numberOr(url.searchParams.get("limit"), 20)));
