@@ -1622,6 +1622,92 @@ export default function Home() {
             </div>
           </section>
 
+          <section id="section-strategy-intelligence" className="panel">
+            <SectionHeader
+              eyebrow="02 · STRATEGY INTELLIGENCE"
+              title="NINE strategy brain"
+              description="Multiple independent playbooks are evaluated against the same validated XAUUSD context. Scores are evidence strength, not guaranteed win rates."
+              action={
+                <StatusPill
+                  value={
+                    v27?.brain?.strategyConsensus?.regime ??
+                    "MIXED"
+                  }
+                />
+              }
+            />
+
+            <div className="metric-grid">
+              <Metric
+                label="BOOK SCORE"
+                value={v27?.brain?.strategyConsensus?.score ?? 0}
+                sub="Top-five evidence average / 100"
+              />
+              <Metric
+                label="CONFIDENCE"
+                value={v27?.brain?.strategyConsensus?.confidence ?? 0}
+                sub="Bounded intelligence score"
+              />
+              <Metric
+                label="ACTIVE"
+                value={v27?.brain?.strategyConsensus?.activeStrategies ?? 0}
+                sub="Strategies above activation threshold"
+              />
+              <Metric
+                label="ALIGNED"
+                value={v27?.brain?.strategyConsensus?.alignedStrategies ?? 0}
+                sub="Strategies sharing the leading direction"
+              />
+            </div>
+
+            <div className="signal-grid">
+              <div className="signal-list">
+                <div className="eyebrow">TOP PLAYBOOKS</div>
+                {(v27?.brain?.strategyConsensus?.candidates ?? []).map(
+                  (candidate: any) => (
+                    <div className="signal-row" key={candidate.strategyId}>
+                      <div className="signal-icon">
+                        <Brain size={15} />
+                      </div>
+                      <div>
+                        <b>{candidate.strategyName}</b>
+                        <span>
+                          {candidate.direction} · {candidate.score}/100 ·{" "}
+                          {candidate.family}
+                        </span>
+                      </div>
+                      <small>{candidate.confidence}</small>
+                    </div>
+                  ),
+                )}
+                {!v27?.brain?.strategyConsensus?.candidates?.length && (
+                  <div className="empty-state">
+                    Strategy book is waiting for enough validated candles.
+                  </div>
+                )}
+              </div>
+
+              <div className="command-history">
+                <div className="eyebrow">KNOWLEDGE COVERAGE</div>
+                <div className="command-history-row">
+                  <span>CONCEPTS</span>
+                  <b>29</b>
+                  <small>Structure · liquidity · momentum · risk · execution</small>
+                </div>
+                <div className="command-history-row">
+                  <span>PLAYBOOKS</span>
+                  <b>12</b>
+                  <small>Trend · SMC · breakout · reversal · session · momentum</small>
+                </div>
+                <div className="command-history-row">
+                  <span>REGIME</span>
+                  <b>{v27?.brain?.strategyConsensus?.regime ?? "MIXED"}</b>
+                  <small>Strategy selection adapts to the observed market regime.</small>
+                </div>
+              </div>
+            </div>
+          </section>
+
           <section
             id="section-atlas"
             className="panel"
@@ -2252,7 +2338,7 @@ export default function Home() {
 
           <footer className="footer">
             <span>
-              NINE V2.10.1 · PAPER EXECUTION
+              NINE V2.11.0 · PAPER EXECUTION
             </span>
             <span>
               {feed?.provider ?? "—"} ·{" "}
