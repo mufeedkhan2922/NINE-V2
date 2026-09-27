@@ -1,5 +1,5 @@
+import assert from "node:assert/strict";
 import { normalizeHistoricalDate } from "../lib/trading/historical";
-import * as assert from "./assert";
 
 export function runHistoricalTest(): void {
   assert.equal(normalizeHistoricalDate("2026-09-01"), "2026-09-01", "valid historical date should normalize");
