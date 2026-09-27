@@ -78,6 +78,7 @@ type Dashboard = {
   agents?: any;
   workstation?: any;
   decisionEngine?: any;
+  paperLoop?: any;
   v27?: any;
   v29?: any;
   diagnostics?: any;
@@ -794,6 +795,8 @@ export default function Home() {
           feed: data.feed,
           runtime: data.runtime,
           orchestration: data.orchestration,
+          decisionEngine: data.decisionEngine,
+          paperLoop: data.paperLoop,
           account: data.account,
           orders: data.orders,
           chart: data.chart,
@@ -897,6 +900,7 @@ export default function Home() {
   const agents = dashboard?.agents;
   const workstation = dashboard?.workstation;
   const decisionEngine = dashboard?.decisionEngine;
+  const paperLoop = dashboard?.paperLoop;
   const account = dashboard?.account;
   const feed = dashboard?.feed;
   const feedState = feedDisplayState(feed, streaming);
@@ -1215,16 +1219,18 @@ export default function Home() {
   return (
     <main className="nine-app xau-terminal">
       <header className="xau-topbar">
-        <div className="xau-brand"><div className="xau-logo">N</div><div><b>NINE</b><span>GOLD INTELLIGENCE SYSTEM</span></div></div>
+        <div className="xau-brand"><div className="xau-logo">N</div><div><b>NINE</b><span>XAUUSD AUTONOMOUS PAPER DESK · V4.4</span></div></div>
         <div className="xau-instrument"><span className="xau-kicker">PRIMARY INSTRUMENT</span><strong>XAUUSD</strong><span>GOLD / US DOLLAR</span></div>
         <div className="xau-price"><strong>{fmt(market?.price, 2)}</strong><span className={liveMove >= 0 ? "xau-up" : "xau-down"}>{signed(liveMove)} · {feedState.label}</span></div>
         <div className="xau-top-status"><span className={streaming ? "xau-live-dot" : "xau-live-dot off"} />{streaming ? "LIVE DATA" : "DATA DEGRADED"}<button type="button" onClick={() => void load()} aria-label="Refresh"><RefreshCw size={15} /></button>{user && <button type="button" onClick={() => void logout()} className="xau-signout"><LogOut size={13} /> EXIT</button>}</div>
       </header>
+      <div className="xau-modebar"><div><span className="xau-mode-dot" /> AUTONOMOUS PAPER LOOP <b>{paperLoop?.state ?? "INITIALIZING"}</b></div><div><span>SESSION</span><b>{decisionEngine?.session ?? "—"}</b></div><div><span>LIFECYCLE</span><b>{decisionEngine?.lifecycle ?? "WATCH"}</b></div><div><span>POSITION</span><b>{paperLoop?.positionId ? String(paperLoop.positionId).slice(0, 16) : "NONE"}</b></div><div><span>LIVE BROKER</span><b className="xau-blocked">LOCKED</b></div></div>
       <div className="xau-shell">
         <aside className="xau-left">
           <section className="xau-panel xau-brain"><div className="xau-panel-head"><span><Brain size={14} /> NINE BRAIN</span><span className="xau-pulse" /></div><div className="brain-state">{status}</div><div className="brain-direction">{v27?.brain?.direction ?? "NONE"}</div><p>{v27?.brain?.rationale ?? "Waiting for validated market intelligence."}</p><div className="xau-confidence"><span>CONFIDENCE</span><b>{fmt(v27?.brain?.confidence, 0)}%</b></div><div className="xau-progress"><i /></div></section>
           <section className="xau-panel"><div className="xau-panel-head"><span>MARKET STATE</span></div><div className="xau-state-row"><span>SESSION</span><b>{chartist?.session ?? "—"}</b></div><div className="xau-state-row"><span>HTF BIAS</span><b>{chartist?.higherTimeframeBias ?? "NONE"}</b></div><div className="xau-state-row"><span>TREND</span><b>{setup?.technical?.trend ?? "—"}</b></div><div className="xau-state-row"><span>REGIME</span><b>{setup?.technical?.volatility ?? setup?.smc?.volatilityState ?? "—"}</b></div><div className="xau-state-row"><span>PRICE ZONE</span><b>{setup?.smc?.premiumDiscount ?? "—"}</b></div></section>
           <section className="xau-panel"><div className="xau-panel-head"><span><Sparkles size={14} /> SMART MONEY</span></div><SignalRow label="Liquidity Sweep" value={setup?.smc?.liquiditySweep ? setup.smc.sweepDirection : "NONE"} /><SignalRow label="MSS / CHoCH" value={setup?.smc?.marketStructureShift ? setup.smc.structureDirection : "NONE"} /><SignalRow label="Fair Value Gap" value={setup?.smc?.fairValueGap ? "DETECTED" : "NONE"} /><SignalRow label="Order Block" value={setup?.smc?.orderBlock ? "DETECTED" : "NONE"} /><SignalRow label="Structure" value={setup?.smc?.structureDirection ?? "NONE"} /></section>
+          <section className="xau-panel xau-loop-panel"><div className="xau-panel-head"><span><Zap size={14} /> AUTONOMOUS LOOP</span><b>{paperLoop?.state ?? "WAITING"}</b></div><div className="xau-loop-steps">{["DETECTED","VALIDATED","TRACKING","ENTERED","MANAGING","CLOSED"].map((step:string) => <div key={step} className={"xau-loop-step " + (step === paperLoop?.state || (step === "ENTERED" && paperLoop?.state === "MANAGING") || (step === "MANAGING" && paperLoop?.state === "CLOSED") ? "active" : ["DETECTED","VALIDATED","TRACKING","ENTERED","MANAGING"].indexOf(step) < ["DETECTED","VALIDATED","TRACKING","ENTERED","MANAGING","CLOSED"].indexOf(paperLoop?.state ?? "") ? "done" : "")}><i /> <span>{step}</span></div>)}</div><p>{paperLoop?.entry?.message ?? "NINE is waiting for a validated XAUUSD setup."}</p><small>Continuous paper execution · Sentinel gated · no broker order</small></section>
           <section className="xau-panel xau-command"><div className="xau-panel-head"><span><Command size={14} /> TALK TO NINE</span><Mic size={14} /></div><form onSubmit={submitCommandForm}><input value={commandText} onChange={e => setCommandText(e.target.value)} placeholder="Ask: analyze gold…" maxLength={500} /><button type="submit" disabled={commandBusy}><Zap size={15} /></button></form><div className="xau-command-chips">{["Analyze gold","Analyze current setup","Show market status"].map(item => <button key={item} type="button" onClick={() => void submitCommand(item)}>{item}</button>)}</div><button type="button" className={voiceOn ? "xau-voice active" : "xau-voice"} onClick={voiceOn ? stopVoice : startVoice}>{voiceOn ? <MicOff size={14} /> : <Mic size={14} />} {voiceOn ? "LISTENING…" : "VOICE COMMAND"}</button></section>
         </aside>
         <section className="xau-center">
@@ -1240,11 +1246,12 @@ export default function Home() {
           <section className="xau-panel xau-decision"><div className="xau-panel-head"><span><Target size={14} /> SETUP ENGINE</span><StatusPill value={setup?.status ?? "WATCHING"} /></div><div className="xau-life-chip">{decisionEngine?.lifecycle ?? "WATCH"} · {decisionEngine?.session ?? "OFF_SESSION"}</div><div className="xau-decision-direction">{setup?.direction ?? "NONE"}</div><div className="xau-decision-grid"><Metric label="ENTRY" value={fmt(setup?.entry,2)} /><Metric label="STOP LOSS" value={fmt(setup?.stopLoss,2)} /><Metric label="TAKE PROFIT" value={fmt(setup?.takeProfit,2)} /><Metric label="R:R" value={fmt(setup?.riskReward,2)} /></div><div className="xau-score"><span>VALIDATION SCORE</span><b>{fmt(setup?.validation?.score,0)}/100</b></div>{(setup?.validation?.blockers ?? []).slice(0,4).map((b: string,i:number)=><div className="xau-blocker" key={i}><AlertTriangle size={12}/>{b}</div>)}</section>
           <section className="xau-panel xau-atlas"><div className="xau-panel-head"><span><Radio size={14}/> ATLAS · MACRO</span><span>{atlas?.sourceStatus ?? "—"}</span></div><div className="xau-macro-bias">{atlas?.bias ?? "NEUTRAL"}</div><p>{atlas?.summary ?? "Macro/news context is unavailable for this snapshot."}</p><div className="xau-headlines">{(atlas?.headlines ?? []).slice(0,4).map((h:any,i:number)=><div key={i}><b>{h.sentiment ?? "—"}</b><span>{h.title ?? "Untitled headline"}</span></div>)}</div></section>
           <section className="xau-panel xau-sentinel"><div className="xau-panel-head"><span><Shield size={14}/> SENTINEL</span><span className={sentinel?.approved ? "xau-approved" : "xau-blocked"}>{sentinel?.approved ? "APPROVED" : "BLOCKED"}</span></div><div className="xau-lock">PAPER ONLY</div><p>{sentinel?.reason ?? "Sentinel authorization unavailable."}</p><div className="xau-safety-list"><div><span>LIVE BROKER</span><b className="xau-blocked">LOCKED</b></div><div><span>EXECUTION</span><b>PAPER</b></div><div><span>RISK</span><b>{fmt(risk?.exposurePercent,2)}%</b></div><div><span>DRAWDOWN</span><b>{fmt(risk?.drawdownPercent,2)}%</b></div></div></section>
+          <section className="xau-panel xau-paper-account"><div className="xau-panel-head"><span><CircleDollarSign size={14}/> PAPER ACCOUNT</span><b>LIVE SIMULATION</b></div><div className="xau-account-grid"><Metric label="EQUITY" value={fmt(paperLoop?.account?.equity,2)} /><Metric label="BALANCE" value={fmt(paperLoop?.account?.balance,2)} /><Metric label="REALIZED" value={fmt(paperLoop?.account?.realizedPnl,2)} /><Metric label="UNREALIZED" value={fmt(paperLoop?.account?.unrealizedPnl,2)} /></div><div className="xau-paper-position"><div><span>STATE</span><b>{paperLoop?.state ?? "WATCH"}</b></div><div><span>POSITION</span><b>{paperLoop?.positionId ? String(paperLoop.positionId).slice(0,12) : "—"}</b></div><div><span>TRANSITIONS</span><b>{paperLoop?.history?.length ?? 0}</b></div></div></section>
           <section className="xau-panel xau-tracking"><div className="xau-panel-head"><span><Target size={14}/> PAPER SETUP TRACKER</span><span>{decisionEngine?.tracking?.setupId ? String(decisionEngine.tracking.setupId).slice(0,8) : "—"}</span></div><div className="xau-tracking-state"><b>{decisionEngine?.tracking?.lifecycle ?? "WATCH"}</b><span>{decisionEngine?.tracking?.ageSeconds ?? 0}s tracked</span></div><div className="xau-safety-list"><div><span>DIRECTION</span><b>{decisionEngine?.tracking?.direction ?? "NONE"}</b></div><div><span>PAPER POSITION</span><b>{decisionEngine?.tracking?.matchedPaperPositionId ? "MATCHED" : "NONE"}</b></div><div><span>ENTRY</span><b>{fmt(decisionEngine?.tracking?.entry,2)}</b></div><div><span>STATUS</span><b>{decisionEngine?.tracking?.statusReason ?? "—"}</b></div></div></section>
           <section className="xau-panel xau-events"><div className="xau-panel-head"><span><Bell size={14}/> LIVE EVENTS</span><span>{events.length}</span></div>{events.slice(0,5).map((event:any,i:number)=><div className="xau-event" key={i}><span>{event.type ?? "EVENT"}</span><p>{event.message ?? "Signal event."}</p></div>)}{!events.length && <p className="xau-muted">No new validated events.</p>}</section>
         </aside>
       </div>
-      <footer className="xau-footer"><span>NINE XAUUSD AI WORKSTATION · V4.3</span><span>{feed?.provider ?? "—"} · {feedState.label}</span><span>LIVE BROKER <b className="xau-blocked">HARD LOCKED</b></span></footer>
+      <footer className="xau-footer"><span>NINE XAUUSD AUTONOMOUS PAPER DESK · V4.4</span><span>{feed?.provider ?? "—"} · {feedState.label}</span><span>LIVE BROKER <b className="xau-blocked">HARD LOCKED</b></span></footer>
       {!user && <div className="auth-overlay"><form className="auth-card" onSubmit={loginSubmit}><div className="auth-mark">N</div><div className="eyebrow">NINE SECURE ACCESS</div><h2>Sign in to control NINE</h2><p>Market intelligence remains visible, while commands and paper execution require authentication.</p><input value={login.email} onChange={event => setLogin({...login,email:event.target.value})} placeholder="Admin email" type="email" autoComplete="username" required /><input value={login.password} onChange={event => setLogin({...login,password:event.target.value})} placeholder="Password" type="password" autoComplete="current-password" required />{loginError && <div className="login-error"><AlertTriangle size={14}/>{loginError}</div>}<button className="login-button" type="submit">AUTHENTICATE</button></form></div>}
     </main>
   );
