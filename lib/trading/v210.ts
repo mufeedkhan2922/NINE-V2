@@ -52,6 +52,13 @@ export function buildDecisionExplanation(orchestration: NINEOrchestration): Deci
   if (atlas?.sourceStatus === "UNAVAILABLE") warnings.push(item("ATLAS_UNAVAILABLE", "WARNING", "Atlas unavailable", "News and macro context is unavailable; NINE does not fabricate an Atlas signal.", "ATLAS"));
   else evidence.push(item("ATLAS_CONTEXT", "INFO", "Atlas context", impact, "ATLAS"));
 
+  const risk = orchestration.sentinel.risk;
+  if (risk) {
+    const riskDetail = `Risk ${risk.riskPercent.toFixed(2)}% / max ${risk.maxRiskPercent.toFixed(2)}%; projected loss ${risk.projectedLoss.toFixed(2)}; exposure ${risk.exposurePercent.toFixed(2)}%; daily loss ${risk.dailyLossPercent.toFixed(2)}%; drawdown ${risk.drawdownPercent.toFixed(2)}%.`;
+    if (orchestration.sentinel.approved) evidence.push(item("RISK_PASS", "INFO", "Risk controls passed", riskDetail, "SENTINEL"));
+    else blockers.push(item("RISK_BLOCK", "BLOCK", "Risk controls", riskDetail, "SENTINEL"));
+  }
+
   const checks = orchestration.sentinel.checks ?? [];
   const checksPassed = checks.filter((c) => !c.startsWith("BLOCK:")).length;
   const decision: DecisionExplanation["decision"] =
