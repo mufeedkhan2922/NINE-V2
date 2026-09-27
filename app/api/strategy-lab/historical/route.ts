@@ -79,6 +79,25 @@ export async function POST(request: Request) {
     const runId = `LAB-${randomUUID()}`;
     const now = Date.now();
     transaction(() => {
+      db.prepare(
+        "INSERT INTO research_runs (id,symbol,timeframe,start_date,end_date,source,candles,oos_trades,research_status,research_score,target_win_rate,target_reached,created_at,result_json) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+      ).run(
+        runId,
+        symbol,
+        timeframe,
+        dataset.startDate,
+        dataset.endDate,
+        dataset.source,
+        dataset.candles.length,
+        result.researchQuality.outOfSampleTrades,
+        result.researchQuality.status,
+        result.researchQuality.score,
+        result.targetWinRate,
+        result.targetReached ? 1 : 0,
+        now,
+        JSON.stringify(result),
+      );
+
       for (const record of result.memoryRecords) {
         db.prepare(
           "INSERT INTO strategy_memory (id,strategy_id,strategy_name,symbol,timeframe,session,regime,trades,wins,win_rate,expectancy_r,profit_factor,max_drawdown_r,sample_start,sample_end,source,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
@@ -96,6 +115,7 @@ export async function POST(request: Request) {
       startDate: dataset.startDate, endDate: dataset.endDate, candlesUsed: dataset.candles.length,
       dataQuality: dataset.quality, result, memoryPersisted: result.memoryRecords.length,
       generatedAt: new Date().toISOString(),
+      researchQuality: result.researchQuality,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Historical intelligence failed.";
@@ -109,14 +129,29 @@ export async function GET(request: Request) {
     assertSameOrigin(request);
     const user = requireUser(request);
     const limit = rateLimit(requestKey(request, user.id), 10, 60_000);
-    if (!limit.allowed) return NextResponse.json({ ok: false, error: "Memory query rate limit exceeded." }, { status: 429 });
+    if (!limit.allowed) return NextResponse.json({ ok: false, error: "Research history rate limit exceeded." }, { status: 429 });
+
     const url = new URL(request.url);
     const requested = url.searchParams.get("symbol");
     const symbol = SYMBOLS.includes(requested as MarketSymbol) ? requested as MarketSymbol : "XAUUSD";
-    const limitRows = numberOr(url.searchParams.get("limit"), 50);
-    return NextResponse.json({ ok: true, version: NINE_VERSION, symbol, records: memoryRows(symbol, limitRows), generatedAt: new Date().toISOString() });
+    const timeframe = url.searchParams.get("timeframe");
+    const limitRows = Math.max(1, Math.min(100, numberOr(url.searchParams.get("limit"), 20)));
+    const rows = timeframe && TIMEFRAMES.includes(timeframe as Timeframe)
+      ? db.prepare("SELECT id,symbol,timeframe,start_date AS startDate,end_date AS endDate,source,candles,oos_trades AS oosTrades,research_status AS researchStatus,research_score AS researchScore,target_win_rate AS targetWinRate,target_reached AS targetReached,created_at AS createdAt FROM research_runs WHERE symbol = ? AND timeframe = ? ORDER BY created_at DESC LIMIT ?").all(symbol, timeframe, limitRows)
+      : db.prepare("SELECT id,symbol,timeframe,start_date AS startDate,end_date AS endDate,source,candles,oos_trades AS oosTrades,research_status AS researchStatus,research_score AS researchScore,target_win_rate AS targetWinRate,target_reached AS targetReached,created_at AS createdAt FROM research_runs WHERE symbol = ? ORDER BY created_at DESC LIMIT ?").all(symbol, limitRows);
+
+    return NextResponse.json({
+      ok: true,
+      version: NINE_VERSION,
+      symbol,
+      runs: (rows as Array<Record<string, unknown>>).map((row) => ({
+        ...row,
+        targetReached: Number(row.targetReached) === 1,
+      })),
+      generatedAt: new Date().toISOString(),
+    });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Strategy memory query failed.";
+    const message = error instanceof Error ? error.message : "Research history query failed.";
     const status = message === "UNAUTHENTICATED" ? 401 : message === "CROSS_ORIGIN" ? 403 : 400;
     return NextResponse.json({ ok: false, version: NINE_VERSION, error: message }, { status });
   }
