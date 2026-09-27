@@ -8,6 +8,7 @@ import { runBacktestTest } from "./backtest.test";
 import { runOrdersTests } from "./orders.test";
 import { runPaperOrdersTests } from "./paperOrders.test";
 import { runPaperReconciliationTests } from "./paperReconciliation.test";
+import { runCoreSafetyTests } from "./coreSafety.test";
 import { runSentinelTests } from "./sentinel.test";
 import { runRuntimeTest } from "./runtime.test";
 import { runSecurityTest } from "./security.test";
@@ -32,6 +33,7 @@ const tests: Array<[string, () => void | Promise<void>]> = [
   ["orders", runOrdersTests],
   ["paper orders", runPaperOrdersTests],
   ["paper reconciliation", runPaperReconciliationTests],
+  ["core safety", runCoreSafetyTests],
   ["sentinel", runSentinelTests],
   ["runtime safety", runRuntimeTest],
   ["security", runSecurityTest],
