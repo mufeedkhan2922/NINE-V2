@@ -1,4 +1,4 @@
-# NINE — AI Trading Desk 2.2
+# NINE — AI Trading Desk 2.10.2
 
 NINE is a controlled trading intelligence desk built around three agents:
 
@@ -22,7 +22,7 @@ NINE is a controlled trading intelligence desk built around three agents:
 
 ## Run locally
 
-NINE requires **Node.js 22+** because the database uses `node:sqlite`.
+NINE requires **Node.js 24+** because the database uses `node:sqlite`.
 
 ```bash
 cp .env.example .env.local
