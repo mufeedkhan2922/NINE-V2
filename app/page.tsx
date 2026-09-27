@@ -1899,13 +1899,16 @@ export default function Home() {
                   <Metric label="OOS TRADES" value={(research.selectedOutOfSample ?? []).reduce((sum: number, item: any) => sum + (item.trades ?? 0), 0)} sub="Unseen validation trades" />
                   <Metric label="OOS WIN RATE" value={(research.selectedOutOfSample ?? []).length ? fmt((research.selectedOutOfSample.reduce((sum: number, item: any) => sum + (item.winRate ?? 0) * (item.trades ?? 0), 0) / Math.max(1, research.selectedOutOfSample.reduce((sum: number, item: any) => sum + (item.trades ?? 0), 0))), 1) + "%" : "—"} sub="Measured, not guaranteed" />
                   <Metric label="EXPECTANCY" value={(research.selectedOutOfSample ?? []).length ? fmt((research.selectedOutOfSample.reduce((sum: number, item: any) => sum + (item.expectancyR ?? 0) * (item.trades ?? 0), 0) / Math.max(1, research.selectedOutOfSample.reduce((sum: number, item: any) => sum + (item.trades ?? 0), 0))), 3) + "R" : "—"} sub="Out-of-sample" />
+                  <Metric label="RESEARCH QUALITY" value={research.researchQuality?.status ?? "WATCH"} sub={research.researchQuality?.score != null ? `${research.researchQuality.score}/100 evidence score` : "Evidence quality"} />
+                  <Metric label="FOLD CONSISTENCY" value={research.researchQuality?.foldConsistency != null ? fmt(research.researchQuality.foldConsistency, 1) + "%" : "—"} sub="Positive OOS folds" />
+                  <Metric label="WILSON 95% LB" value={research.researchQuality?.bestStrategyWilsonLowerBound != null ? fmt(research.researchQuality.bestStrategyWilsonLowerBound, 1) + "%" : "—"} sub="Best strategy confidence bound" />
                   <Metric label="TARGET 90%" value={research.targetReached ? "REACHED" : "NOT PROVEN"} sub="Evidence threshold" />
                   <Metric label="WALK-FORWARD" value={research.walkForward?.length ?? 0} sub="Validation folds" />
                   <Metric label="MONTE CARLO" value={research.monteCarlo?.simulations ?? "—"} sub="OOS simulations" />
                 </div>
                 <div className="research-integrity">
                   <StatusPill value="OOS VERIFIED" />
-                  <span>Memory source: {research.researchIntegrity?.memorySource ?? "OUT_OF_SAMPLE"} · Historical signals exclude persistent memory.</span>
+                  <span>Memory source: {research.researchIntegrity?.memorySource ?? "OUT_OF_SAMPLE"} · Historical signals exclude persistent memory. {research.researchQuality?.explanation?.[3] ?? "Research evidence is evaluated out of sample."}</span>
                 </div>
               </>
             ) : (

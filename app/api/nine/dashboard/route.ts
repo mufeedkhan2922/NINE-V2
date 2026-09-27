@@ -71,6 +71,14 @@ export async function GET(request: Request) {
       "SELECT strategy_id AS strategyId, strategy_name AS strategyName, session, regime, trades, wins, win_rate AS winRate, expectancy_r AS expectancyR, profit_factor AS profitFactor, max_drawdown_r AS maxDrawdownR, updated_at AS updatedAt FROM strategy_memory WHERE symbol = ? ORDER BY expectancy_r DESC, trades DESC, updated_at DESC LIMIT 24",
     ).all(market.symbol);
 
+    const researchHistoryRows = db.prepare(
+      "SELECT id, timeframe, start_date AS startDate, end_date AS endDate, candles, oos_trades AS oosTrades, research_status AS researchStatus, research_score AS researchScore, target_win_rate AS targetWinRate, target_reached AS targetReached, created_at AS createdAt FROM research_runs WHERE symbol = ? ORDER BY created_at DESC LIMIT 8",
+    ).all(market.symbol) as Array<Record<string, unknown>>;
+    const researchHistory = researchHistoryRows.map((row) => ({
+      ...row,
+      targetReached: Number(row.targetReached) === 1,
+    }));
+
 
     return NextResponse.json({
       ok: true,
@@ -97,6 +105,7 @@ export async function GET(request: Request) {
       },
       strategyLab,
       strategyMemory,
+      researchHistory,
       paperReconciliation,
       v210: {
         decision: decisionExplanation,

@@ -224,6 +224,26 @@ CREATE TABLE IF NOT EXISTS strategy_memory (
 CREATE INDEX IF NOT EXISTS strategy_memory_lookup_idx
 ON strategy_memory(strategy_id, symbol, timeframe, session, regime, updated_at DESC);
 
+CREATE TABLE IF NOT EXISTS research_runs (
+  id TEXT PRIMARY KEY,
+  symbol TEXT NOT NULL,
+  timeframe TEXT NOT NULL,
+  start_date TEXT NOT NULL,
+  end_date TEXT NOT NULL,
+  source TEXT NOT NULL,
+  candles INTEGER NOT NULL,
+  oos_trades INTEGER NOT NULL,
+  research_status TEXT NOT NULL,
+  research_score REAL NOT NULL,
+  target_win_rate REAL NOT NULL,
+  target_reached INTEGER NOT NULL DEFAULT 0,
+  created_at INTEGER NOT NULL,
+  result_json TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS research_runs_lookup_idx
+ON research_runs(symbol, timeframe, created_at DESC);
+
 `);
 
 ensureColumn("positions", "order_id", "TEXT");
