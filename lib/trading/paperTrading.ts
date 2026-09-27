@@ -129,6 +129,29 @@ function settleTriggeredPositions(
     position.closedAt = now;
     position.realizedPnl = pnl;
 
+    if (position.orderId) {
+      updateOrder(position.orderId, {
+        status: "CLOSED",
+        closePrice: exitPrice,
+        pnl,
+        positionId: position.id,
+        reason: stopHit ? "STOP" : "TARGET",
+        source: "paperTrading",
+      });
+    }
+
+    appendEvent(account === getStoreSnapshot().account ? { ...({} as never) } : ({} as never), {
+      type: "PAPER_CLOSE",
+      message: `Paper position ${position.id} closed at ${exitPrice.toFixed(2)}.`,
+      symbol: position.symbol,
+      positionId: position.id,
+      metadata: {
+        pnl,
+        orderId: position.orderId,
+        reason: stopHit ? "STOP" : "TARGET",
+      },
+    });
+
     account.balance += pnl;
     account.realizedPnl += pnl;
     account.dailyRealizedPnl += pnl;
