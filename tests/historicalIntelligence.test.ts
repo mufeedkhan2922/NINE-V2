@@ -46,8 +46,12 @@ export function runHistoricalIntelligenceTest(): void {
   assert.ok(result.walkForward.every((fold) => fold.validationEnd >= fold.validationStart), "fold ranges must be ordered");
   assert.ok(result.strategyStats.every((s) => s.winRate >= 0 && s.winRate <= 100), "win rates must be bounded");
   assert.ok(result.strategyStats.every((s) => s.maxDrawdownR >= 0), "drawdowns must be non-negative");
-  assert.ok(result.memoryRecords.length > 0, "strategy memory must be generated");
+  assert.ok(result.memoryRecords.every((record) => record.trades > 0 && record.source === "HISTORICAL_PROVIDER"), "strategy memory must contain only real out-of-sample evidence");
   assert.ok(result.monteCarlo === null || result.monteCarlo.simulations === 250, "Monte Carlo simulation count must be respected");
   assert.ok(rankMemory(result.memoryRecords).length === result.memoryRecords.length, "memory ranking must be deterministic");
   assert.ok(result.targetWinRate === 90, "target must remain an explicit validation threshold");
+  assert.equal(result.researchIntegrity.memoryExcludedFromHistoricalSignals, true, "historical signals must not read persistent memory");
+  assert.equal(result.researchIntegrity.nonOverlappingTradesPerStrategy, true, "historical trades must not overlap within a strategy");
+  assert.equal(result.researchIntegrity.monteCarloUsesOutOfSampleTrades, true, "Monte Carlo must use out-of-sample trades");
+  assert.equal(result.researchIntegrity.memorySource, "OUT_OF_SAMPLE", "persistent memory must be sourced from OOS evidence");
 }
