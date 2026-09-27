@@ -48,7 +48,8 @@ export async function GET(request: Request) {
     const marketHealthV26 = orchestration.v26.marketHealth;
     const brainV26 = orchestration.v26.brain;
     const riskTelemetryV26 = orchestration.v26.riskTelemetry;
-    const signalEventsV26 = orchestration.v26.signalEvents;\n    const decisionExplanation = buildDecisionExplanation(orchestration);
+    const signalEventsV26 = orchestration.v26.signalEvents;
+    const decisionExplanation = buildDecisionExplanation(orchestration);
 
     return NextResponse.json({
       ok: true,
@@ -73,7 +74,11 @@ export async function GET(request: Request) {
         risk: riskTelemetryV26,
         events: signalEventsV26,
       },
-      v210: {\n        decision: decisionExplanation,\n        backtestAnalytics: null,\n      },\n      v29: {
+      v210: {
+        decision: decisionExplanation,
+        backtestAnalytics: null,
+      },
+      v29: {
         commandCenter: {
           status: brainV26.action,
           executionMode: orchestration.executionMode,
