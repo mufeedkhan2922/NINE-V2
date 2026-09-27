@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import {
   closePaperPosition,
   executePaperSetup,
+  getPaperAccount,
 } from "../lib/trading/paperTrading";
 import { getOrder } from "../lib/trading/orders";
 import {
@@ -253,15 +254,7 @@ export function runPaperOrdersTests(): void {
   assert.equal(targetOpen.ok, true, "Target test position must open.");
   assert.ok(targetOpen.position, "Target test position must exist.");
 
-  const targetAccount = getStoreSnapshot().account;
-  const refreshed = (await Promise.resolve()).valueOf ? getStoreSnapshot().account : targetAccount;
-  void refreshed;
-
-  const marked = (await Promise.resolve()).valueOf ? getStoreSnapshot().account : targetAccount;
-  void marked;
-
   // Refresh through the paper account path so automatic settlement is persisted.
-  const { getPaperAccount } = await import("../lib/trading/paperTrading");
   const afterTarget = getPaperAccount(4320);
 
   assert.equal(afterTarget.positions.find((p) => p.id === targetOpen.position!.id)?.status, "CLOSED");
