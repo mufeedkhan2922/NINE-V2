@@ -1,3 +1,4 @@
+import { evaluateStrategyBook, type StrategyConsensus } from "./strategyEngine";
 import type {
   AtlasContext,
   Candle,
@@ -52,6 +53,7 @@ export interface BrainDecision {
   evidence: string[];
   blockers: string[];
   rationale: string;
+  strategyConsensus?: StrategyConsensus;
   generatedAt: number;
 }
 
@@ -678,6 +680,8 @@ export function buildBrainDecision(
       market,
     );
 
+  const strategyConsensus = evaluateStrategyBook(market);
+
   const evidence = [
     ...setup.reasons.slice(
       0,
@@ -688,6 +692,15 @@ export function buildBrainDecision(
   const blockers = [
     ...health.reasons,
   ];
+
+  if (strategyConsensus.candidates.length) {
+    evidence.push(
+      "Strategy book: " + strategyConsensus.activeStrategies + " active, " + strategyConsensus.alignedStrategies + " aligned, regime " + strategyConsensus.regime + ".",
+    );
+    for (const candidate of strategyConsensus.candidates.slice(0, 3)) {
+      evidence.push(candidate.strategyName + ": " + candidate.score + "/100 " + candidate.direction + ".");
+    }
+  }
 
   if (
     atlas?.sourceStatus ===
@@ -718,11 +731,12 @@ export function buildBrainDecision(
       direction:
         setup.direction,
       confidence:
-        setup.confidence,
+        Math.min(99, Math.round((setup.confidence + strategyConsensus.confidence) / 2)),
       evidence,
       blockers,
       rationale:
         "Market health does not satisfy the execution gate.",
+      strategyConsensus,
       generatedAt:
         Date.now(),
     };
@@ -741,14 +755,16 @@ export function buildBrainDecision(
         setup.direction,
 
       confidence:
-        setup.confidence,
+        Math.min(99, Math.round((setup.confidence + strategyConsensus.confidence) / 2)),
 
       evidence,
 
       blockers,
 
       rationale:
-        "MTF alignment, setup confluence, validated market data, and Sentinel approval are present.",
+        "MTF alignment, setup confluence, validated market data, Sentinel approval, and multi-strategy evidence are present.",
+
+      strategyConsensus,
 
       generatedAt:
         Date.now(),
@@ -767,7 +783,7 @@ export function buildBrainDecision(
         setup.direction,
 
       confidence:
-        setup.confidence,
+        Math.min(99, Math.round((setup.confidence + strategyConsensus.confidence) / 2)),
 
       evidence,
 
@@ -775,6 +791,8 @@ export function buildBrainDecision(
 
       rationale:
         "A directional structure is forming but confirmation is incomplete.",
+
+      strategyConsensus,
 
       generatedAt:
         Date.now(),
@@ -788,7 +806,7 @@ export function buildBrainDecision(
       setup.direction,
 
     confidence:
-      setup.confidence,
+      Math.min(99, Math.round((setup.confidence + strategyConsensus.confidence) / 2)),
 
     evidence,
 
@@ -796,6 +814,8 @@ export function buildBrainDecision(
 
     rationale:
       "NINE is monitoring for a complete, validated setup.",
+
+    strategyConsensus,
 
     generatedAt:
       Date.now(),
