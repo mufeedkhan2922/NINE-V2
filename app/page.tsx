@@ -80,6 +80,7 @@ type Dashboard = {
   diagnostics?: any;
   strategyLab?: any;
   strategyMemory?: any[];
+  paperReconciliation?: any;
   account?: any;
   chart?: Candle[];
   events?: any[];
@@ -143,10 +144,12 @@ const SYMBOLS: Array<{
 const NAV = [
   ["overview", "Command Center"],
   ["chartist", "Chartist"],
+  ["learning-lab", "Learning Lab"],
+  ["strategy-memory", "Strategy Memory"],
   ["atlas", "Atlas"],
   ["sentinel", "Sentinel"],
   ["backtest", "Backtest"],
-  ["signals", "Signals"],
+  ["signals", "Audit"],
 ] as const;
 
 function fmt(value: unknown, digits = 2) {
@@ -682,6 +685,11 @@ export default function Home() {
   const [backtest, setBacktest] = useState<BacktestResult | null>(null);
   const [backtestError, setBacktestError] = useState("");
   const [backtestTimeframe, setBacktestTimeframe] = useState("1min");
+  const [researchBusy, setResearchBusy] = useState(false);
+  const [research, setResearch] = useState<any>(null);
+  const [researchError, setResearchError] = useState("");
+  const [researchStart, setResearchStart] = useState(() => new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10));
+  const [researchEnd, setResearchEnd] = useState(() => new Date().toISOString().slice(0, 10));
   const [section, setSection] = useState<
     (typeof NAV)[number][0]
   >("overview");
@@ -1036,6 +1044,34 @@ export default function Home() {
     );
   };
 
+  const runHistoricalResearch = useCallback(async () => {
+    if (!user) return;
+    setResearchBusy(true);
+    setResearchError("");
+    try {
+      const response = await fetch("/api/strategy-lab/historical", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          symbol,
+          timeframe: backtestTimeframe,
+          startDate: researchStart,
+          endDate: researchEnd,
+          folds: 4,
+          monteCarloSimulations: 1000,
+          targetWinRate: 90,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.ok) throw new Error(data.error ?? "Historical research failed.");
+      setResearch(data.result);
+    } catch (error) {
+      setResearchError(error instanceof Error ? error.message : "Historical research failed.");
+    } finally {
+      setResearchBusy(false);
+    }
+  }, [backtestTimeframe, researchEnd, researchStart, symbol, user]);
+
   const runBacktest = async () => {
     if (!user) {
       setLoginError("Login is required for backtesting.");
@@ -1146,7 +1182,7 @@ export default function Home() {
           <div>
             <div className="brand-name">NINE</div>
             <div className="brand-version">
-              AI TRADING DESK · V2.10.1
+              AI TRADING DESK · MAX 3.0
             </div>
           </div>
         </div>
@@ -1334,8 +1370,8 @@ export default function Home() {
           >
             <div className="hero-copy">
               <div className="eyebrow">
-                NINE COMMAND CENTER ·{" "}
-                {dashboard?.version ?? "2.9.2"}
+                NINE MAX COMMAND CENTER ·{" "}
+                {dashboard?.version ?? "3.0.0"}
               </div>
               <h1>
                 One desk.
@@ -1379,6 +1415,29 @@ export default function Home() {
                 <span className="status-pill-dot" />
                 {feedState.label} · {feedState.description}
               </div>
+            </div>
+          </section>
+
+          <section className="max-cockpit">
+            <div className="max-cockpit-head">
+              <div>
+                <div className="eyebrow"><Sparkles size={12} /> NINE MAX OPERATING SYSTEM</div>
+                <h2>Research. Decide. Protect. Learn.</h2>
+                <p>One unified surface for market intelligence, strategy research, paper execution and safety telemetry.</p>
+              </div>
+              <div className="max-mode">
+                <span>EXECUTION</span>
+                <b>PAPER ONLY</b>
+                <small>LIVE BROKER HARD LOCKED</small>
+              </div>
+            </div>
+            <div className="max-layer-grid">
+              <div className="max-layer"><span>01</span><b>MARKET</b><StatusPill value={feed?.connection ?? "UNKNOWN"} /><small>{feed?.priceSource ?? "—"} · {feed?.ageSeconds != null ? fmt(feed.ageSeconds, 0) + "s" : "no age"}</small></div>
+              <div className="max-layer"><span>02</span><b>CHARTIST</b><StatusPill value={setup?.lifecycle ?? "WATCHING"} /><small>{v27?.setup?.confluenceScore ?? setup?.confidence ?? 0}% confluence</small></div>
+              <div className="max-layer"><span>03</span><b>LEARNING</b><StatusPill value={dashboard?.strategyLab?.regime ?? "MIXED"} /><small>{dashboard?.strategyLab?.conceptCoverage ?? 0}% concept window</small></div>
+              <div className="max-layer"><span>04</span><b>MEMORY</b><StatusPill value={(dashboard?.strategyMemory?.length ?? 0) ? "ACTIVE" : "EMPTY"} /><small>{dashboard?.strategyMemory?.length ?? 0} evidence records</small></div>
+              <div className="max-layer"><span>05</span><b>SENTINEL</b><StatusPill value={sentinel?.approved ? "APPROVED" : "BLOCKED"} /><small>{risk?.openPositions ?? 0} open · {fmt(risk?.drawdownPercent, 2)}% DD</small></div>
+              <div className="max-layer"><span>06</span><b>RECON</b><StatusPill value={dashboard?.paperReconciliation?.healthy ? "HEALTHY" : dashboard?.paperReconciliation ? "CHECK" : "UNKNOWN"} /><small>score {dashboard?.paperReconciliation?.score ?? "—"}/100</small></div>
             </div>
           </section>
 
@@ -1816,6 +1875,42 @@ export default function Home() {
                 <div className="empty-state">Run historical intelligence to populate persistent strategy memory.</div>
               )}
             </div>
+          </section>
+
+          <section id="section-research" className="panel">
+            <SectionHeader
+              eyebrow="04 · HISTORICAL INTELLIGENCE"
+              title="Walk-forward research console"
+              description="Runs the six research layers together: realistic execution, walk-forward validation, out-of-sample selection, Monte Carlo analysis and persistent evidence memory."
+              action={<StatusPill value={researchBusy ? "RUNNING" : research ? "COMPLETE" : "READY"} />}
+            />
+            <div className="research-controls">
+              <label>START<input type="date" value={researchStart} onChange={(e) => setResearchStart(e.target.value)} /></label>
+              <label>END<input type="date" value={researchEnd} onChange={(e) => setResearchEnd(e.target.value)} /></label>
+              <label>TIMEFRAME<select value={backtestTimeframe} onChange={(e) => setBacktestTimeframe(e.target.value)}><option value="1min">1 MIN</option><option value="5min">5 MIN</option><option value="15min">15 MIN</option><option value="1h">1 HOUR</option></select></label>
+              <button className="primary-button" type="button" onClick={() => void runHistoricalResearch()} disabled={researchBusy || !user}>
+                {researchBusy ? <><RefreshCw size={14} className="spin" /> RESEARCHING</> : <><Brain size={14} /> RUN MAX RESEARCH</>}
+              </button>
+            </div>
+            {researchError && <div className="backtest-error research-error"><AlertTriangle size={14} />{researchError}</div>}
+            {research ? (
+              <>
+                <div className="metric-grid">
+                  <Metric label="OOS TRADES" value={(research.selectedOutOfSample ?? []).reduce((sum: number, item: any) => sum + (item.trades ?? 0), 0)} sub="Unseen validation trades" />
+                  <Metric label="OOS WIN RATE" value={(research.selectedOutOfSample ?? []).length ? fmt((research.selectedOutOfSample.reduce((sum: number, item: any) => sum + (item.winRate ?? 0) * (item.trades ?? 0), 0) / Math.max(1, research.selectedOutOfSample.reduce((sum: number, item: any) => sum + (item.trades ?? 0), 0))), 1) + "%" : "—"} sub="Measured, not guaranteed" />
+                  <Metric label="EXPECTANCY" value={(research.selectedOutOfSample ?? []).length ? fmt((research.selectedOutOfSample.reduce((sum: number, item: any) => sum + (item.expectancyR ?? 0) * (item.trades ?? 0), 0) / Math.max(1, research.selectedOutOfSample.reduce((sum: number, item: any) => sum + (item.trades ?? 0), 0))), 3) + "R" : "—"} sub="Out-of-sample" />
+                  <Metric label="TARGET 90%" value={research.targetReached ? "REACHED" : "NOT PROVEN"} sub="Evidence threshold" />
+                  <Metric label="WALK-FORWARD" value={research.walkForward?.length ?? 0} sub="Validation folds" />
+                  <Metric label="MONTE CARLO" value={research.monteCarlo?.simulations ?? "—"} sub="OOS simulations" />
+                </div>
+                <div className="research-integrity">
+                  <StatusPill value="OOS VERIFIED" />
+                  <span>Memory source: {research.researchIntegrity?.memorySource ?? "OUT_OF_SAMPLE"} · Historical signals exclude persistent memory.</span>
+                </div>
+              </>
+            ) : (
+              <div className="empty-state"><Database size={16} /><span>No research run loaded. Choose a validated date window and run the complete MAX research pipeline.</span></div>
+            )}
           </section>
 
           <section
@@ -2448,7 +2543,7 @@ export default function Home() {
 
           <footer className="footer">
             <span>
-              NINE V2.11.0 · PAPER EXECUTION
+              NINE MAX · V2.17+ · PAPER EXECUTION
             </span>
             <span>
               {feed?.provider ?? "—"} ·{" "}
