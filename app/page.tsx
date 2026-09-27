@@ -1418,6 +1418,92 @@ export default function Home() {
             </div>
           </section>
 
+
+          <section className="professional-cockpit" aria-label="Professional trading cockpit">
+            <div className="cockpit-commandbar">
+              <div className="cockpit-command-main">
+                <div className="eyebrow"><Activity size={12} /> PROFESSIONAL COCKPIT</div>
+                <div className="cockpit-title-row">
+                  <h2>{symbol}</h2>
+                  <StatusPill value={feedState.label} />
+                  <span className="cockpit-mode"><span className="cockpit-lock-dot" /> PAPER ONLY</span>
+                </div>
+                <p>
+                  Validated market intelligence, multi-agent context and Sentinel risk controls in one execution-safe workspace.
+                </p>
+              </div>
+              <div className="cockpit-actions">
+                <button type="button" onClick={() => selectSection("chartist")}><BarChart3 size={14} /> CHART</button>
+                <button type="button" onClick={() => selectSection("sentinel")}><Shield size={14} /> RISK</button>
+                <button type="button" onClick={() => selectSection("backtest")}><Target size={14} /> RESEARCH</button>
+                <button type="button" className="cockpit-refresh" onClick={() => void load()}><RefreshCw size={14} /> REFRESH</button>
+              </div>
+            </div>
+
+            <div className="cockpit-metrics">
+              <div className="cockpit-metric primary">
+                <span>MARKET PRICE</span>
+                <b>{fmt(market?.price, 2)}</b>
+                <small className={liveMove >= 0 ? "positive-text" : "negative-text"}>{signed(liveMove)} from previous candle</small>
+              </div>
+              <div className="cockpit-metric">
+                <span>NINE DECISION</span>
+                <b><StatusPill value={status} /></b>
+                <small>{v27?.brain?.rationale ?? "Awaiting validated setup."}</small>
+              </div>
+              <div className="cockpit-metric">
+                <span>SENTINEL GATE</span>
+                <b><StatusPill value={sentinel?.approved ? "APPROVED" : "BLOCKED"} /></b>
+                <small>{sentinel?.reason ?? "Risk authorization unavailable."}</small>
+              </div>
+              <div className="cockpit-metric">
+                <span>RISK UTILIZATION</span>
+                <b>{fmt(risk?.exposurePercent, 2)}%</b>
+                <small>{risk?.openPositions ?? 0} open positions · {fmt(risk?.drawdownPercent, 2)}% drawdown</small>
+              </div>
+            </div>
+
+            <div className="agent-deck">
+              <div className="agent-deck-heading">
+                <div>
+                  <div className="eyebrow"><Brain size={12} /> AGENT DECK</div>
+                  <b>Independent perspectives before paper execution</b>
+                </div>
+                <span>AUTHORITY: <strong>SENTINEL</strong></span>
+              </div>
+              <div className="agent-deck-grid">
+                {(dashboard?.orchestration?.agentReports ?? []).slice(0, 3).map((agent: any) => (
+                  <div className="agent-card" key={agent.id}>
+                    <div className="agent-card-top">
+                      <div className="agent-avatar">{String(agent.id ?? "N").slice(0, 1)}</div>
+                      <div>
+                        <b>{agent.name ?? agent.id ?? "AGENT"}</b>
+                        <small>{agent.status ?? "UNKNOWN"}</small>
+                      </div>
+                      <span className={agent.status === "ONLINE" ? "agent-online" : "agent-state"} />
+                    </div>
+                    <p>{agent.summary ?? "No validated summary available."}</p>
+                    <div className="agent-card-foot">
+                      <span>CONFIDENCE</span>
+                      <b>{typeof agent.confidence === "number" ? `${agent.confidence}%` : "—"}</b>
+                    </div>
+                  </div>
+                ))}
+                {!(dashboard?.orchestration?.agentReports?.length) && (
+                  <div className="agent-empty">Agent reports will appear after the next validated orchestration cycle.</div>
+                )}
+              </div>
+            </div>
+
+            <div className="cockpit-safety-strip">
+              <span><Shield size={13} /> LIVE BROKER <b className="negative-text">LOCKED</b></span>
+              <span>EXECUTION <b>PAPER</b></span>
+              <span>SENTINEL <b className={sentinel?.approved ? "positive-text" : "negative-text"}>{sentinel?.approved ? "APPROVED" : "BLOCKED"}</b></span>
+              <span>FEED <b>{feedState.label}</b></span>
+              <span className="cockpit-safety-note">No validated signal bypasses the safety stack.</span>
+            </div>
+          </section>
+
           <section className="max-cockpit">
             <div className="max-cockpit-head">
               <div>
