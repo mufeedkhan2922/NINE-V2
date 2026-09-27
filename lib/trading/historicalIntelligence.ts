@@ -2,6 +2,7 @@ import { evaluateStrategyBook, type StrategyCandidate } from "./strategyEngine";
 import { NINE_STRATEGIES } from "./strategyLibrary";
 import type { Candle, MarketSnapshot, TradeDirection } from "./types";
 import { buildResearchRiskProfile, type ResearchRiskProfile } from "./researchRisk";
+import { buildStrategyResearchMatrix, type StrategyResearchMatrix } from "./researchMatrix";
 
 export interface ExecutionModel {
   spreadPrice: number;
@@ -112,6 +113,7 @@ export interface HistoricalIntelligenceResult {
   targetReached: boolean;
   researchQuality: ResearchQuality;
   riskProfile: ResearchRiskProfile;
+  researchMatrix: StrategyResearchMatrix;
   generatedAt: number;
   researchIntegrity: {
     memoryExcludedFromHistoricalSignals: boolean;
@@ -470,6 +472,8 @@ export function runHistoricalIntelligence(
     researchStatus === "QUALIFIED",
   );
 
+  const researchMatrix = buildStrategyResearchMatrix(stats);
+
   const memoryRecords: StrategyMemoryRecord[] = [];
   const memoryStats = aggregateTrades(wf.oosTrades);
   for (const s of memoryStats) {
@@ -520,6 +524,7 @@ export function runHistoricalIntelligence(
       explanation: researchExplanation,
     },
     riskProfile: buildResearchRiskProfile(wf.oosTrades),
+    researchMatrix,
     generatedAt: Date.now(),
     researchIntegrity: {
       memoryExcludedFromHistoricalSignals: true,
