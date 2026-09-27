@@ -1,4 +1,7 @@
 import { NextResponse } from "next/server";
+import { requireUser } from "@/lib/security/auth";
+import { assertSameOrigin } from "@/lib/security/requestSecurity";
+import { rateLimit, requestKey } from "@/lib/security/rateLimit";
 
 import { getLiveMarketSnapshot } from "@/lib/trading/market";
 import { orchestrateNINE } from "@/lib/trading/orchestrator";
@@ -36,6 +39,15 @@ function requestedSymbol(request: Request): MarketSymbol {
 }
 
 export async function GET(request: Request) {
+  try {
+    assertSameOrigin(request);
+    const user = requireUser(request);
+    const limit = rateLimit(requestKey(request, user.id), 20, 60_000);
+    if (!limit.allowed) return NextResponse.json({ ok: false, error: "Dashboard rate limit exceeded.", retryAfterSeconds: limit.retryAfterSeconds }, { status: 429 });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Authentication failed.";
+    return NextResponse.json({ ok: false, error: message }, { status: message === "UNAUTHENTICATED" ? 401 : message === "CROSS_ORIGIN" ? 403 : 500 });
+  }
   const symbol = requestedSymbol(request);
 
   try {

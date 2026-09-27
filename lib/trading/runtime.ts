@@ -1,7 +1,7 @@
 import { MarketFeedStatus } from "./types";
 import { providerHealth, providerName } from "./provider";
 
-export const NINE_VERSION = "2.10.2";
+export const NINE_VERSION = "2.10.3";
 
 export function liveTradingEnabled(): boolean {
   return (

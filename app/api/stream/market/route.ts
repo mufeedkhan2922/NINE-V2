@@ -1,4 +1,5 @@
 import { requireUser } from "@/lib/security/auth";
+import { assertSameOrigin } from "@/lib/security/requestSecurity";
 import { rateLimit, requestKey } from "@/lib/security/rateLimit";
 import { getLiveMarketSnapshot } from "@/lib/trading/market";
 import { getPaperAccount } from "@/lib/trading/paperTrading";
@@ -24,6 +25,14 @@ function requestedSymbol(request: Request): MarketSymbol {
 }
 
 export async function GET(request: Request) {
+  try {
+    assertSameOrigin(request);
+  } catch {
+    return new Response(JSON.stringify({ ok: false, error: "CROSS_ORIGIN" }), {
+      status: 403,
+      headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
+    });
+  }
   let user;
   try {
     user = requireUser(request);
