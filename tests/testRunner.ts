@@ -10,6 +10,11 @@ import { runPaperOrdersTests } from "./paperOrders.test";
 import { runSentinelTests } from "./sentinel.test";
 import { runRuntimeTest } from "./runtime.test";
 import { runSecurityTest } from "./security.test";
+import { runV26Test } from "./v26.test";
+import { runV27Test } from "./v27.test";
+import { runV29Test } from "./v29.test";
+import { runV291Test } from "./v291.test";
+import { runV210Test } from "./v210.test";
 
 const tests: Array<[string, () => void | Promise<void>]> = [
   ["technical", runTechnicalTest],
@@ -22,6 +27,11 @@ const tests: Array<[string, () => void | Promise<void>]> = [
   ["sentinel", runSentinelTests],
   ["runtime safety", runRuntimeTest],
   ["security", runSecurityTest],
+  ["v2.6 intelligence", runV26Test],
+  ["v2.7 command center", runV27Test],
+  ["v2.9 full functionality", runV29Test],
+  ["v2.9.1 provider reliability", runV291Test],
+  ["v2.10 analytics and explanations", runV210Test],
 ];
 
 async function main(): Promise<void> {

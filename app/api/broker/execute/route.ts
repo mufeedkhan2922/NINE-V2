@@ -7,6 +7,7 @@ import { orchestrateNINE } from "@/lib/trading/orchestrator";
 import { executeBrokerOrder, executionRequestFromSetup } from "@/lib/trading/execution";
 import { getPaperAccount } from "@/lib/trading/paperTrading";
 import { liveTradingEnabled } from "@/lib/trading/runtime";
+import type { MarketSymbol } from "@/lib/trading/types";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -18,13 +19,17 @@ export async function POST(request: Request) {
     const limit = rateLimit(requestKey(request, user.id), 10, 60_000);
     if (!limit.allowed) return NextResponse.json({ ok: false, error: "Execution rate limit exceeded.", retryAfterSeconds: limit.retryAfterSeconds }, { status: 429 });
 
-    const body = await request.json().catch(() => ({})) as { mode?: "LIVE" | "PAPER"; quantity?: number };
+    const body = await request.json().catch(() => ({})) as { mode?: "LIVE" | "PAPER"; quantity?: number; symbol?: unknown };
+    const requestedSymbol = typeof body.symbol === "string" ? body.symbol.toUpperCase() : "XAUUSD";
+    const symbol: MarketSymbol = requestedSymbol === "NIFTY" || requestedSymbol === "BANKNIFTY" || requestedSymbol === "XAUUSD"
+      ? requestedSymbol
+      : "XAUUSD";
     const mode = body.mode === "LIVE" ? "LIVE" : "PAPER";
     if (mode === "LIVE" && !liveTradingEnabled()) {
       return NextResponse.json({ accepted: false, mode, status: "REJECTED", message: "Live trading is hard-locked. Explicit confirmation and broker configuration are required.", timestamp: Date.now() }, { status: 403 });
     }
 
-    const market = await getLiveMarketSnapshot("XAUUSD");
+    const market = await getLiveMarketSnapshot(symbol);
     const account = getPaperAccount(market.price);
     const orchestration = await orchestrateNINE(market, account);
     if (!orchestration.sentinel.approved) return NextResponse.json({ accepted: false, mode, status: "REJECTED", message: `Sentinel blocked execution: ${orchestration.sentinel.reason}`, timestamp: Date.now(), orchestration }, { status: 403 });

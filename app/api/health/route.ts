@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/trading/db";
-import { NINE_VERSION, runtimeSafety } from "@/lib/trading/runtime";
+import { NINE_VERSION, runtimeDiagnostics, runtimeSafety } from "@/lib/trading/runtime";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -16,6 +16,7 @@ export async function GET() {
       version: NINE_VERSION,
       db: "sqlite",
       runtime: safety,
+      diagnostics: runtimeDiagnostics(),
       timestamp: new Date().toISOString(),
     });
   } catch {
