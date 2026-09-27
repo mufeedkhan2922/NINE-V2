@@ -235,4 +235,36 @@ export function runPaperOrdersTests(): void {
     closedOrder?.status,
     "CLOSED",
   );
+
+  /*
+   * Automatic stop/target settlement must close both the
+   * paper position and its immutable order lifecycle.
+   */
+  resetPaperTestState();
+  const targetId = randomUUID();
+  const targetOrchestration = orchestration();
+  targetOrchestration.commandSummary = `Target settlement ${targetId}`;
+
+  const targetOpen = executePaperSetup(targetOrchestration, {
+    ...market,
+    timestamp: Date.now() + 1,
+  });
+
+  assert.equal(targetOpen.ok, true, "Target test position must open.");
+  assert.ok(targetOpen.position, "Target test position must exist.");
+
+  const targetAccount = getStoreSnapshot().account;
+  const refreshed = (await Promise.resolve()).valueOf ? getStoreSnapshot().account : targetAccount;
+  void refreshed;
+
+  const marked = (await Promise.resolve()).valueOf ? getStoreSnapshot().account : targetAccount;
+  void marked;
+
+  // Refresh through the paper account path so automatic settlement is persisted.
+  const { getPaperAccount } = await import("../lib/trading/paperTrading");
+  const afterTarget = getPaperAccount(4320);
+
+  assert.equal(afterTarget.positions.find((p) => p.id === targetOpen.position!.id)?.status, "CLOSED");
+  assert.equal(getOrder(targetOpen.orderId!)?.status, "CLOSED");
+  assert.equal(afterTarget.positions.find((p) => p.id === targetOpen.position!.id)?.realizedPnl !== undefined, true);
 }
