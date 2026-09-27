@@ -2450,3 +2450,567 @@ button:disabled {
   .cockpit-actions button { flex: 1 1 calc(50% - 6px); justify-content: center; }
   .metric-grid, .structure-grid, .risk-grid, .account-grid { grid-template-columns: 1fr; }
 }
+
+
+/* V3.9 — NINE Professional Light Terminal
+   UI-only presentation layer. Trading, research, paper execution and safety
+   logic remain unchanged. */
+:root {
+  --bg: #f5f7fa;
+  --bg-2: #eef1f5;
+  --panel: #ffffff;
+  --panel-strong: #ffffff;
+  --line: #e3e7ed;
+  --line-strong: #cfd6df;
+  --text: #18212b;
+  --muted: #687585;
+  --faint: #8b96a4;
+  --accent: #176b4d;
+  --accent-2: #22936b;
+  --positive: #18794e;
+  --negative: #c43d45;
+  --warning: #a46b08;
+  --shadow: 0 12px 30px rgba(25, 38, 52, .07);
+}
+
+html {
+  background: var(--bg);
+}
+
+body {
+  background:
+    linear-gradient(180deg, #ffffff 0, #f7f9fb 260px, var(--bg) 100%);
+  color: var(--text);
+}
+
+.nine-app {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.96), rgba(245,247,250,.98)),
+    none;
+}
+
+.topbar {
+  height: 64px;
+  padding: 0 24px;
+  gap: 24px;
+  border-bottom: 1px solid var(--line);
+  background: rgba(255,255,255,.94);
+  box-shadow: 0 1px 0 rgba(25,38,52,.025);
+  backdrop-filter: blur(16px);
+}
+
+.brand {
+  min-width: 205px;
+}
+
+.brand-mark,
+.loading-mark,
+.auth-mark {
+  border-color: #c9ded5;
+  border-radius: 9px;
+  color: var(--accent);
+  background: #f2f8f5;
+  box-shadow: none;
+}
+
+.brand-name {
+  color: #17202a;
+  font-size: 14px;
+  letter-spacing: .16em;
+}
+
+.brand-version {
+  color: #87919d;
+}
+
+.nav-button {
+  color: #6f7b89;
+  border-radius: 6px;
+  font-size: 10px;
+}
+
+.nav-button:hover,
+.nav-button.active {
+  color: #18212b;
+  background: #f0f5f2;
+}
+
+.nav-button.active {
+  box-shadow: inset 0 -2px var(--accent);
+}
+
+.stream-status {
+  color: #74808d;
+}
+
+.live-dot,
+.status-pill-dot {
+  box-shadow: none;
+}
+
+.icon-button,
+.signout {
+  border-color: var(--line);
+  background: #fff;
+  color: #687585;
+}
+
+.icon-button:hover,
+.signout:hover {
+  border-color: var(--line-strong);
+  color: var(--text);
+  background: #f8fafc;
+}
+
+.workspace {
+  grid-template-columns: 214px minmax(0, 1fr);
+  min-height: calc(100vh - 64px);
+}
+
+.sidebar {
+  top: 64px;
+  height: calc(100vh - 64px);
+  padding: 18px 14px;
+  border-right: 1px solid var(--line);
+  background: #fbfcfd;
+}
+
+.sidebar-block {
+  padding-bottom: 17px;
+  margin-bottom: 17px;
+  border-bottom-color: var(--line);
+}
+
+.eyebrow {
+  color: #87919d;
+  font-size: 8px;
+}
+
+.symbol-list {
+  gap: 4px;
+}
+
+.symbol-button {
+  padding: 10px;
+  border-radius: 8px;
+}
+
+.symbol-button:hover,
+.symbol-button.active {
+  border-color: #d9e4de;
+  background: #f1f7f4;
+}
+
+.symbol-button b {
+  color: #1c2732;
+  font-size: 11px;
+}
+
+.symbol-button small {
+  color: #8b96a4;
+}
+
+.selected-dot {
+  box-shadow: none;
+}
+
+.command-form input,
+.research-controls input,
+.research-controls select,
+.backtest-timeframe-control select {
+  border-color: var(--line);
+  background: #fff;
+  color: var(--text);
+}
+
+.command-form input:focus,
+.research-controls input:focus,
+.research-controls select:focus {
+  border-color: #9cc6b5;
+  box-shadow: 0 0 0 3px rgba(34,147,107,.07);
+}
+
+.command-form button {
+  border-color: #d5e4dc;
+  background: #f0f7f3;
+  color: var(--accent);
+}
+
+.suggestion-list button {
+  border-color: var(--line);
+  background: #fff;
+  color: #74808d;
+}
+
+.suggestion-list button:hover {
+  color: var(--text);
+  border-color: var(--line-strong);
+  background: #f8fafc;
+}
+
+.content {
+  padding: 24px 28px 42px;
+  max-width: 1680px;
+}
+
+.hero-section {
+  padding: 8px 0 20px;
+}
+
+.hero-copy h1 {
+  color: #14202b;
+  letter-spacing: -.055em;
+}
+
+.hero-copy p {
+  color: #687585;
+}
+
+.panel,
+.card,
+.metric-card,
+.account-card,
+.risk-card,
+.structure-card,
+.zone-card,
+.agent-card,
+.max-cockpit,
+.professional-cockpit {
+  border-color: var(--line);
+  background: var(--panel);
+  box-shadow: 0 7px 24px rgba(25,38,52,.045);
+}
+
+.panel {
+  border-radius: 12px;
+}
+
+.section-header {
+  border-bottom-color: var(--line);
+}
+
+.section-header h2,
+.panel h2,
+.card h3 {
+  color: #18212b;
+}
+
+.metric-card,
+.account-card,
+.risk-card,
+.structure-card,
+.zone-card {
+  border-radius: 9px;
+}
+
+.metric-card span,
+.account-card span,
+.risk-card span,
+.structure-card span,
+.zone-card span {
+  color: #8994a1;
+}
+
+.metric-card b,
+.account-card b,
+.risk-card b,
+.structure-card b,
+.zone-card b {
+  color: #1a2530;
+}
+
+.status-pill {
+  border-color: var(--line);
+  background: #f8fafc;
+  color: #5f6c79;
+}
+
+.status-pill.positive {
+  border-color: #cde5d9;
+  background: #f0f8f4;
+  color: #176b4d;
+}
+
+.status-pill.negative {
+  border-color: #efd0d3;
+  background: #fff5f5;
+  color: #b53b43;
+}
+
+.status-pill.neutral {
+  border-color: #dfe4ea;
+  background: #f7f8fa;
+  color: #687585;
+}
+
+.max-cockpit,
+.professional-cockpit {
+  background: #fff;
+  box-shadow: 0 12px 30px rgba(25,38,52,.06);
+}
+
+.max-cockpit-head,
+.cockpit-commandbar {
+  border-bottom-color: var(--line);
+}
+
+.max-cockpit-head h2,
+.cockpit-title-row h2 {
+  color: #16212b;
+}
+
+.max-cockpit-head p,
+.cockpit-command-main p {
+  color: #6b7785;
+}
+
+.max-mode,
+.cockpit-mode {
+  border-color: var(--line);
+  background: #f8fafc;
+}
+
+.max-mode b,
+.cockpit-mode {
+  color: var(--accent);
+}
+
+.max-layer,
+.agent-card,
+.reconciliation-row,
+.reconciliation-ok {
+  border-color: var(--line);
+  background: #fbfcfd;
+}
+
+.max-layer > span,
+.max-layer small,
+.agent-card-top small,
+.agent-card-foot,
+.reconciliation-row span,
+.reconciliation-ok span {
+  color: #84909d;
+}
+
+.cockpit-metrics {
+  background: var(--line);
+}
+
+.cockpit-metric {
+  background: #fff;
+}
+
+.cockpit-metric.primary {
+  background: #f7fbf9;
+}
+
+.cockpit-metric span {
+  color: #8a95a1;
+}
+
+.cockpit-metric > b {
+  color: #17222d;
+}
+
+.cockpit-metric small {
+  color: #778391;
+}
+
+.agent-deck {
+  background: #fff;
+}
+
+.agent-avatar {
+  border-color: #cfe0d8;
+  background: #f1f7f4;
+  color: var(--accent);
+}
+
+.agent-card p {
+  color: #687585;
+}
+
+.cockpit-actions button,
+.secondary-button {
+  border-color: var(--line);
+  background: #fff;
+  color: #667482;
+}
+
+.cockpit-actions button:hover,
+.secondary-button:hover:not(:disabled) {
+  border-color: #b9d4c8;
+  background: #f3f8f5;
+  color: #183c2e;
+}
+
+.cockpit-safety-strip {
+  border-top-color: var(--line);
+  color: #7d8996;
+  background: #fbfcfd;
+}
+
+.cockpit-safety-strip b {
+  color: #42505d;
+}
+
+.chart-feed-banner,
+.chart-toolbar,
+.chart-interaction-hint {
+  border-color: var(--line);
+  background: #fff;
+  color: #697684;
+}
+
+.chart-tool {
+  border-color: var(--line);
+  background: #fff;
+  color: #6f7b88;
+}
+
+.chart-tool:hover,
+.chart-tool.active {
+  border-color: #b8d5c8;
+  background: #eff7f3;
+  color: #176b4d;
+}
+
+.chart-plot-bg,
+.chart-volume-bg {
+  fill: #fbfcfd;
+  stroke: #edf0f3;
+}
+
+.chart-grid {
+  stroke: #e7ebef;
+}
+
+.chart-price-label,
+.chart-time-label {
+  fill: #8a95a1;
+}
+
+.chart-zone-fvg.long {
+  fill: rgba(34,147,107,.08);
+  stroke: rgba(34,147,107,.24);
+}
+
+.chart-zone-fvg.short {
+  fill: rgba(196,61,69,.06);
+  stroke: rgba(196,61,69,.20);
+}
+
+.chart-zone-ob.long {
+  fill: rgba(65,112,201,.06);
+  stroke: rgba(65,112,201,.20);
+}
+
+.chart-zone-ob.short {
+  fill: rgba(154,82,174,.05);
+  stroke: rgba(154,82,174,.18);
+}
+
+.liquidity-line.high,
+.liquidity-line.low {
+  stroke: #a46b08;
+}
+
+.current-price-line {
+  stroke: #176b4d;
+}
+
+.current-price-tag {
+  fill: #176b4d;
+}
+
+.current-price-label {
+  fill: #fff;
+}
+
+.crosshair-line {
+  stroke: rgba(69,98,126,.30);
+}
+
+.chart-tooltip rect {
+  fill: rgba(24,33,43,.96);
+}
+
+.research-controls input,
+.research-controls select {
+  height: 36px;
+}
+
+.research-integrity {
+  border-color: #d5e8de;
+  background: #f4faf7;
+  color: #687585;
+}
+
+.footer {
+  border-top-color: var(--line);
+  color: #8a95a1;
+}
+
+.auth-overlay {
+  background: rgba(238,242,246,.78);
+  backdrop-filter: blur(8px);
+}
+
+.auth-card {
+  border-color: var(--line);
+  background: #fff;
+  box-shadow: 0 24px 70px rgba(25,38,52,.13);
+}
+
+.auth-card h2 {
+  color: #18212b;
+}
+
+.auth-card p {
+  color: #687585;
+}
+
+.auth-card input {
+  border-color: var(--line);
+  background: #fff;
+  color: var(--text);
+}
+
+.login-button {
+  background: #176b4d;
+  color: #fff;
+}
+
+.login-button:hover {
+  background: #145b42;
+}
+
+/* Compact terminal rhythm */
+.section-grid,
+.metric-grid,
+.risk-grid,
+.structure-grid,
+.account-grid {
+  gap: 10px;
+}
+
+.panel-header,
+.section-header {
+  margin-bottom: 12px;
+}
+
+@media (max-width: 820px) {
+  .topbar {
+    height: 58px;
+    background: rgba(255,255,255,.97);
+  }
+
+  .sidebar {
+    top: 58px;
+    background: rgba(255,255,255,.97);
+  }
+
+  .content {
+    padding: 14px 12px 30px;
+  }
+}
