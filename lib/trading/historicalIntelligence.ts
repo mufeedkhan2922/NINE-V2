@@ -83,6 +83,19 @@ export interface StrategyMemoryRecord {
   updatedAt: number;
 }
 
+export interface ResearchQuality {
+  status: "INSUFFICIENT_DATA" | "WATCH" | "QUALIFIED";
+  score: number;
+  outOfSampleTrades: number;
+  foldsEvaluated: number;
+  positiveValidationFolds: number;
+  foldConsistency: number;
+  bestStrategyId: string | null;
+  bestStrategyWinRate: number | null;
+  bestStrategyWilsonLowerBound: number | null;
+  explanation: string[];
+}
+
 export interface HistoricalIntelligenceResult {
   symbol: string;
   timeframe: string;
@@ -96,6 +109,7 @@ export interface HistoricalIntelligenceResult {
   memoryRecords: StrategyMemoryRecord[];
   targetWinRate: number;
   targetReached: boolean;
+  researchQuality: ResearchQuality;
   generatedAt: number;
   researchIntegrity: {
     memoryExcludedFromHistoricalSignals: boolean;
@@ -315,6 +329,15 @@ function percentile(values: number[], p: number): number {
   return sorted[lower] + (sorted[upper] - sorted[lower]) * (index - lower);
 }
 
+function wilsonLowerBound(wins: number, trades: number, z = 1.96): number {
+  if (trades <= 0) return 0;
+  const p = wins / trades;
+  const denominator = 1 + (z * z) / trades;
+  const centre = p + (z * z) / (2 * trades);
+  const spread = z * Math.sqrt((p * (1 - p) + (z * z) / (4 * trades)) / trades);
+  return Math.max(0, (centre - spread) / denominator) * 100;
+}
+
 function seededRandom(seed: number): () => number {
   let state = seed >>> 0;
   return () => {
@@ -409,7 +432,41 @@ export function runHistoricalIntelligence(
   const selectedOutOfSample = aggregateTrades(wf.oosTrades).filter((s) => s.trades > 0);
   const best = [...selectedOutOfSample].sort((a, b) => (b.expectancyR - a.expectancyR) || (b.winRate - a.winRate))[0] ?? null;
   const targetWinRate = Math.max(50, Math.min(99.9, options.targetWinRate ?? 90));
-  const targetReached = Boolean(best && best.trades >= 20 && best.winRate >= targetWinRate);
+  const bestWilson = best ? wilsonLowerBound(best.wins, best.trades) : 0;
+  const positiveValidationFolds = wf.folds.filter((fold) =>
+    fold.validationStats.some((stat) => stat.expectancyR > 0 && stat.trades > 0),
+  ).length;
+  const foldConsistency = wf.folds.length ? (positiveValidationFolds / wf.folds.length) * 100 : 0;
+  const oosTrades = wf.oosTrades.length;
+  const sampleScore = Math.min(30, (oosTrades / 100) * 30);
+  const consistencyScore = foldConsistency * 0.35;
+  const confidenceScore = Math.min(25, bestWilson * 0.25);
+  const expectancyScore = best && best.expectancyR > 0 ? Math.min(10, best.expectancyR * 10) : 0;
+  const researchScore = Math.max(0, Math.min(100, Math.round(sampleScore + consistencyScore + confidenceScore + expectancyScore)));
+  const researchStatus: ResearchQuality["status"] =
+    oosTrades < 20 || wf.folds.length < 2
+      ? "INSUFFICIENT_DATA"
+      : researchScore >= 70 && foldConsistency >= 50
+        ? "QUALIFIED"
+        : "WATCH";
+  const researchExplanation = [
+    `OOS sample: ${oosTrades} trades across ${wf.folds.length} validation folds.`,
+    `Positive validation folds: ${positiveValidationFolds}/${wf.folds.length} (${foldConsistency.toFixed(1)}%).`,
+    best ? `${best.strategyName} OOS win rate is ${best.winRate.toFixed(1)}%; Wilson 95% lower bound is ${bestWilson.toFixed(1)}%.` : "No strategy produced qualifying OOS evidence.",
+    researchStatus === "QUALIFIED"
+      ? "Evidence meets the research qualification threshold."
+      : researchStatus === "WATCH"
+        ? "Evidence is usable for monitoring but is not strong enough for qualification."
+        : "More out-of-sample data is required before research conclusions are considered reliable.",
+  ];
+
+  const targetReached = Boolean(
+    best &&
+    best.trades >= 20 &&
+    best.winRate >= targetWinRate &&
+    bestWilson >= Math.min(targetWinRate, 70) &&
+    researchStatus === "QUALIFIED",
+  );
 
   const memoryRecords: StrategyMemoryRecord[] = [];
   const memoryStats = aggregateTrades(wf.oosTrades);
@@ -448,6 +505,18 @@ export function runHistoricalIntelligence(
     memoryRecords,
     targetWinRate,
     targetReached,
+    researchQuality: {
+      status: researchStatus,
+      score: researchScore,
+      outOfSampleTrades: oosTrades,
+      foldsEvaluated: wf.folds.length,
+      positiveValidationFolds,
+      foldConsistency: Number(foldConsistency.toFixed(2)),
+      bestStrategyId: best?.strategyId ?? null,
+      bestStrategyWinRate: best?.winRate ?? null,
+      bestStrategyWilsonLowerBound: best ? Number(bestWilson.toFixed(2)) : null,
+      explanation: researchExplanation,
+    },
     generatedAt: Date.now(),
     researchIntegrity: {
       memoryExcludedFromHistoricalSignals: true,
