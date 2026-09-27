@@ -3,7 +3,7 @@ import type { AtlasContext, MarketSnapshot, PaperAccount, SentinelDecision, Trad
 import * as assert from "./assert";
 
 export function runXAUDecisionEngineTest(): void {
-  const now = Date.now();
+  const now = Date.parse("2026-09-27T12:30:00Z");
   const setup = {
     symbol: "XAUUSD",
     direction: "LONG",
