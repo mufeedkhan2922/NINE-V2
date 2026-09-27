@@ -71,7 +71,7 @@ export async function GET(request: Request) {
           if (!closed) {
             controller.enqueue(
               encoder.encode(
-                `event: error\ndata: ${JSON.stringify({
+                `event: market_error\ndata: ${JSON.stringify({
                   version: NINE_VERSION,
                   symbol,
                   runtime: runtimeSafety(),
@@ -80,6 +80,11 @@ export async function GET(request: Request) {
                     error instanceof Error
                       ? error.message
                       : "Market stream error.",
+                  events: [{
+                    type: "MARKET_DEGRADED",
+                    message: `Signal engine blocked: ${error instanceof Error ? error.message : "Market stream error."}`,
+                    timestamp: Date.now(),
+                  }],
                   ts: Date.now(),
                 })}\n\n`,
               ),

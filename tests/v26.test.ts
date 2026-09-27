@@ -665,4 +665,28 @@ export async function runV26Test(): Promise<void> {
       result.maxDrawdownPercent,
     ),
   );
+
+  const insufficient = runBacktestV26(
+    c.slice(0, 20),
+    10_000,
+    0.5,
+  );
+
+  assert.equal(
+    insufficient.initialBalance,
+    10_000,
+    "short backtest preserves initial balance",
+  );
+
+  assert.equal(
+    insufficient.finalBalance,
+    10_000,
+    "short backtest preserves final balance",
+  );
+
+  assert.equal(
+    insufficient.totalTrades,
+    0,
+    "short backtest performs no trades",
+  );
 }

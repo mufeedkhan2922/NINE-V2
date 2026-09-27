@@ -12,6 +12,8 @@ import { runRuntimeTest } from "./runtime.test";
 import { runSecurityTest } from "./security.test";
 import { runV26Test } from "./v26.test";
 import { runV27Test } from "./v27.test";
+import { runV29Test } from "./v29.test";
+import { runV291Test } from "./v291.test";
 
 const tests: Array<[string, () => void | Promise<void>]> = [
   ["technical", runTechnicalTest],
@@ -26,6 +28,8 @@ const tests: Array<[string, () => void | Promise<void>]> = [
   ["security", runSecurityTest],
   ["v2.6 intelligence", runV26Test],
   ["v2.7 command center", runV27Test],
+  ["v2.9 full functionality", runV29Test],
+  ["v2.9.1 provider reliability", runV291Test],
 ];
 
 async function main(): Promise<void> {

@@ -50,6 +50,8 @@ export interface TimeframeData {
   previousClose: number;
   changePercent: number;
   updatedAt: number;
+  source?: "PROVIDER" | "CACHE";
+  providerError?: string;
 }
 
 export interface DataQualityStats {
@@ -139,6 +141,7 @@ export interface MarketSnapshot {
   marketState?: MarketStateAssessment;
   tradingAllowed?: boolean;
   priceSource?: "QUOTE" | "CANDLE";
+  providerErrors?: Partial<Record<Timeframe, string>>;
 }
 
 export interface TechnicalAnalysis {
@@ -389,6 +392,7 @@ export interface AtlasContext {
   macroEvents: AtlasMacroEvent[];
   sourceStatus: "LIVE" | "LIMITED" | "UNAVAILABLE";
   freshnessSeconds: number | null;
+  errors?: string[];
 }
 
 export interface AdvancedRiskAssessment extends RiskAssessment {
@@ -416,6 +420,7 @@ export interface MarketFeedStatus {
   priceSource: "QUOTE" | "CANDLE" | "NONE";
   tradingAllowed: boolean;
   reason: string;
+  diagnostics?: string[];
 }
 
 export interface SentinelRiskSnapshot {

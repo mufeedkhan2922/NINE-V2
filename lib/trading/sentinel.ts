@@ -33,7 +33,8 @@ function consecutiveLosses(): number {
 
 export function buildRiskSnapshot(market: MarketSnapshot, setup: TradingSetup, account: PaperAccount): SentinelRiskSnapshot {
   const equity = Math.max(0, account.equity);
-  const notional = openNotional(account) + (setup.entry && setup.direction !== "NONE" ? Math.abs(setup.entry) : 0);
+  const proposedQuantity = Math.max(0.01, Number(process.env.NINE_DEFAULT_ORDER_QUANTITY ?? 0.01));
+  const notional = openNotional(account) + (setup.entry && setup.direction !== "NONE" ? Math.abs(setup.entry) * proposedQuantity : 0);
   const dailyLossPercent = account.dailyStartBalance > 0 ? Math.max(0, (-account.dailyRealizedPnl / account.dailyStartBalance) * 100) : 0;
   const drawdownPercent = account.peakEquity > 0 ? Math.max(0, ((account.peakEquity - equity) / account.peakEquity) * 100) : 0;
   const projectedLoss = setup.entry !== null && setup.stopLoss !== null ? Math.abs(setup.entry - setup.stopLoss) * Math.max(0, Number(process.env.NINE_DEFAULT_ORDER_QUANTITY ?? 0.01)) : 0;

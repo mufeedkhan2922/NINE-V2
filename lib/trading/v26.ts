@@ -85,6 +85,8 @@ export interface RiskTelemetryV26 {
 }
 
 export interface BacktestV26Result {
+  initialBalance: number;
+  finalBalance: number;
   totalTrades: number;
   wins: number;
   losses: number;
@@ -331,15 +333,11 @@ export function buildSetupV26(
       base.direction;
 
   const lifecycle: SetupLifecycle =
-    base.status === "VALID" &&
-    aligned &&
-    confluence >= 60
-      ? "CONFIRMED"
-      : base.status === "BLOCKED"
-        ? "INVALIDATED"
-        : base.direction !== "NONE"
-          ? "FORMING"
-          : "INVALIDATED";
+    base.direction === "NONE"
+      ? "INVALIDATED"
+      : base.status === "VALID" && aligned && confluence >= 60
+        ? "CONFIRMED"
+        : "FORMING";
 
   const invalidation =
     base.direction === "LONG"
@@ -948,6 +946,8 @@ export function runBacktestV26(
 ): BacktestV26Result {
   if (candles.length < 40) {
     return {
+      initialBalance: Number(initialBalance),
+      finalBalance: Number(initialBalance),
       totalTrades: 0,
       wins: 0,
       losses: 0,
@@ -1209,6 +1209,12 @@ export function runBacktestV26(
       : 0;
 
   return {
+    initialBalance:
+      Number(initialBalance),
+
+    finalBalance:
+      Number(balance),
+
     totalTrades:
       pnls.length,
 

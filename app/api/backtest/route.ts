@@ -3,10 +3,11 @@ import { randomUUID } from "node:crypto";
 import { requireUser } from "@/lib/security/auth";
 import { assertSameOrigin } from "@/lib/security/requestSecurity";
 import { rateLimit, requestKey } from "@/lib/security/rateLimit";
-import { getLiveMarketSnapshot } from "@/lib/trading/market";
+import { getBacktestCandles } from "@/lib/trading/market";
 import { runBacktest } from "@/lib/trading/backtest";
 import { db } from "@/lib/trading/db";
 import type { MarketSymbol } from "@/lib/trading/types";
+import { NINE_VERSION } from "@/lib/trading/runtime";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -47,7 +48,7 @@ export async function POST(request: Request) {
       ? (rawSymbol as MarketSymbol)
       : "XAUUSD";
 
-    const market = await getLiveMarketSnapshot(symbol);
+    const { candles, source } = await getBacktestCandles(symbol, "1min");
     const initialBalance =
       Number.isFinite(body.initialBalance) &&
       Number(body.initialBalance) > 0
@@ -62,8 +63,7 @@ export async function POST(request: Request) {
         : 0.5;
 
     const result = runBacktest(
-      market.timeframes?.["1min"]?.candles ??
-        market.candles,
+      candles,
       initialBalance,
       riskPercent,
     );
@@ -88,7 +88,7 @@ export async function POST(request: Request) {
       result.netPnl,
       result.maxDrawdown,
       result.profitFactor,
-      JSON.stringify(result.config),
+      JSON.stringify({ ...result.config, source }),
     );
 
     const insert = db.prepare(
@@ -116,10 +116,12 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       ok: true,
-      version: "2.7",
+      version: NINE_VERSION,
       runId,
       symbol,
       result,
+      source: source === "CACHE" ? "validated-candle-cache" : "validated-provider-history",
+      candlesUsed: candles.length,
     });
   } catch (error) {
     const message =

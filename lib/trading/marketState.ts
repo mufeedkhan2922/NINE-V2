@@ -330,94 +330,57 @@ function assessDataState(
   };
 }
 
+function indiaSessionState(now: number): MarketState {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Kolkata",
+    weekday: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(new Date(now));
+  const day = parts.find((part) => part.type === "weekday")?.value ?? "Sun";
+  const hour = Number(parts.find((part) => part.type === "hour")?.value ?? 0);
+  const minute = Number(parts.find((part) => part.type === "minute")?.value ?? 0);
+  if (day === "Sat" || day === "Sun") return "CLOSED";
+  const minutes = hour * 60 + minute;
+  if (minutes < 9 * 60) return "PRE_OPEN";
+  if (minutes <= 15 * 60 + 30) return "OPEN";
+  return "CLOSED";
+}
+
 function assessMarketState(
   symbol: MarketSymbol,
   dataState: DataState,
-  oneMinuteAge: number
+  oneMinuteAge: number,
+  now: number,
 ): {
   state: MarketState;
   feedActivity: boolean;
   reasons: string[];
 } {
-  const feedActivity =
-    isFiniteAge(
-      oneMinuteAge
-    ) &&
-    oneMinuteAge <= 600;
+  const feedActivity = Number.isFinite(oneMinuteAge) && oneMinuteAge <= 600;
 
-  if (
-    symbol === "XAUUSD"
-  ) {
-    if (
-      dataState ===
-        "LIVE" ||
-      dataState ===
-        "DELAYED"
-    ) {
-      return {
-        state:
-          "OPEN",
-
-        feedActivity,
-
-        reasons: [
-          "XAUUSD is configured as a continuously available commodity feed.",
-        ],
-      };
+  if (symbol === "XAUUSD") {
+    const weekday = new Date(now).getUTCDay();
+    if (weekday === 0 || weekday === 6) {
+      return { state: "CLOSED", feedActivity: false, reasons: ["XAUUSD trading is closed for the weekend."] };
     }
-
-    if (
-      dataState ===
-      "STALE"
-    ) {
-      return {
-        state:
-          "UNKNOWN",
-
-        feedActivity:
-          false,
-
-        reasons: [
-          "The XAUUSD feed is too stale to confirm current market activity.",
-        ],
-      };
+    if (dataState === "LIVE" || dataState === "DELAYED") {
+      return { state: "OPEN", feedActivity, reasons: ["XAUUSD is configured as a continuously available weekday commodity feed."] };
     }
-
-    if (
-      dataState ===
-      "SUSPICIOUS"
-    ) {
-      return {
-        state:
-          "UNKNOWN",
-
-        feedActivity:
-          false,
-
-        reasons: [
-          "Market activity cannot be trusted while the underlying feed is suspicious.",
-        ],
-      };
-    }
-
-    return {
-      state:
-        "UNKNOWN",
-
-      feedActivity,
-
-      reasons: [],
-    };
+    return { state: "UNKNOWN", feedActivity, reasons: ["The XAUUSD feed is not fresh enough to confirm current market activity."] };
   }
 
+  const state = indiaSessionState(now);
   return {
-    state:
-      "UNKNOWN",
-
+    state,
     feedActivity,
-
     reasons: [
-      `No market-session calendar is configured yet for ${symbol}.`,
+      state === "OPEN"
+        ? `${symbol} NSE session is currently open (Asia/Kolkata).`
+        : state === "PRE_OPEN"
+          ? `${symbol} is in the NSE pre-open period; execution remains blocked until the regular session opens.`
+          : `${symbol} NSE regular trading session is closed.`,
     ],
   };
 }
@@ -557,7 +520,8 @@ export function assessMarketAndDataState(
     assessMarketState(
       symbol,
       dataAssessment.state,
-      oneMinuteAge
+      oneMinuteAge,
+      now
     );
 
   const reasons = [

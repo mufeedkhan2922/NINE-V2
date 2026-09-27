@@ -18,6 +18,7 @@ import {
 import {
   marketFeedStatus,
   runtimeSafety,
+  runtimeDiagnostics,
   NINE_VERSION,
 } from "@/lib/trading/runtime";
 
@@ -54,11 +55,24 @@ export async function GET(request: Request) {
       mode: "LIVE_DATA_PAPER_TRADING",
       symbol,
       provider: feed.provider,
+      diagnostics: runtimeDiagnostics(),
       runtime: runtimeSafety(),
       feed,
       market,
       orchestration,
       v27: {
+        commandCenter: {
+          status: brainV26.action,
+          executionMode: orchestration.executionMode,
+          tradingAllowed: market.tradingAllowed === true && feed.tradingAllowed,
+        },
+        brain: brainV26,
+        setup: setupV26,
+        marketHealth: marketHealthV26,
+        risk: riskTelemetryV26,
+        events: signalEventsV26,
+      },
+      v29: {
         commandCenter: {
           status: brainV26.action,
           executionMode: orchestration.executionMode,
@@ -91,7 +105,36 @@ export async function GET(request: Request) {
         error: message,
         market: null,
         orchestration: null,
-        v27: null,
+        v27: {
+          commandCenter: {
+            status: "BLOCKED",
+            executionMode: "PAPER",
+            tradingAllowed: false,
+          },
+          brain: {
+            action: "BLOCKED",
+            direction: "NONE",
+            confidence: 0,
+            evidence: [],
+            blockers: [message],
+            rationale: "NINE cannot generate a validated trading signal without a validated market snapshot.",
+            generatedAt: Date.now(),
+          },
+          setup: null,
+          marketHealth: {
+            state: "BLOCKED",
+            latencyMs: null,
+            feedAgeSeconds: Number.POSITIVE_INFINITY,
+            tradingAllowed: false,
+            reasons: [message],
+          },
+          risk: null,
+          events: [{
+            type: "MARKET_DEGRADED",
+            message: `Signal engine blocked: ${message}`,
+            timestamp: Date.now(),
+          }],
+        },
         account: getPaperAccount(),
         orders: getOrders(50),
         events: getPaperEvents(30),

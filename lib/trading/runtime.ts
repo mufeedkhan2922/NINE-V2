@@ -1,7 +1,7 @@
 import { MarketFeedStatus } from "./types";
-import { providerName } from "./provider";
+import { providerHealth, providerName } from "./provider";
 
-export const NINE_VERSION = "2.7.0";
+export const NINE_VERSION = "2.9.2";
 
 export function liveTradingEnabled(): boolean {
   return (
@@ -111,108 +111,55 @@ export function runtimeSafety(): {
 export function marketFeedStatus(
   market: {
     timestamp: number;
-    priceSource?:
-      | "QUOTE"
-      | "CANDLE";
+    priceSource?: "QUOTE" | "CANDLE";
     tradingAllowed?: boolean;
-    marketState?: {
-      dataState?: string;
-    };
+    marketState?: { dataState?: string; reasons?: string[] };
+    providerErrors?: Partial<Record<string, string>>;
   } | null,
 ): MarketFeedStatus {
-  const configured =
-    Boolean(
-      process.env.TWELVE_DATA_API_KEY,
-    );
-
+  const health = providerHealth();
+  const configured = health.configured;
+  const diagnostics = Object.values(market?.providerErrors ?? {}).filter(Boolean) as string[];
+  if (health.rateLimited && health.cooldownRemainingSeconds > 0) {
+    diagnostics.unshift(`${providerName()} rate-limit protection active for ${health.cooldownRemainingSeconds}s.`);
+  }
   if (!market) {
     return {
-      provider:
-        providerName(),
-
-      connection:
-        "DISCONNECTED",
-
-      hasCredentials:
-        configured,
-
-      lastUpdate:
-        null,
-
-      ageSeconds:
-        null,
-
-      stale:
-        true,
-
-      priceSource:
-        "NONE",
-
-      tradingAllowed:
-        false,
-
-      reason:
-        configured
-          ? "No validated market snapshot is available."
-          : "TWELVE_DATA_API_KEY is missing.",
+      provider: providerName(), connection: "DISCONNECTED", hasCredentials: configured,
+      lastUpdate: null, ageSeconds: null, stale: true, priceSource: "NONE", tradingAllowed: false,
+      reason: configured ? "No validated market snapshot is available." : "TWELVE_DATA_API_KEY is missing.",
+      diagnostics: [health.lastQuoteError, ...diagnostics].filter(Boolean) as string[],
     };
   }
-
-  const ageSeconds =
-    Math.max(
-      0,
-      (Date.now() -
-        market.timestamp) /
-        1000,
-    );
-
-  const staleThreshold =
-    Number(
-      process.env
-        .NINE_MARKET_STALE_SECONDS ??
-        20,
-    );
-
-  const stale =
-    ageSeconds >
-      staleThreshold ||
-    market.marketState
-      ?.dataState === "STALE" ||
-    market.marketState
-      ?.dataState === "SUSPICIOUS";
-
+  const ageSeconds = Math.max(0, (Date.now() - market.timestamp) / 1000);
+  const staleThreshold = Number(process.env.NINE_MARKET_STALE_SECONDS ?? 20);
+  const stale = ageSeconds > staleThreshold || market.marketState?.dataState === "STALE" || market.marketState?.dataState === "SUSPICIOUS";
+  const blockedByProvider = diagnostics.length > 0 || health.rateLimited;
   return {
-    provider:
-      providerName(),
-
-    connection:
-      stale
-        ? "DEGRADED"
-        : "CONNECTED",
-
-    hasCredentials:
-      configured,
-
-    lastUpdate:
-      market.timestamp,
-
+    provider: providerName(),
+    connection: stale || blockedByProvider ? "DEGRADED" : "CONNECTED",
+    hasCredentials: configured,
+    lastUpdate: market.timestamp,
     ageSeconds,
-
     stale,
+    priceSource: market.priceSource ?? "NONE",
+    tradingAllowed: Boolean(market.tradingAllowed) && !stale && !blockedByProvider,
+    reason: stale ? "Market data is stale or failed freshness validation." : health.rateLimited ? `Provider request protection is active for ${health.cooldownRemainingSeconds}s.` : blockedByProvider ? "One or more required market feeds failed validation." : "Validated market snapshot is available.",
+    diagnostics: [health.lastQuoteError, ...diagnostics].filter(Boolean) as string[],
+  };
+}
 
-    priceSource:
-      market.priceSource ??
-      "NONE",
-
-    tradingAllowed:
-      Boolean(
-        market.tradingAllowed,
-      ) &&
-      !stale,
-
-    reason:
-      stale
-        ? "Market data is stale or failed freshness validation."
-        : "Validated market snapshot is available.",
+export function runtimeDiagnostics() {
+  const safety = runtimeSafety();
+  const provider = providerHealth();
+  return {
+    version: NINE_VERSION,
+    provider,
+    atlasConfigured: Boolean(process.env.FINNHUB_API_KEY),
+    brokerConfigured: safety.brokerConfigured,
+    paperTradingEnabled: safety.paperTradingEnabled,
+    liveTradingEnabled: safety.liveTradingEnabled,
+    warnings: safety.warnings,
+    environment: safety.environment,
   };
 }

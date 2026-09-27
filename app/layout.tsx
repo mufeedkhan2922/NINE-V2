@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "NINE — AI Trading Desk",
   description:
-    "NINE V2.7 command center for validated market intelligence, paper execution and risk control.",
+    "NINE V2.9 full functionality trading workstation for validated market intelligence, chart analysis, paper execution and risk control.",
 };
 
 export default function RootLayout({

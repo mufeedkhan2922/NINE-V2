@@ -76,6 +76,8 @@ type Dashboard = {
   market?: any;
   orchestration?: any;
   v27?: any;
+  v29?: any;
+  diagnostics?: any;
   account?: any;
   chart?: Candle[];
   events?: any[];
@@ -92,6 +94,11 @@ type BacktestResult = {
   profitFactor: number;
   finalBalance: number;
   initialBalance: number;
+  averageWin?: number;
+  averageLoss?: number;
+  expectancy?: number;
+  sessionStats?: Record<string, { trades: number; wins: number; pnl: number }>;
+  trades?: Array<{ id: string; index: number; side: "LONG" | "SHORT"; entryTime: number; exitTime: number; entryPrice: number; exitPrice: number; stopLoss: number; takeProfit: number; quantity: number; pnl: number; outcome: "WIN" | "LOSS"; reason: "TARGET" | "STOP" | "END" }>;
 };
 
 type CommandRecord = {
@@ -196,85 +203,345 @@ function StatusPill({
   );
 }
 
-function Sparkline({
+function CandlestickChart({
   candles,
-  height = 220,
+  live,
+  chartist,
+  setup,
+  height = 440,
 }: {
   candles: Candle[];
+  live: boolean;
+  chartist?: any;
+  setup?: any;
   height?: number;
 }) {
+  const [timeframe, setTimeframe] = useState("1m");
+  const [visibleCount, setVisibleCount] = useState(90);
+  const [pan, setPan] = useState(0);
+  const [crosshair, setCrosshair] = useState<{ x: number; y: number; index: number } | null>(null);
+  const [tooltip, setTooltip] = useState<{ x: number; y: number; candle: Candle } | null>(null);
+  const dragRef = useRef<{ startX: number; startPan: number } | null>(null);
+  const svgRef = useRef<SVGSVGElement | null>(null);
+
+  const timeframeSeconds: Record<string, number> = {
+    "1m": 60,
+    "5m": 300,
+    "15m": 900,
+    "1h": 3600,
+  };
+
+  const aggregateCandles = (source: Candle[], seconds: number) => {
+    if (seconds === 60 || source.length < 2) return source;
+    const groups = new Map<number, Candle>();
+    for (const candle of source) {
+      const bucket = Math.floor(candle.time / (seconds * 1000)) * seconds * 1000;
+      const current = groups.get(bucket);
+      if (!current) {
+        groups.set(bucket, { ...candle, time: bucket, volume: candle.volume ?? 0 });
+      } else {
+        current.high = Math.max(current.high, candle.high);
+        current.low = Math.min(current.low, candle.low);
+        current.close = candle.close;
+        current.volume = (current.volume ?? 0) + (candle.volume ?? 0);
+      }
+    }
+    return Array.from(groups.values()).sort((a, b) => a.time - b.time);
+  };
+
+  const aggregated = useMemo(
+    () => aggregateCandles(candles, timeframeSeconds[timeframe] ?? 60),
+    [candles, timeframe],
+  );
+
+  const visible = useMemo(() => {
+    if (!aggregated.length) return [];
+    const count = Math.min(visibleCount, aggregated.length);
+    const end = Math.max(count, aggregated.length - pan);
+    return aggregated.slice(Math.max(0, end - count), end);
+  }, [aggregated, visibleCount, pan]);
+
+  useEffect(() => {
+    setPan(0);
+    setTooltip(null);
+    setCrosshair(null);
+  }, [timeframe, candles.length]);
+
   if (!candles.length) {
     return (
       <div className="chart-placeholder">
         <Database size={20} />
-        <span>Waiting for validated candles…</span>
+        <span>No validated candles available.</span>
+        <small>Waiting for a fresh market snapshot.</small>
       </div>
     );
   }
 
-  const width = 1000;
-  const padX = 20;
-  const padY = 18;
-  const min = Math.min(...candles.map((c) => c.low));
-  const max = Math.max(...candles.map((c) => c.high));
-  const span = Math.max(max - min, 0.000001);
-  const x = (index: number) =>
-    padX +
-    (index / Math.max(candles.length - 1, 1)) *
-      (width - padX * 2);
-  const y = (price: number) =>
-    height -
-    padY -
-    ((price - min) / span) * (height - padY * 2);
+  const width = 1500;
+  const plotLeft = 58;
+  const plotRight = 92;
+  const plotTop = 30;
+  const priceBottom = 322;
+  const volumeTop = 338;
+  const volumeBottom = 398;
+  const plotWidth = width - plotLeft - plotRight;
+  const priceHeight = priceBottom - plotTop;
+  const step = plotWidth / Math.max(visible.length, 1);
+  const bodyWidth = Math.max(3, Math.min(13, step * 0.62));
+  const min = Math.min(...visible.map((c) => c.low));
+  const max = Math.max(...visible.map((c) => c.high));
+  const rawSpan = Math.max(max - min, 0.000001);
+  const margin = rawSpan * 0.09;
+  const chartMin = min - margin;
+  const chartMax = max + margin;
+  const span = Math.max(chartMax - chartMin, 0.000001);
+  const maxVolume = Math.max(...visible.map((c) => c.volume ?? 0), 1);
+  const x = (index: number) => plotLeft + index * step + step / 2;
+  const y = (price: number) => plotTop + (1 - (price - chartMin) / span) * priceHeight;
+  const latest = visible.at(-1);
+  const price = latest?.close ?? min;
+  const priceY = y(price);
+  const tickCount = 6;
+  const priceTicks = Array.from({ length: tickCount }, (_, index) => chartMax - (index / (tickCount - 1)) * span);
+  const timeIndices = [0, Math.floor(visible.length * 0.2), Math.floor(visible.length * 0.4), Math.floor(visible.length * 0.6), Math.floor(visible.length * 0.8), visible.length - 1]
+    .filter((value, index, array) => value >= 0 && array.indexOf(value) === index);
+  const formatTime = (value: number) => {
+    const date = new Date(value);
+    return Number.isFinite(date.getTime()) ? date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "—";
+  };
+  const formatPrice = (value: number) => Number.isFinite(value)
+    ? value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    : "—";
 
-  const line = candles
-    .map((c, index) => `${x(index)},${y(c.close)}`)
-    .join(" ");
+  const mapClientToChart = (clientX: number, clientY: number) => {
+    const rect = svgRef.current?.getBoundingClientRect();
+    if (!rect) return null;
+    const chartX = ((clientX - rect.left) / rect.width) * width;
+    const chartY = ((clientY - rect.top) / rect.height) * height;
+    const rawIndex = (chartX - plotLeft) / step - 0.5;
+    const index = Math.round(rawIndex);
+    if (index < 0 || index >= visible.length) return null;
+    return { chartX, chartY, index };
+  };
+
+  const handlePointerMove = (event: React.PointerEvent<SVGSVGElement>) => {
+    if (dragRef.current) {
+      const delta = event.clientX - dragRef.current.startX;
+      const rect = svgRef.current?.getBoundingClientRect();
+      const pixelsPerCandle = rect ? (rect.width / width) * step : step;
+      const deltaCandles = Math.round(-delta / Math.max(pixelsPerCandle, 1));
+      const maxPan = Math.max(0, aggregated.length - visibleCount);
+      setPan(Math.max(0, Math.min(maxPan, dragRef.current.startPan + deltaCandles)));
+      return;
+    }
+    const mapped = mapClientToChart(event.clientX, event.clientY);
+    if (!mapped) {
+      setCrosshair(null);
+      setTooltip(null);
+      return;
+    }
+    const candle = visible[mapped.index];
+    setCrosshair({ x: mapped.chartX, y: mapped.chartY, index: mapped.index });
+    setTooltip({ x: Math.min(mapped.chartX + 14, width - 260), y: Math.max(10, mapped.chartY - 94), candle });
+  };
+
+  const zoom = (direction: number) => {
+    setVisibleCount((current) => Math.max(35, Math.min(140, current + direction)));
+    setPan((current) => Math.min(current, Math.max(0, aggregated.length - visibleCount)));
+  };
+
+  const handleWheel = (event: React.WheelEvent<SVGSVGElement>) => {
+    event.preventDefault();
+    zoom(event.deltaY > 0 ? 10 : -10);
+  };
+
+  const handlePointerDown = (event: React.PointerEvent<SVGSVGElement>) => {
+    dragRef.current = { startX: event.clientX, startPan: pan };
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+  };
+
+  const handlePointerUp = (event: React.PointerEvent<SVGSVGElement>) => {
+    dragRef.current = null;
+    event.currentTarget.releasePointerCapture?.(event.pointerId);
+  };
+
+  const zoneRects = (zones: any[] | undefined, className: string) =>
+    (zones ?? []).slice(-4).map((zone: any, index: number) => {
+      const top = y(Math.max(zone.high, zone.low));
+      const bottom = y(Math.min(zone.high, zone.low));
+      const leftIndex = visible.findIndex((c) => c.time >= zone.createdAt);
+      const left = leftIndex >= 0 ? x(leftIndex) : plotLeft;
+      return (
+        <rect
+          key={`${className}-${zone.createdAt}-${index}`}
+          x={left}
+          y={top}
+          width={Math.max(20, width - plotRight - left)}
+          height={Math.max(2, bottom - top)}
+          className={`${className} ${zone.direction === "SHORT" ? "short" : "long"}`}
+          rx="3"
+        />
+      );
+    });
+
+  const sessionBoundaries = visible.map((candle, index) => {
+    if (index === 0) return null;
+    const prevHour = new Date(visible[index - 1].time).getUTCHours();
+    const hour = new Date(candle.time).getUTCHours();
+    const changed = prevHour !== hour && [0, 7, 12, 21].includes(hour);
+    if (!changed) return null;
+    const label = hour === 0 ? "ASIA" : hour === 7 ? "LONDON" : hour === 12 ? "NEW YORK" : "OFF";
+    return (
+      <g key={`session-${candle.time}`}>
+        <line x1={x(index)} x2={x(index)} y1={plotTop} y2={volumeBottom} className="session-line" />
+        <text x={x(index) + 5} y={plotTop + 14} className="session-label">{label}</text>
+      </g>
+    );
+  });
 
   return (
-    <svg
-      className="market-chart"
-      viewBox={`0 0 ${width} ${height}`}
-      preserveAspectRatio="none"
-      role="img"
-      aria-label="Validated live market chart"
-    >
-      <defs>
-        <linearGradient id="nineChartFill" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="currentColor" stopOpacity=".20" />
-          <stop offset="100%" stopColor="currentColor" stopOpacity="0" />
-        </linearGradient>
-      </defs>
-      {[0.2, 0.4, 0.6, 0.8].map((ratio) => (
-        <line
-          key={ratio}
-          x1={padX}
-          x2={width - padX}
-          y1={height * ratio}
-          y2={height * ratio}
-          className="chart-grid"
-        />
-      ))}
-      <polygon
-        points={`${padX},${height - padY} ${line} ${
-          width - padX
-        },${height - padY}`}
-        fill="url(#nineChartFill)"
-      />
-      <polyline
-        points={line}
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2.5"
-        vectorEffect="non-scaling-stroke"
-      />
-      <circle
-        cx={x(candles.length - 1)}
-        cy={y(candles.at(-1)?.close ?? min)}
-        r="4"
-        fill="currentColor"
-      />
-    </svg>
+    <div className="market-chart-shell workstation-chart">
+      <div className={`chart-feed-banner ${live ? "live" : "stale"}`}>
+        <span className="chart-feed-dot" />
+        <b>{live ? "LIVE VALIDATED DATA" : "LAST VALIDATED DATA"}</b>
+        <span>{live ? "Fresh provider snapshot" : "Not a live execution feed"}</span>
+      </div>
+
+      <div className="chart-toolbar">
+        <div className="chart-tool-group">
+          <span className="chart-tool-label">TIMEFRAME</span>
+          {Object.keys(timeframeSeconds).map((item) => (
+            <button
+              key={item}
+              className={timeframe === item ? "chart-tool active" : "chart-tool"}
+              onClick={() => setTimeframe(item)}
+              type="button"
+            >
+              {item}
+            </button>
+          ))}
+        </div>
+        <div className="chart-tool-group">
+          <span className="chart-tool-label">VIEW</span>
+          <button className="chart-tool" type="button" onClick={() => zoom(-15)}>＋</button>
+          <button className="chart-tool" type="button" onClick={() => zoom(15)}>－</button>
+          <button className="chart-tool" type="button" onClick={() => { setVisibleCount(90); setPan(0); }}>RESET</button>
+        </div>
+        <div className="chart-overlay-status">
+          <span>{visible.length} candles</span>
+          <span>{chartist?.session ?? "OFF_SESSION"}</span>
+          <span>{chartist?.higherTimeframeBias ?? "NONE"} HTF</span>
+        </div>
+      </div>
+
+      <div className="chart-interaction-hint">Scroll to zoom · drag to pan · hover for OHLC</div>
+
+      <div className="chart-svg-wrap">
+        <svg
+          ref={svgRef}
+          className="market-chart workstation-svg"
+          viewBox={`0 0 ${width} ${height}`}
+          preserveAspectRatio="none"
+          role="img"
+          aria-label={live ? "Live validated candlestick chart" : "Last validated candlestick chart"}
+          onPointerMove={handlePointerMove}
+          onPointerLeave={() => { setCrosshair(null); setTooltip(null); }}
+          onPointerDown={handlePointerDown}
+          onPointerUp={handlePointerUp}
+          onWheel={handleWheel}
+        >
+          <rect x={plotLeft} y={plotTop} width={plotWidth} height={priceHeight} className="chart-plot-bg" rx="4" />
+          <rect x={plotLeft} y={volumeTop} width={plotWidth} height={volumeBottom - volumeTop} className="chart-volume-bg" rx="4" />
+
+          {priceTicks.map((tick, index) => {
+            const tickY = y(tick);
+            return (
+              <g key={`price-${index}`}>
+                <line x1={plotLeft} x2={width - plotRight} y1={tickY} y2={tickY} className="chart-grid" />
+                <text x={width - plotRight + 9} y={tickY + 3} className="chart-price-label">{formatPrice(tick)}</text>
+              </g>
+            );
+          })}
+
+          {timeIndices.map((index) => (
+            <text key={`time-${index}`} x={x(index)} y={height - 10} textAnchor="middle" className="chart-time-label">{formatTime(visible[index].time)}</text>
+          ))}
+
+          {sessionBoundaries}
+          {zoneRects(chartist?.fairValueGaps, "chart-zone-fvg")}
+          {zoneRects(chartist?.orderBlocks, "chart-zone-ob")}
+
+          {chartist?.liquidityHigh != null && (
+            <line x1={plotLeft} x2={width - plotRight} y1={y(chartist.liquidityHigh)} y2={y(chartist.liquidityHigh)} className="liquidity-line high" />
+          )}
+          {chartist?.liquidityLow != null && (
+            <line x1={plotLeft} x2={width - plotRight} y1={y(chartist.liquidityLow)} y2={y(chartist.liquidityLow)} className="liquidity-line low" />
+          )}
+          {chartist?.sessionHigh != null && (
+            <line x1={plotLeft} x2={width - plotRight} y1={y(chartist.sessionHigh)} y2={y(chartist.sessionHigh)} className="session-level high" />
+          )}
+          {chartist?.sessionLow != null && (
+            <line x1={plotLeft} x2={width - plotRight} y1={y(chartist.sessionLow)} y2={y(chartist.sessionLow)} className="session-level low" />
+          )}
+
+          {visible.map((candle, index) => {
+            const bullish = candle.close >= candle.open;
+            const cx = x(index);
+            const bodyTop = y(Math.max(candle.open, candle.close));
+            const bodyBottom = y(Math.min(candle.open, candle.close));
+            const bodyHeight = Math.max(2, bodyBottom - bodyTop);
+            const volumeHeight = ((candle.volume ?? 0) / maxVolume) * (volumeBottom - volumeTop - 7);
+            return (
+              <g key={`${candle.time}-${index}`}>
+                <rect x={cx - bodyWidth / 2} y={volumeBottom - volumeHeight} width={Math.max(2, bodyWidth * 0.82)} height={Math.max(1, volumeHeight)} className={bullish ? "volume-bar bullish" : "volume-bar bearish"} rx="1" />
+                <line x1={cx} x2={cx} y1={y(candle.high)} y2={y(candle.low)} className={bullish ? "candle-wick bullish" : "candle-wick bearish"} />
+                <rect x={cx - bodyWidth / 2} y={bodyTop} width={bodyWidth} height={bodyHeight} rx="1.5" className={bullish ? "candle-body bullish" : "candle-body bearish"} />
+              </g>
+            );
+          })}
+
+          {latest && chartist?.mssDirection && chartist.mssDirection !== "NONE" && (
+            <g>
+              <circle cx={x(visible.length - 1)} cy={chartist.mssDirection === "LONG" ? y(latest.low) + 14 : y(latest.high) - 14} r="4" className="mss-marker" />
+              <text x={x(visible.length - 1) + 9} y={chartist.mssDirection === "LONG" ? y(latest.low) + 18 : y(latest.high) - 18} className="structure-marker">MSS {chartist.mssDirection}</text>
+            </g>
+          )}
+
+          <line x1={plotLeft} x2={width - plotRight} y1={priceY} y2={priceY} className="current-price-line" />
+          <rect x={width - plotRight + 4} y={priceY - 10} width="76" height="20" rx="4" className="current-price-tag" />
+          <text x={width - plotRight + 42} y={priceY + 3} textAnchor="middle" className="current-price-label">{formatPrice(price)}</text>
+
+          {crosshair && (
+            <g className="crosshair-layer">
+              <line x1={crosshair.x} x2={crosshair.x} y1={plotTop} y2={volumeBottom} className="crosshair-line" />
+              <line x1={plotLeft} x2={width - plotRight} y1={crosshair.y} y2={crosshair.y} className="crosshair-line" />
+            </g>
+          )}
+
+          {tooltip && (
+            <g transform={`translate(${tooltip.x},${tooltip.y})`} className="chart-tooltip">
+              <rect width="238" height="82" rx="7" />
+              <text x="12" y="17" className="tooltip-time">{formatTime(tooltip.candle.time)} · {timeframe}</text>
+              <text x="12" y="36">O <tspan>{formatPrice(tooltip.candle.open)}</tspan></text>
+              <text x="83" y="36">H <tspan>{formatPrice(tooltip.candle.high)}</tspan></text>
+              <text x="154" y="36">L <tspan>{formatPrice(tooltip.candle.low)}</tspan></text>
+              <text x="12" y="59">C <tspan>{formatPrice(tooltip.candle.close)}</tspan></text>
+              <text x="83" y="59">VOL <tspan>{fmt(tooltip.candle.volume ?? 0, 0)}</tspan></text>
+            </g>
+          )}
+        </svg>
+      </div>
+
+      <div className="chart-legend workstation-legend">
+        <span><i className="legend-up" /> Bullish</span>
+        <span><i className="legend-down" /> Bearish</span>
+        <span><i className="legend-fvg" /> FVG</span>
+        <span><i className="legend-ob" /> Order block</span>
+        <span><i className="legend-liquidity" /> Liquidity</span>
+        <span><i className="legend-price" /> Current price</span>
+        <span>{live ? "Validated live feed" : "Last validated feed"}</span>
+      </div>
+    </div>
   );
 }
 
@@ -340,6 +607,59 @@ function CheckList({ checks }: { checks: Record<string, boolean> }) {
   );
 }
 
+function feedDisplayState(
+  feed: any,
+  streaming: boolean,
+): {
+  label: string;
+  tone: "positive" | "negative" | "neutral";
+  description: string;
+  chartLive: boolean;
+} {
+  if (!streaming) {
+    return {
+      label: "RECONNECTING",
+      tone: "negative",
+      description: "Live stream connection is reconnecting. Trading remains blocked.",
+      chartLive: false,
+    };
+  }
+
+  if (!feed) {
+    return {
+      label: "DISCONNECTED",
+      tone: "negative",
+      description: "No validated market feed is available.",
+      chartLive: false,
+    };
+  }
+
+  if (feed.stale || feed.connection === "DEGRADED") {
+    return {
+      label: "STALE / DEGRADED",
+      tone: "negative",
+      description: "Last validated data is retained for context; live execution is blocked.",
+      chartLive: false,
+    };
+  }
+
+  if (feed.connection === "CONNECTED" && feed.tradingAllowed === true) {
+    return {
+      label: "LIVE VALIDATED",
+      tone: "positive",
+      description: "Fresh provider data passed feed validation.",
+      chartLive: true,
+    };
+  }
+
+  return {
+    label: "CONNECTED / BLOCKED",
+    tone: "neutral",
+    description: feed.reason ?? "Market feed is connected but execution remains blocked.",
+    chartLive: false,
+  };
+}
+
 export default function Home() {
   const [symbol, setSymbol] = useState<MarketSymbol>("XAUUSD");
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
@@ -358,6 +678,8 @@ export default function Home() {
   const [voiceText, setVoiceText] = useState("");
   const [backtestBusy, setBacktestBusy] = useState(false);
   const [backtest, setBacktest] = useState<BacktestResult | null>(null);
+  const [backtestError, setBacktestError] = useState("");
+  const [backtestTimeframe, setBacktestTimeframe] = useState("1min");
   const [section, setSection] = useState<
     (typeof NAV)[number][0]
   >("overview");
@@ -456,6 +778,57 @@ export default function Home() {
       }
     });
 
+    es.addEventListener("market_error", (event) => {
+      try {
+        const data = JSON.parse((event as MessageEvent).data);
+        setStreaming(false);
+        setDashboard((current) => ({
+          ...(current ?? {}),
+          ok: false,
+          version: data.version ?? current?.version,
+          symbol,
+          feed: data.feed ?? {
+            connection: "DISCONNECTED",
+            stale: true,
+            tradingAllowed: false,
+            reason: data.message ?? "Market stream unavailable.",
+          },
+          v27: {
+            ...(current?.v27 ?? {}),
+            commandCenter: {
+              ...(current?.v27?.commandCenter ?? {}),
+              status: "BLOCKED",
+              executionMode: "PAPER",
+              tradingAllowed: false,
+            },
+            brain: {
+              ...(current?.v27?.brain ?? {}),
+              action: "BLOCKED",
+              direction: "NONE",
+              confidence: 0,
+              blockers: [data.message ?? "Market stream unavailable."],
+            },
+            marketHealth: {
+              state: "BLOCKED",
+              tradingAllowed: false,
+              feedAgeSeconds: Infinity,
+              latencyMs: null,
+              reasons: [data.message ?? "Market stream unavailable."],
+            },
+            events: data.events ?? [{
+              type: "MARKET_DEGRADED",
+              message: `Signal engine blocked: ${data.message ?? "Market stream unavailable."}`,
+              timestamp: Date.now(),
+            }],
+          },
+        }));
+        setActionMessage(data.message ?? "Market stream unavailable. Reconnecting…");
+      } catch {
+        setStreaming(false);
+        setActionMessage("Market stream unavailable. Reconnecting…");
+      }
+    });
+
     es.addEventListener("error", () => {
       setStreaming(false);
       setActionMessage("Live stream reconnecting…");
@@ -478,6 +851,7 @@ export default function Home() {
   const chartist = setup?.smc?.chartist;
   const account = dashboard?.account;
   const feed = dashboard?.feed;
+  const feedState = feedDisplayState(feed, streaming);
   const risk = v27?.risk ?? sentinel?.risk;
   const events = v27?.events ?? [];
   const openPositions: Position[] = useMemo(
@@ -514,7 +888,7 @@ export default function Home() {
         {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ text: value }),
+          body: JSON.stringify({ text: value, symbol }),
         },
       );
       const data = await response.json();
@@ -662,37 +1036,58 @@ export default function Home() {
 
   const runBacktest = async () => {
     if (!user) {
-      setLoginError(
-        "Login is required for backtesting.",
-      );
+      setLoginError("Login is required for backtesting.");
       return;
     }
 
     setBacktestBusy(true);
-    setActionMessage(
-      "Running V2.7 replay on validated candles…",
-    );
+    setBacktestError("");
+    setActionMessage("Running replay on validated historical candles…");
 
     try {
       const response = await fetch(
-        `/api/backtest/v2?symbol=${symbol}&initialBalance=10000&riskPercent=0.5`,
+        `/api/backtest/v2?symbol=${encodeURIComponent(symbol)}&timeframe=${encodeURIComponent(backtestTimeframe)}&initialBalance=10000&riskPercent=0.5`,
         { cache: "no-store" },
       );
-      const data = await response.json();
+      const data = await response.json().catch(() => ({}));
 
       if (response.status === 401) {
         setUser(null);
       }
 
-      setBacktest(data.result ?? null);
+      if (!response.ok || data.ok !== true || !data.result) {
+        const message = data.error ?? `Backtest failed with HTTP ${response.status}.`;
+        setBacktest(null);
+        setBacktestError(message);
+        setActionMessage(message);
+        return;
+      }
+
+      const result = data.result;
+      setBacktest({
+        totalTrades: Number(result.totalTrades ?? 0),
+        wins: Number(result.wins ?? 0),
+        losses: Number(result.losses ?? 0),
+        winRate: Number(result.winRate ?? 0),
+        netPnl: Number(result.netPnl ?? 0),
+        maxDrawdown: Number(result.maxDrawdownPercent ?? result.maxDrawdown ?? 0),
+        profitFactor: Number(result.profitFactor ?? 0),
+        finalBalance: Number(result.finalBalance ?? (result.initialBalance ?? 10000) + (result.netPnl ?? 0)),
+        initialBalance: Number(result.initialBalance ?? 10000),
+        averageWin: Number(result.averageWin ?? 0),
+        averageLoss: Number(result.averageLoss ?? 0),
+        expectancy: Number(result.expectancy ?? 0),
+        sessionStats: result.sessionStats ?? {},
+        trades: Array.isArray(result.trades) ? result.trades : [],
+      });
       setActionMessage(
-        data.error ??
-          "Backtest completed from validated candle data.",
+        `Backtest completed using ${data.candlesUsed ?? "validated"} candles from ${data.source ?? "validated data"}.`,
       );
     } catch {
-      setActionMessage(
-        "Backtest endpoint unavailable.",
-      );
+      const message = "Backtest endpoint unavailable. Check the market-data provider and try again.";
+      setBacktest(null);
+      setBacktestError(message);
+      setActionMessage(message);
     } finally {
       setBacktestBusy(false);
     }
@@ -734,7 +1129,7 @@ export default function Home() {
       <main className="nine-app loading-app">
         <div className="loading-mark">N</div>
         <div className="eyebrow">
-          INITIALIZING NINE V2.7
+          INITIALIZING NINE V2.9
         </div>
         <p>Loading protected command center…</p>
       </main>
@@ -749,7 +1144,7 @@ export default function Home() {
           <div>
             <div className="brand-name">NINE</div>
             <div className="brand-version">
-              AI TRADING DESK · V2.7
+              AI TRADING DESK · V2.9
             </div>
           </div>
         </div>
@@ -771,13 +1166,9 @@ export default function Home() {
         </nav>
 
         <div className="top-actions">
-          <div className="stream-status">
-            <span
-              className={`live-dot ${
-                streaming ? "" : "offline"
-              }`}
-            />
-            {streaming ? "STREAMING" : "RECONNECTING"}
+          <div className={`stream-status ${feedState.tone}`}>
+            <span className={`live-dot ${feedState.tone !== "positive" ? "offline" : ""}`} />
+            {feedState.label}
           </div>
           <button
             className="icon-button"
@@ -942,7 +1333,7 @@ export default function Home() {
             <div className="hero-copy">
               <div className="eyebrow">
                 NINE COMMAND CENTER ·{" "}
-                {dashboard?.version ?? "2.7.0"}
+                {dashboard?.version ?? "2.9.2"}
               </div>
               <h1>
                 One desk.
@@ -981,6 +1372,10 @@ export default function Home() {
                 >
                   {signed(liveMove)}
                 </span>
+              </div>
+              <div className={`hero-feed-state ${feedState.tone}`}>
+                <span className="status-pill-dot" />
+                {feedState.label} · {feedState.description}
               </div>
             </div>
           </section>
@@ -1044,6 +1439,31 @@ export default function Home() {
             />
           </section>
 
+          <section className="provider-diagnostics-panel">
+            <div className="provider-diagnostics-header">
+              <div>
+                <div className="eyebrow">PROVIDER CONTROL</div>
+                <h3>Twelve Data request health</h3>
+              </div>
+              <StatusPill
+                value={
+                  dashboard?.diagnostics?.provider?.rateLimited
+                    ? "RATE LIMITED"
+                    : dashboard?.diagnostics?.provider?.configured
+                      ? "READY"
+                      : "NOT CONFIGURED"
+                }
+              />
+            </div>
+            <div className="provider-diagnostics-grid">
+              <div><span>REQUESTS / MIN</span><b>{dashboard?.diagnostics?.provider?.requestsLastMinute ?? 0} / {dashboard?.diagnostics?.provider?.requestBudgetPerMinute ?? "—"}</b></div>
+              <div><span>COOLDOWN</span><b>{dashboard?.diagnostics?.provider?.cooldownRemainingSeconds ? `${dashboard.diagnostics.provider.cooldownRemainingSeconds}s` : "READY"}</b></div>
+              <div><span>QUOTE CACHE</span><b>{dashboard?.diagnostics?.provider?.quoteCacheAgeSeconds != null ? `${fmt(dashboard.diagnostics.provider.quoteCacheAgeSeconds, 0)}s` : "EMPTY"}</b></div>
+              <div><span>LAST ERROR</span><b>{dashboard?.diagnostics?.provider?.lastError ?? "NONE"}</b></div>
+            </div>
+            <small>Validated cache is reused during provider cooldowns. NINE will not fabricate market data or bypass Sentinel.</small>
+          </section>
+
           <section
             id="section-chartist"
             className="panel chart-panel"
@@ -1051,27 +1471,30 @@ export default function Home() {
             <SectionHeader
               eyebrow="01 · CHARTIST"
               title={`${symbol} market structure`}
-              description="Validated 1-minute candles with higher-timeframe context and SMC state."
+              description="Candlesticks use only validated provider data. When the feed is stale or disconnected, NINE labels the chart as last validated data and blocks execution."
               action={
                 <div className="chart-actions">
+                  <span className={`chart-source ${feedState.tone}`}>
+                    {feedState.label}
+                  </span>
                   <span className="chart-source">
                     {feed?.priceSource ?? "NONE"} PRICE
                   </span>
                   <span className="chart-source">
                     {feed?.ageSeconds != null
-                      ? `${fmt(
-                          feed.ageSeconds,
-                          1,
-                        )}s old`
-                      : "—"}
+                      ? `${fmt(feed.ageSeconds, 1)}s old`
+                      : "NO TIMESTAMP"}
                   </span>
                 </div>
               }
             />
 
             <div className="chart-wrap">
-              <Sparkline
+              <CandlestickChart
                 candles={dashboard?.chart ?? []}
+                live={feedState.chartLive}
+                chartist={chartist}
+                setup={setup}
               />
               <div className="chart-axis">
                 <span>LOW {fmt(
@@ -1242,6 +1665,26 @@ export default function Home() {
               </div>
 
               <div className="headline-list">
+                {!atlas?.headlines?.length && (
+                  <div className="atlas-unavailable">
+                    <div className="atlas-unavailable-title">
+                      <AlertTriangle size={15} />
+                      ATLAS DATA UNAVAILABLE
+                    </div>
+                    <div className="atlas-unavailable-grid">
+                      <span>News provider <b>{atlas?.sourceStatus === "UNAVAILABLE" ? "NOT CONFIGURED" : "NO VALIDATED DATA"}</b></span>
+                      <span>Macro events <b>{atlas?.macroEvents?.length ? "AVAILABLE" : "NOT VALIDATED"}</b></span>
+                    </div>
+                    {(atlas?.errors ?? []).length > 0 && (
+                      <div className="atlas-error-list">
+                        {(atlas?.errors ?? []).slice(0, 2).map((error: string, index: number) => (
+                          <span key={`${error}-${index}`}>{error}</span>
+                        ))}
+                      </div>
+                    )}
+                    <small>NINE will not infer or fabricate headlines, calendar events, or macro conditions.</small>
+                  </div>
+                )}
                 {(atlas?.headlines ?? [])
                   .slice(0, 5)
                   .map(
@@ -1279,8 +1722,7 @@ export default function Home() {
                 {!atlas?.headlines?.length && (
                   <div className="empty-state">
                     <AlertTriangle size={17} />
-                    No validated Atlas headlines
-                    available.
+                    No validated Atlas headlines in the current feed.
                   </div>
                 )}
               </div>
@@ -1471,9 +1913,14 @@ export default function Home() {
                 <span>SYMBOL</span>
                 <b>{symbol}</b>
               </div>
-              <div>
+              <div className="backtest-timeframe-control">
                 <span>TIMEFRAME</span>
-                <b>1 MIN</b>
+                <select value={backtestTimeframe} onChange={(event) => setBacktestTimeframe(event.target.value)} disabled={backtestBusy}>
+                  <option value="1min">1 MIN</option>
+                  <option value="5min">5 MIN</option>
+                  <option value="15min">15 MIN</option>
+                  <option value="1h">1 HOUR</option>
+                </select>
               </div>
               <div>
                 <span>INITIAL BALANCE</span>
@@ -1485,7 +1932,17 @@ export default function Home() {
               </div>
             </div>
 
-            {backtest ? (
+            {backtestError ? (
+              <div className="empty-large backtest-error">
+                <AlertTriangle size={24} />
+                <b>Replay unavailable</b>
+                <span>{backtestError}</span>
+                <button className="secondary-button" type="button" onClick={() => void runBacktest()} disabled={backtestBusy || !user}>
+                  <RefreshCw size={14} /> RETRY REPLAY
+                </button>
+              </div>
+            ) : backtest ? (
+              <>
               <div className="backtest-results">
                 <Metric
                   label="TRADES"
@@ -1531,6 +1988,26 @@ export default function Home() {
                   )}`}
                 />
               </div>
+              {backtest.trades?.length ? (
+                <div className="backtest-trades">
+                  <div className="eyebrow">RECENT REPLAY TRADES</div>
+                  <div className="backtest-trade-list">
+                    {backtest.trades.slice(-12).reverse().map((trade) => (
+                      <div className="backtest-trade-row" key={trade.id}>
+                        <b className={trade.side === "LONG" ? "positive-text" : "negative-text"}>{trade.side}</b>
+                        <span>{fmt(trade.entryPrice)} → {fmt(trade.exitPrice)}</span>
+                        <span>SL {fmt(trade.stopLoss)}</span>
+                        <span>TP {fmt(trade.takeProfit)}</span>
+                        <span className={trade.pnl >= 0 ? "positive-text" : "negative-text"}>${fmt(trade.pnl)}</span>
+                        <small>{trade.reason}</small>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="backtest-note">No strategy trades were generated from the validated historical window. This is a valid zero-trade result, not fabricated output.</div>
+              )}
+              </>
             ) : (
               <div className="empty-large">
                 <BarChart3 size={24} />
@@ -1555,6 +2032,15 @@ export default function Home() {
                 <div className="signal-count">
                   <Bell size={14} />
                   {events.length} engine events
+                  <StatusPill value={
+                    events.some((event: any) => event.type === "SETUP_CONFIRMED")
+                      ? "CONFIRMED"
+                      : events.some((event: any) => event.type === "SETUP_FORMING")
+                        ? "FORMING"
+                        : events.some((event: any) => event.type === "MARKET_DEGRADED")
+                          ? "BLOCKED"
+                          : "WATCHING"
+                  } />
                 </div>
               }
             />
@@ -1605,7 +2091,10 @@ export default function Home() {
                 {!events.length && (
                   <div className="empty-state">
                     <Bell size={16} />
-                    No current signal events.
+                    <div>
+                      <b>{v27?.setup?.lifecycle ?? "WATCHING"}</b>
+                      <span>{v27?.setup?.reasons?.[0] ?? "Signal engine is waiting for validated market structure."}</span>
+                    </div>
                   </div>
                 )}
               </div>
@@ -1761,7 +2250,7 @@ export default function Home() {
 
           <footer className="footer">
             <span>
-              NINE V2.7 · PAPER EXECUTION
+              NINE V2.9.2 · PAPER EXECUTION
             </span>
             <span>
               {feed?.provider ?? "—"} ·{" "}
