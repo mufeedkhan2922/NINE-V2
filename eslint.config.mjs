@@ -13,7 +13,10 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    ".test-dist/**",
   ]),
 ]);
 
 export default eslintConfig;
+
+// ESLint 10 compatibility is provided through @eslint/compat for Next.js plugins that still use legacy rule APIs.
