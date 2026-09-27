@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { getLiveMarketSnapshot } from "@/lib/trading/market";
 import { orchestrateNINE } from "@/lib/trading/orchestrator";
+import { buildDecisionExplanation } from "@/lib/trading/v210";
 import {
   getPaperAccount,
   getPaperEvents,
