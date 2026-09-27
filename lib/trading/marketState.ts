@@ -330,98 +330,34 @@ function assessDataState(
   };
 }
 
-function assessMarketState(
-  symbol: MarketSymbol,
-  dataState: DataState,
-  oneMinuteAge: number
-): {
-  state: MarketState;
-  feedActivity: boolean;
-  reasons: string[];
-} {
-  const feedActivity =
-    isFiniteAge(
-      oneMinuteAge
-    ) &&
-    oneMinuteAge <= 600;
-
-  if (
-    symbol === "XAUUSD"
-  ) {
-    if (
-      dataState ===
-        "LIVE" ||
-      dataState ===
-        "DELAYED"
-    ) {
-      return {
-        state:
-          "OPEN",
-
-        feedActivity,
-
-        reasons: [
-          "XAUUSD is configured as a continuously available commodity feed.",
-        ],
-      };
+function assessMarketState(symbol: MarketSymbol, dataState: DataState, oneMinuteAge: number): { state: MarketState; feedActivity: boolean; reasons: string[] } {
+  const feedActivity = Number.isFinite(oneMinuteAge) && oneMinuteAge <= 600;
+  const now = new Date();
+  const day = now.getUTCDay();
+  if (day === 0 || day === 6) {
+    if (symbol === "XAUUSD") {
+      return dataState === "STALE" || dataState === "SUSPICIOUS"
+        ? { state: "UNKNOWN", feedActivity: false, reasons: ["Weekend session and/or stale data prevents confirmation of current XAUUSD activity."] }
+        : { state: "CLOSED", feedActivity, reasons: ["XAUUSD is in the weekend closure period."] };
     }
-
-    if (
-      dataState ===
-      "STALE"
-    ) {
-      return {
-        state:
-          "UNKNOWN",
-
-        feedActivity:
-          false,
-
-        reasons: [
-          "The XAUUSD feed is too stale to confirm current market activity.",
-        ],
-      };
-    }
-
-    if (
-      dataState ===
-      "SUSPICIOUS"
-    ) {
-      return {
-        state:
-          "UNKNOWN",
-
-        feedActivity:
-          false,
-
-        reasons: [
-          "Market activity cannot be trusted while the underlying feed is suspicious.",
-        ],
-      };
-    }
-
-    return {
-      state:
-        "UNKNOWN",
-
-      feedActivity,
-
-      reasons: [],
-    };
+    return { state: "CLOSED", feedActivity, reasons: [`${symbol} is closed for the weekend.`] };
   }
-
-  return {
-    state:
-      "UNKNOWN",
-
-    feedActivity,
-
-    reasons: [
-      `No market-session calendar is configured yet for ${symbol}.`,
-    ],
-  };
+  if (symbol === "XAUUSD") {
+    if (dataState === "LIVE" || dataState === "DELAYED") return { state: "OPEN", feedActivity, reasons: ["XAUUSD is configured as a continuously available weekday commodity feed."] };
+    if (dataState === "STALE") return { state: "UNKNOWN", feedActivity: false, reasons: ["The XAUUSD feed is too stale to confirm current market activity."] };
+    if (dataState === "SUSPICIOUS") return { state: "UNKNOWN", feedActivity: false, reasons: ["Market activity cannot be trusted while the underlying feed is suspicious."] };
+    return { state: "UNKNOWN", feedActivity, reasons: ["Current XAUUSD session state is not confirmed."] };
+  }
+  const istMinutes = ((Date.now() + 330 * 60 * 1000) / 60000) % 1440;
+  const open = 9 * 60 + 15;
+  const close = 15 * 60 + 30;
+  if (istMinutes >= open && istMinutes < close && dataState !== "STALE" && dataState !== "SUSPICIOUS") {
+    return { state: "OPEN", feedActivity, reasons: [`${symbol} regular session is open (09:15–15:30 IST).`] };
+  }
+  if (istMinutes < open) return { state: "PRE_OPEN", feedActivity, reasons: [`${symbol} regular session opens at 09:15 IST.`] };
+  if (istMinutes >= close) return { state: "CLOSED", feedActivity, reasons: [`${symbol} regular session closed at 15:30 IST.`] };
+  return { state: "UNKNOWN", feedActivity, reasons: [`${symbol} market session cannot be confirmed.`] };
 }
-
 export function assessMarketAndDataState(
   symbol: MarketSymbol,
   timeframes: TimeframeMap,
