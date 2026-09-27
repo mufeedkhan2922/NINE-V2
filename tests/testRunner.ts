@@ -25,6 +25,7 @@ import { runStrategyLabTest } from "./strategyLab.test";
 import { runHistoricalIntelligenceTest } from "./historicalIntelligence.test";
 import { runResearchMatrixTest } from "./researchMatrix.test";
 import { runAgentOrchestrationTest } from "./agentOrchestration.test";
+import { runPaperValidationTest } from "./paperValidation.test";
 
 const tests: Array<[string, () => void | Promise<void>]> = [
   ["technical", runTechnicalTest],
@@ -52,6 +53,7 @@ const tests: Array<[string, () => void | Promise<void>]> = [
   ["historical intelligence", runHistoricalIntelligenceTest],
   ["research matrix", runResearchMatrixTest],
   ["agent orchestration", runAgentOrchestrationTest],
+  ["final paper validation", runPaperValidationTest],
 ];
 
 async function main(): Promise<void> {
