@@ -1,4 +1,5 @@
 import { evaluateStrategyBook, type StrategyConsensus } from "./strategyEngine";
+import { buildAdaptiveLearningSnapshot, type AdaptiveLearningSnapshot } from "./adaptiveLearning";
 import type {
   AtlasContext,
   Candle,
@@ -54,6 +55,7 @@ export interface BrainDecision {
   blockers: string[];
   rationale: string;
   strategyConsensus?: StrategyConsensus;
+  learning?: AdaptiveLearningSnapshot;
   generatedAt: number;
 }
 
@@ -682,6 +684,19 @@ export function buildBrainDecision(
 
   const strategyConsensus = evaluateStrategyBook(market);
 
+  const learning =
+    market.symbol === "XAUUSD"
+      ? buildAdaptiveLearningSnapshot(market, {
+          warmupCandles: Number(process.env.NINE_LEARNING_WARMUP_CANDLES ?? 100),
+          evaluationHorizon: Number(process.env.NINE_LEARNING_HORIZON_CANDLES ?? 12),
+          minimumScore: Number(process.env.NINE_LEARNING_MIN_SCORE ?? 65),
+          minimumTrades: Number(process.env.NINE_LEARNING_MIN_TRADES ?? 20),
+          targetWinRate: Number(process.env.NINE_LEARNING_TARGET_WIN_RATE ?? 90),
+          spreadPrice: Number(process.env.NINE_LEARNING_SPREAD_PRICE ?? 0),
+          slippagePrice: Number(process.env.NINE_LEARNING_SLIPPAGE_PRICE ?? 0),
+        })
+      : undefined;
+
   const evidence = [
     ...setup.reasons.slice(
       0,
@@ -700,6 +715,25 @@ export function buildBrainDecision(
     for (const candidate of strategyConsensus.candidates.slice(0, 3)) {
       evidence.push(candidate.strategyName + ": " + candidate.score + "/100 " + candidate.direction + ".");
     }
+  }
+
+  if (learning) {
+    if (learning.bestStrategyName) {
+      evidence.push(
+        "Adaptive learning: " +
+          learning.bestStrategyName +
+          " measured at " +
+          (learning.bestWinRate ?? 0) +
+          "% over " +
+          learning.totalEvaluatedSignals +
+          " evaluated signals.",
+      );
+    }
+    evidence.push(
+      learning.targetReached
+        ? "Adaptive learning target reached on the measured walk-forward sample."
+        : "Adaptive learning target not yet proven; NINE will not treat the target as guaranteed.",
+    );
   }
 
   if (
@@ -737,6 +771,7 @@ export function buildBrainDecision(
       rationale:
         "Market health does not satisfy the execution gate.",
       strategyConsensus,
+      learning,
       generatedAt:
         Date.now(),
     };
@@ -816,6 +851,8 @@ export function buildBrainDecision(
       "NINE is monitoring for a complete, validated setup.",
 
     strategyConsensus,
+
+    learning,
 
     generatedAt:
       Date.now(),
