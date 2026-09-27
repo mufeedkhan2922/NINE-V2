@@ -80,6 +80,7 @@ type Dashboard = {
   diagnostics?: any;
   strategyLab?: any;
   strategyMemory?: any[];
+  paperReconciliation?: any;
   account?: any;
   chart?: Candle[];
   events?: any[];
@@ -143,10 +144,12 @@ const SYMBOLS: Array<{
 const NAV = [
   ["overview", "Command Center"],
   ["chartist", "Chartist"],
+  ["learning-lab", "Learning Lab"],
+  ["strategy-memory", "Strategy Memory"],
   ["atlas", "Atlas"],
   ["sentinel", "Sentinel"],
   ["backtest", "Backtest"],
-  ["signals", "Signals"],
+  ["signals", "Audit"],
 ] as const;
 
 function fmt(value: unknown, digits = 2) {
@@ -1146,7 +1149,7 @@ export default function Home() {
           <div>
             <div className="brand-name">NINE</div>
             <div className="brand-version">
-              AI TRADING DESK · V2.10.1
+              AI TRADING DESK · MAX 3.0
             </div>
           </div>
         </div>
@@ -1334,8 +1337,8 @@ export default function Home() {
           >
             <div className="hero-copy">
               <div className="eyebrow">
-                NINE COMMAND CENTER ·{" "}
-                {dashboard?.version ?? "2.9.2"}
+                NINE MAX COMMAND CENTER ·{" "}
+                {dashboard?.version ?? "3.0.0"}
               </div>
               <h1>
                 One desk.
@@ -1379,6 +1382,29 @@ export default function Home() {
                 <span className="status-pill-dot" />
                 {feedState.label} · {feedState.description}
               </div>
+            </div>
+          </section>
+
+          <section className="max-cockpit">
+            <div className="max-cockpit-head">
+              <div>
+                <div className="eyebrow"><Sparkles size={12} /> NINE MAX OPERATING SYSTEM</div>
+                <h2>Research. Decide. Protect. Learn.</h2>
+                <p>One unified surface for market intelligence, strategy research, paper execution and safety telemetry.</p>
+              </div>
+              <div className="max-mode">
+                <span>EXECUTION</span>
+                <b>PAPER ONLY</b>
+                <small>LIVE BROKER HARD LOCKED</small>
+              </div>
+            </div>
+            <div className="max-layer-grid">
+              <div className="max-layer"><span>01</span><b>MARKET</b><StatusPill value={feed?.connection ?? "UNKNOWN"} /><small>{feed?.priceSource ?? "—"} · {feed?.ageSeconds != null ? fmt(feed.ageSeconds, 0) + "s" : "no age"}</small></div>
+              <div className="max-layer"><span>02</span><b>CHARTIST</b><StatusPill value={setup?.lifecycle ?? "WATCHING"} /><small>{v27?.setup?.confluenceScore ?? setup?.confidence ?? 0}% confluence</small></div>
+              <div className="max-layer"><span>03</span><b>LEARNING</b><StatusPill value={dashboard?.strategyLab?.regime ?? "MIXED"} /><small>{dashboard?.strategyLab?.conceptCoverage ?? 0}% concept window</small></div>
+              <div className="max-layer"><span>04</span><b>MEMORY</b><StatusPill value={(dashboard?.strategyMemory?.length ?? 0) ? "ACTIVE" : "EMPTY"} /><small>{dashboard?.strategyMemory?.length ?? 0} evidence records</small></div>
+              <div className="max-layer"><span>05</span><b>SENTINEL</b><StatusPill value={sentinel?.approved ? "APPROVED" : "BLOCKED"} /><small>{risk?.openPositions ?? 0} open · {fmt(risk?.drawdownPercent, 2)}% DD</small></div>
+              <div className="max-layer"><span>06</span><b>RECON</b><StatusPill value={dashboard?.paperReconciliation?.healthy ? "HEALTHY" : dashboard?.paperReconciliation ? "CHECK" : "UNKNOWN"} /><small>score {dashboard?.paperReconciliation?.score ?? "—"}/100</small></div>
             </div>
           </section>
 
@@ -2448,7 +2474,7 @@ export default function Home() {
 
           <footer className="footer">
             <span>
-              NINE V2.11.0 · PAPER EXECUTION
+              NINE MAX · V2.17+ · PAPER EXECUTION
             </span>
             <span>
               {feed?.provider ?? "—"} ·{" "}
