@@ -141,11 +141,12 @@ async function buildLiveMarketSnapshot(symbol: MarketSymbol): Promise<MarketSnap
       .filter((item) => "error" in item)
       .map((item) => [item.timeframe, item.error]),
   ) as Partial<Record<Timeframe, string>>;
-  const providerWarnings = Object.fromEntries(
-    settled
-      .filter((item) => "data" in item && Boolean(item.data.providerError))
-      .map((item) => [item.timeframe, item.data.providerError!]),
-  ) as Partial<Record<Timeframe, string>>;
+  const providerWarnings: Partial<Record<Timeframe, string>> = {};
+  for (const item of settled) {
+    if ("data" in item && item.data.providerError) {
+      providerWarnings[item.timeframe] = item.data.providerError;
+    }
+  }
   const oneMinute = timeframes["1min"];
   const daily = timeframes["1day"];
   if (!oneMinute || !daily || !daily.candles.at(-2)) {
