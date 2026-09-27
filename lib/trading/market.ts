@@ -135,18 +135,21 @@ async function buildLiveMarketSnapshot(symbol: MarketSymbol): Promise<MarketSnap
     catch (error) { return { timeframe, error: error instanceof Error ? error.message : "Unknown provider error." } as const; }
   }));
 
-  const timeframes = Object.fromEntries(settled.filter((item) => "data" in item).map((item) => [item.timeframe, item.data])) as Partial<Record<Timeframe, TimeframeData>>;
-  const providerErrors = Object.fromEntries(
-    settled
-      .filter((item) => "error" in item)
-      .map((item) => [item.timeframe, item.error]),
-  ) as Partial<Record<Timeframe, string>>;
+  const timeframes: Partial<Record<Timeframe, TimeframeData>> = {};
+  const providerErrors: Partial<Record<Timeframe, string>> = {};
   const providerWarnings: Partial<Record<Timeframe, string>> = {};
+
   for (const item of settled) {
-    if ("data" in item && item.data.providerError) {
-      providerWarnings[item.timeframe] = item.data.providerError;
+    if ("data" in item && item.data) {
+      timeframes[item.timeframe] = item.data;
+      if (item.data.providerError) {
+        providerWarnings[item.timeframe] = item.data.providerError;
+      }
+    } else if ("error" in item && item.error) {
+      providerErrors[item.timeframe] = item.error;
     }
   }
+
   const oneMinute = timeframes["1min"];
   const daily = timeframes["1day"];
   if (!oneMinute || !daily || !daily.candles.at(-2)) {
