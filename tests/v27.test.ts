@@ -42,12 +42,12 @@ function withEnvironment(
 
 export async function runV27Test(): Promise<void> {
   /*
-   * V2.9 runtime identity
+   * NINE runtime identity
    */
   assert.equal(
     NINE_VERSION,
-    "2.9.2",
-    "NINE runtime version must be 2.9.2.",
+    "2.10.0",
+    "NINE runtime version must be 2.10.0.",
   );
 
   /*
