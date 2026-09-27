@@ -18,7 +18,7 @@ export async function POST(request: Request) {
     const limit = rateLimit(requestKey(request, user.id), 20, 60_000);
     if (!limit.allowed) return NextResponse.json({ ok: false, error: "Voice command rate limit exceeded.", retryAfterSeconds: limit.retryAfterSeconds }, { status: 429 });
     const body = (await request.json().catch(() => ({}))) as { transcript?: string; symbol?: string };
-    const transcript = String(body.transcript ?? "").trim();
+    const transcript = String(body.transcript ?? "").trim().slice(0, 500);
     const intent = routeVoiceIntent(transcript);
     const symbol = "XAUUSD" as const;
     if (intent.intent === "UNKNOWN") return NextResponse.json({ ok: true, version: NINE_VERSION, intent, response: "I did not map that voice request to a validated NINE command." });

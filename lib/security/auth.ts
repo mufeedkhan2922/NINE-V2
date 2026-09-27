@@ -12,6 +12,7 @@ function verifyPassword(password: string, stored: string): boolean { const [salt
 function tokenHash(token: string): string { return createHash("sha256").update(token).digest("hex"); }
 
 export function ensureAdminUser(): void {
+  db.prepare("DELETE FROM sessions WHERE expires_at <= ?").run(Date.now());
   const email = (process.env.NINE_ADMIN_EMAIL || "admin@nine.local").trim().toLowerCase();
   const password = process.env.NINE_ADMIN_PASSWORD;
   if (!password) return;
@@ -57,7 +58,7 @@ export function sessionCookie(token: string, maxAgeSeconds = SESSION_TTL_MS / 10
   const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
   return `${SESSION_COOKIE}=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${Math.floor(maxAgeSeconds)}${secure}`;
 }
-export function clearSessionCookie(): string { return `${SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`; }
+export function clearSessionCookie(): string { const secure = process.env.NODE_ENV === "production" ? "; Secure" : ""; return SESSION_COOKIE + "=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0" + secure; }
 
 
 export function requireRole(
