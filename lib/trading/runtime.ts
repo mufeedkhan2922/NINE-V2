@@ -115,11 +115,14 @@ export function marketFeedStatus(
     tradingAllowed?: boolean;
     marketState?: { dataState?: string; reasons?: string[] };
     providerErrors?: Partial<Record<string, string>>;
+    providerWarnings?: Partial<Record<string, string>>;
   } | null,
 ): MarketFeedStatus {
   const health = providerHealth();
   const configured = health.configured;
-  const diagnostics = Object.values(market?.providerErrors ?? {}).filter(Boolean) as string[];
+  const hardDiagnostics = Object.values(market?.providerErrors ?? {}).filter(Boolean) as string[];
+  const softDiagnostics = Object.values(market?.providerWarnings ?? {}).filter(Boolean) as string[];
+  const diagnostics = [...hardDiagnostics, ...softDiagnostics];
   if (health.rateLimited && health.cooldownRemainingSeconds > 0) {
     diagnostics.unshift(`${providerName()} rate-limit protection active for ${health.cooldownRemainingSeconds}s.`);
   }
@@ -134,7 +137,7 @@ export function marketFeedStatus(
   const ageSeconds = Math.max(0, (Date.now() - market.timestamp) / 1000);
   const staleThreshold = Number(process.env.NINE_MARKET_STALE_SECONDS ?? 20);
   const stale = ageSeconds > staleThreshold || market.marketState?.dataState === "STALE" || market.marketState?.dataState === "SUSPICIOUS";
-  const blockedByProvider = diagnostics.length > 0 || health.rateLimited;
+  const blockedByProvider = hardDiagnostics.length > 0 || health.rateLimited;
   return {
     provider: providerName(),
     connection: stale || blockedByProvider ? "DEGRADED" : "CONNECTED",
