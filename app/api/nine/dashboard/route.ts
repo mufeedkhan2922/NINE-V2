@@ -12,6 +12,7 @@ import { MarketSymbol } from "@/lib/trading/types";
 import {
   marketFeedStatus,
   runtimeSafety,
+  providerDiagnostics,
   NINE_VERSION,
 } from "@/lib/trading/runtime";
 
@@ -46,6 +47,7 @@ export async function GET() {
       account,
       orders: getOrders(50),
       events: getPaperEvents(30),
+      diagnostics: { provider: providerDiagnostics(symbol, { lastCandleAt: market.timeframes?.["1min"]?.candles.at(-1)?.time ?? null, lastQuoteAt: market.timestamp }) },
       chart:
         market.timeframes?.["1min"]?.candles.slice(-80) ??
         [],
@@ -68,6 +70,7 @@ export async function GET() {
         account: getPaperAccount(),
         orders: getOrders(50),
         events: getPaperEvents(30),
+        diagnostics: { provider: providerDiagnostics(symbol) },
         generatedAt: new Date().toISOString(),
       },
       { status: 503 },
