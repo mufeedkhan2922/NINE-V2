@@ -1,6 +1,7 @@
 import { evaluateStrategyBook, type StrategyCandidate } from "./strategyEngine";
 import { NINE_STRATEGIES } from "./strategyLibrary";
 import type { Candle, MarketSnapshot, TradeDirection } from "./types";
+import { buildResearchRiskProfile, type ResearchRiskProfile } from "./researchRisk";
 
 export interface ExecutionModel {
   spreadPrice: number;
@@ -110,6 +111,7 @@ export interface HistoricalIntelligenceResult {
   targetWinRate: number;
   targetReached: boolean;
   researchQuality: ResearchQuality;
+  riskProfile: ResearchRiskProfile;
   generatedAt: number;
   researchIntegrity: {
     memoryExcludedFromHistoricalSignals: boolean;
@@ -517,6 +519,7 @@ export function runHistoricalIntelligence(
       bestStrategyWilsonLowerBound: best ? Number(bestWilson.toFixed(2)) : null,
       explanation: researchExplanation,
     },
+    riskProfile: buildResearchRiskProfile(wf.oosTrades),
     generatedAt: Date.now(),
     researchIntegrity: {
       memoryExcludedFromHistoricalSignals: true,

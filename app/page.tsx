@@ -1905,10 +1905,16 @@ export default function Home() {
                   <Metric label="TARGET 90%" value={research.targetReached ? "REACHED" : "NOT PROVEN"} sub="Evidence threshold" />
                   <Metric label="WALK-FORWARD" value={research.walkForward?.length ?? 0} sub="Validation folds" />
                   <Metric label="MONTE CARLO" value={research.monteCarlo?.simulations ?? "—"} sub="OOS simulations" />
+                  <Metric label="MAX LOSS STREAK" value={research.riskProfile?.maxConsecutiveLosses ?? "—"} sub="Observed OOS" />
+                  <Metric label="CVaR 95%" value={research.riskProfile?.cvar95R != null ? fmt(research.riskProfile.cvar95R, 2) + "R" : "—"} sub="Worst-tail average" />
+                  <Metric label="RISK OF RUIN" value={research.riskProfile?.riskOfRuinAtOnePercent != null ? fmt(research.riskProfile.riskOfRuinAtOnePercent, 2) + "%" : "—"} sub="1% risk model" />
                 </div>
                 <div className="research-integrity">
                   <StatusPill value="OOS VERIFIED" />
                   <span>Memory source: {research.researchIntegrity?.memorySource ?? "OUT_OF_SAMPLE"} · Historical signals exclude persistent memory. {research.researchQuality?.explanation?.[3] ?? "Research evidence is evaluated out of sample."}</span>
+                  {(research.riskProfile?.riskNotes ?? []).slice(0, 3).map((note: string) => (
+                    <span key={note}>• {note}</span>
+                  ))}
                 </div>
               </>
             ) : (
