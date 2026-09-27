@@ -3,7 +3,7 @@ import { runPaperValidation } from "../lib/trading/paperValidation";
 import { NINE_VERSION, runtimeSafety } from "../lib/trading/runtime";
 
 export function runPaperValidationTest(): void {
-  assert.equal(NINE_VERSION, "3.8.0");
+  assert.equal(NINE_VERSION, "3.9.0");
   const safety = runtimeSafety();
   assert.equal(safety.paperTradingEnabled, true);
   assert.equal(safety.liveTradingEnabled, false);
