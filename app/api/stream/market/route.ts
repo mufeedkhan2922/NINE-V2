@@ -3,6 +3,8 @@ import { assertSameOrigin } from "@/lib/security/requestSecurity";
 import { rateLimit, requestKey } from "@/lib/security/rateLimit";
 import { getLiveMarketSnapshot } from "@/lib/trading/market";
 import { getPaperAccount } from "@/lib/trading/paperTrading";
+import { buildXAUDecisionEngine, createSetupTracking } from "@/lib/trading/xauDecisionEngine";
+import { runXAUAutonomousPaperLoop } from "@/lib/trading/paperLoop";
 import { orchestrateNINE } from "@/lib/trading/orchestrator";
 import { getOrders } from "@/lib/trading/orders";
 import {
@@ -76,6 +78,20 @@ export async function GET(request: Request) {
             market,
             account,
           );
+          const paperLoop = symbol === "XAUUSD"
+            ? runXAUAutonomousPaperLoop(market, orchestration)
+            : null;
+          const loopAccount = paperLoop?.account ?? account;
+          const decisionEngine = symbol === "XAUUSD"
+            ? buildXAUDecisionEngine(
+                market,
+                orchestration.setup,
+                orchestration.atlas,
+                orchestration.sentinel,
+                loopAccount,
+                createSetupTracking(orchestration.setup, loopAccount),
+              )
+            : null;
 
           controller.enqueue(
             encoder.encode(
@@ -86,7 +102,9 @@ export async function GET(request: Request) {
                 market,
                 feed: marketFeedStatus(market),
                 orchestration,
-                account,
+                decisionEngine,
+                paperLoop,
+                account: loopAccount,
                 orders: getOrders(20),
                 chart:
                   market.timeframes?.["1min"]?.candles.slice(-120) ??
