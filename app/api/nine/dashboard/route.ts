@@ -106,7 +106,8 @@ export async function GET(request: Request) {
   try {
     const market = await getLiveMarketSnapshot(symbol);
     const account = getPaperAccount(market.price);
-    const orchestration = await orchestrateNINE(market, account);\n    const agentOrchestration = buildAgentOrchestration(market, orchestration.setup, orchestration.atlas, orchestration.sentinel);\n    const workstation = buildWorkstationIntelligence(market, orchestration);
+    const orchestration = await orchestrateNINE(market, account);
+    const agentOrchestration = buildAgentOrchestration(market, orchestration.setup, orchestration.atlas, orchestration.sentinel);\n    const workstation = buildWorkstationIntelligence(market, orchestration);
 
     const feed = marketFeedStatus(market);
     const setupV26 = orchestration.v26.setup;
