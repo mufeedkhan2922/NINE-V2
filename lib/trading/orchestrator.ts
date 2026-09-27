@@ -52,7 +52,8 @@ export function analyzeMarket(market: MarketSnapshot, account: PaperAccount = fa
 
   const geometry = buildTradeGeometry(market, direction, technical.atr, smc.premiumDiscount);
   const projectedLoss = geometry.entry !== null && geometry.stopLoss !== null ? Math.abs(geometry.entry - geometry.stopLoss) * Math.max(0.01, Number(process.env.NINE_DEFAULT_ORDER_QUANTITY ?? 0.01)) : 0;
-  const notional = geometry.entry !== null ? Math.min(Number(process.env.NINE_PAPER_MAX_NOTIONAL_USD ?? 25000), account.equity) : 0;
+  const proposedQuantity = Math.max(0.01, Number(process.env.NINE_DEFAULT_ORDER_QUANTITY ?? 0.01));
+  const notional = geometry.entry !== null ? Math.min(Number(process.env.NINE_PAPER_MAX_NOTIONAL_USD ?? 25000), geometry.entry * proposedQuantity) : 0;
   const risk = assessAdvancedRisk({ direction, riskPercent: 0.5, equity: account.equity, peakEquity: account.peakEquity, dailyRealizedPnl: account.dailyRealizedPnl, dailyStartBalance: account.dailyStartBalance, projectedLossDollars: projectedLoss, notionalDollars: notional });
   const confluence = [smc.liquiditySweep, smc.marketStructureShift, smc.fairValueGap, smc.orderBlock, smc.chartist?.chochDirection !== "NONE", higherBias !== "NONE" && higherBias === direction].filter(Boolean).length;
   const confidence = Math.min(95, (direction === "NONE" ? 30 : 45) + confluence * 8 + (technical.momentum === technical.trend ? 5 : 0) + Math.round((smc.chartist?.confluenceScore ?? 0) * 0.12));
