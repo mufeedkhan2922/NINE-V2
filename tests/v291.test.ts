@@ -30,10 +30,16 @@ export async function runV291Test(): Promise<void> {
     calls += 1;
     const url = String(input);
     if (url.includes("/time_series")) {
-      return new Response(JSON.stringify({ status: "ok", values: makeCandles() }), { status: 200 });
+      return new Response(JSON.stringify({ status: "ok", values: makeCandles() }), {
+        status: 200,
+        headers: { "api-credits-used": "1", "api-credits-left": "7" },
+      });
     }
     if (url.includes("/price")) {
-      return new Response(JSON.stringify({ price: "4201.25" }), { status: 200 });
+      return new Response(JSON.stringify({ price: "4201.25" }), {
+        status: 200,
+        headers: { "api-credits-used": "2", "api-credits-left": "6" },
+      });
     }
     return new Response("not found", { status: 404 });
   }) as typeof fetch;
@@ -49,10 +55,15 @@ export async function runV291Test(): Promise<void> {
     assert.equal(second.length, 20);
     assert.equal(calls, 1, "concurrent identical candle requests must be deduplicated");
     assert.equal(providerHealth().requestsLastMinute, before + 1);
+    assert.equal(providerHealth().apiCreditsUsed, 1);
+    assert.equal(providerHealth().apiCreditsLeft, 7);
+    assert.equal(providerHealth().apiCreditsLimit, 8);
 
     const quote = await fetchProviderQuote("XAUUSD");
     assert.equal(quote.price, 4201.25);
     assert.equal(calls, 2, "quote should require one additional provider request");
+    assert.equal(providerHealth().apiCreditsUsed, 2);
+    assert.equal(providerHealth().apiCreditsLeft, 6);
     assert.equal(isProviderRateLimitedError(new Error("Twelve Data HTTP 429")), true);
     assert.equal(isProviderRateLimitedError(new Error("normal validation error")), false);
   } finally {
