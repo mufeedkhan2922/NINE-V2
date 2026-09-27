@@ -7,6 +7,7 @@ import { getLiveMarketSnapshot } from "@/lib/trading/market";
 import { orchestrateNINE } from "@/lib/trading/orchestrator";
 import { buildAgentOrchestration } from "@/lib/trading/agentOrchestrator";
 import { buildXAUDecisionEngine, createSetupTracking, type XAUSetupTracking } from "@/lib/trading/xauDecisionEngine";
+import { runXAUAutonomousPaperLoop } from "@/lib/trading/paperLoop";
 import { buildDecisionExplanation } from "@/lib/trading/v210";
 import {
   getPaperAccount,
@@ -164,21 +165,28 @@ export async function GET(request: Request) {
     const orchestration = await orchestrateNINE(market, account);
     const agentOrchestration = buildAgentOrchestration(market, orchestration.setup, orchestration.atlas, orchestration.sentinel);
     const workstation = buildWorkstationIntelligence(market, orchestration);
+    const initialTracking = symbol === "XAUUSD"
+      ? loadXAUSetupTracking(orchestration.setup, account)
+      : undefined;
+    const paperLoop = symbol === "XAUUSD"
+      ? runXAUAutonomousPaperLoop(market, orchestration, initialTracking)
+      : null;
+    const loopAccount = paperLoop?.account ?? account;
+    const finalTracking = symbol === "XAUUSD"
+      ? loadXAUSetupTracking(orchestration.setup, loopAccount)
+      : undefined;
     const decisionEngine = symbol === "XAUUSD"
       ? buildXAUDecisionEngine(
           market,
           orchestration.setup,
           orchestration.atlas,
           orchestration.sentinel,
-          account,
-          (() => {
-            const tracking = loadXAUSetupTracking(orchestration.setup, account);
-            const engine = buildXAUDecisionEngine(market, orchestration.setup, orchestration.atlas, orchestration.sentinel, account, tracking);
-            persistXAUSetupTracking(engine.tracking, symbol);
-            return engine.tracking;
-          })(),
+          loopAccount,
+          finalTracking ?? createSetupTracking(orchestration.setup, loopAccount),
         )
       : null;
+    if (finalTracking) persistXAUSetupTracking(finalTracking, symbol);
+
 
     const feed = marketFeedStatus(market);
     const setupV26 = orchestration.v26.setup;
@@ -216,6 +224,7 @@ export async function GET(request: Request) {
       agents: agentOrchestration,
       workstation,
       decisionEngine,
+      paperLoop,
       v27: {
         commandCenter: {
           status: brainV26.action,
@@ -248,7 +257,7 @@ export async function GET(request: Request) {
         risk: riskTelemetryV26,
         events: signalEventsV26,
       },
-      account,
+      account: loopAccount,
       orders: getOrders(50),
       events: getPaperEvents(30),
       chart: market.timeframes?.["1min"]?.candles.slice(-120) ?? [],
