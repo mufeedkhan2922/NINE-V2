@@ -1044,6 +1044,34 @@ export default function Home() {
     );
   };
 
+  const runHistoricalResearch = useCallback(async () => {
+    if (!user) return;
+    setResearchBusy(true);
+    setResearchError("");
+    try {
+      const response = await fetch("/api/strategy-lab/historical", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          symbol,
+          timeframe: backtestTimeframe,
+          startDate: researchStart,
+          endDate: researchEnd,
+          folds: 4,
+          monteCarloSimulations: 1000,
+          targetWinRate: 90,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.ok) throw new Error(data.error ?? "Historical research failed.");
+      setResearch(data.result);
+    } catch (error) {
+      setResearchError(error instanceof Error ? error.message : "Historical research failed.");
+    } finally {
+      setResearchBusy(false);
+    }
+  }, [backtestTimeframe, researchEnd, researchStart, symbol, user]);
+
   const runBacktest = async () => {
     if (!user) {
       setLoginError("Login is required for backtesting.");
@@ -2594,32 +2622,4 @@ export default function Home() {
       )}
     </main>
   );
-}  const runHistoricalResearch = useCallback(async () => {
-    if (!user) return;
-    setResearchBusy(true);
-    setResearchError("");
-    try {
-      const response = await fetch("/api/strategy-lab/historical", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          symbol,
-          timeframe: backtestTimeframe,
-          startDate: researchStart,
-          endDate: researchEnd,
-          folds: 4,
-          monteCarloSimulations: 1000,
-          targetWinRate: 90,
-        }),
-      });
-      const data = await response.json();
-      if (!response.ok || !data.ok) throw new Error(data.error ?? "Historical research failed.");
-      setResearch(data.result);
-    } catch (error) {
-      setResearchError(error instanceof Error ? error.message : "Historical research failed.");
-    } finally {
-      setResearchBusy(false);
-    }
-  }, [backtestTimeframe, researchEnd, researchStart, symbol, user]);
-
-
+}
