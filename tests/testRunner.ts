@@ -15,6 +15,7 @@ import { runV27Test } from "./v27.test";
 import { runV29Test } from "./v29.test";
 import { runV291Test } from "./v291.test";
 import { runV210Test } from "./v210.test";
+import { runHistoricalTest } from "./historical.test";
 
 const tests: Array<[string, () => void | Promise<void>]> = [
   ["technical", runTechnicalTest],
@@ -32,6 +33,7 @@ const tests: Array<[string, () => void | Promise<void>]> = [
   ["v2.9 full functionality", runV29Test],
   ["v2.9.1 provider reliability", runV291Test],
   ["v2.10 analytics and explanations", runV210Test],
+  ["historical backtest", runHistoricalTest],
 ];
 
 async function main(): Promise<void> {

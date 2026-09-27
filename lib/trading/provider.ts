@@ -213,6 +213,58 @@ async function fetchCandlesUncached(symbol: MarketSymbol, timeframe: Timeframe, 
   }
 }
 
+export async function fetchProviderHistoricalCandles(
+  symbol: MarketSymbol,
+  timeframe: Timeframe,
+  startDate: string,
+  endDate: string,
+): Promise<Candle[]> {
+  const key = assertApiKey();
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime())) {
+    throw new Error("Historical backtest dates must be valid ISO dates.");
+  }
+  if (start >= end) {
+    throw new Error("Historical backtest startDate must be before endDate.");
+  }
+
+  reserveRequest(`${symbol} ${timeframe} historical range`);
+  const url = new URL(`${BASE_URL}/time_series`);
+  url.searchParams.set("symbol", SYMBOLS[symbol]);
+  url.searchParams.set("interval", timeframe);
+  url.searchParams.set("start_date", startDate.slice(0, 10));
+  url.searchParams.set("end_date", endDate.slice(0, 10));
+  url.searchParams.set("order", "ASC");
+  url.searchParams.set("timezone", "UTC");
+  url.searchParams.set("apikey", key);
+
+  try {
+    const response = await fetch(url, { cache: "no-store", signal: timeoutSignal() });
+    recordCreditHeaders(response);
+    if (response.status === 429) applyRateLimit(response);
+    if (!response.ok) throw new Error(`${PROVIDER} historical ${symbol} ${timeframe} HTTP ${response.status}.`);
+    const payload = await response.json();
+    if (payload?.status === "error") throw new Error(String(payload.message ?? `${PROVIDER} returned an error.`));
+    if (!Array.isArray(payload?.values)) throw new Error(`No historical ${timeframe} candles returned for ${symbol}.`);
+
+    const candles = payload.values
+      .map(convertCandle)
+      .filter(validateCandle)
+      .sort((a: Candle, b: Candle) => a.time - b.time);
+
+    if (candles.length < 40) {
+      throw new Error(`Insufficient validated historical ${timeframe} candles for ${symbol}: ${candles.length}.`);
+    }
+
+    state.lastError = null;
+    return candles;
+  } catch (error) {
+    state.lastError = error instanceof Error ? error.message : "Unknown historical provider error.";
+    throw error;
+  }
+}
+
 export async function fetchProviderCandles(symbol: MarketSymbol, timeframe: Timeframe, outputsize: number): Promise<Candle[]> {
   const normalizedSize = Math.max(40, Math.min(outputsize, 5000));
   const requestKey = `${symbol}:${timeframe}:${normalizedSize}`;
