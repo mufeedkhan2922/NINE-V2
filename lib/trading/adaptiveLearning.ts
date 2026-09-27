@@ -57,6 +57,16 @@ type MutableStats = {
   maxDrawdownR: number;
 };
 
+const globalLearning = globalThis as typeof globalThis & {
+  __nineAdaptiveLearningCache?: Map<string, AdaptiveLearningSnapshot>;
+};
+
+const learningCache =
+  globalLearning.__nineAdaptiveLearningCache ??
+  new Map<string, AdaptiveLearningSnapshot>();
+
+globalLearning.__nineAdaptiveLearningCache = learningCache;
+
 const DEFAULTS: Required<LearningOptions> = {
   warmupCandles: 100,
   evaluationHorizon: 12,
@@ -203,11 +213,28 @@ export function buildAdaptiveLearningSnapshot(
   };
 
   const candles = market.candles;
+  const cacheKey = [
+    market.symbol,
+    candles.length,
+    candles.at(-1)?.time ?? 0,
+    options.warmupCandles,
+    options.evaluationHorizon,
+    options.rewardRisk,
+    options.minimumScore,
+    options.spreadPrice,
+    options.slippagePrice,
+    options.minimumTrades,
+    options.targetWinRate,
+  ].join(":");
+
+  const cached = learningCache.get(cacheKey);
+  if (cached) return cached;
+
   const stats = new Map<string, MutableStats>();
   let totalEvaluatedSignals = 0;
 
   if (candles.length <= options.warmupCandles + 2) {
-    return {
+    const insufficient: AdaptiveLearningSnapshot = {
       symbol: market.symbol,
       evaluatedCandles: candles.length,
       outOfSample: false,
@@ -226,6 +253,8 @@ export function buildAdaptiveLearningSnapshot(
       ],
       generatedAt: Date.now(),
     };
+    learningCache.set(cacheKey, insufficient);
+    return insufficient;
   }
 
   for (let i = options.warmupCandles; i < candles.length - 1; i += 1) {
@@ -282,7 +311,7 @@ export function buildAdaptiveLearningSnapshot(
   const targetReached = Boolean(best && best.trades >= options.minimumTrades && best.winRate >= options.targetWinRate);
   const robust = Boolean(best && best.trades >= options.minimumTrades && best.profitFactor > 1 && best.expectancyR > 0);
 
-  return {
+  const snapshot: AdaptiveLearningSnapshot = {
     symbol: market.symbol,
     evaluatedCandles: candles.length,
     outOfSample: true,
@@ -306,4 +335,12 @@ export function buildAdaptiveLearningSnapshot(
     ],
     generatedAt: Date.now(),
   };
+
+  learningCache.set(cacheKey, snapshot);
+  if (learningCache.size > 8) {
+    const oldest = learningCache.keys().next().value;
+    if (oldest) learningCache.delete(oldest);
+  }
+
+  return snapshot;
 }
