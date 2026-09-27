@@ -24,9 +24,10 @@ export function routeVoiceIntent(transcript: string): { intent: "ANALYZE_GOLD" |
   const text = transcript.trim().toLowerCase();
   if (!text) return { intent: "UNKNOWN", requiresSentinel: false };
   if (/(analy[sz]e|check|look at).*(gold|xau|xauusd)/i.test(text) || /gold.*(analy[sz]e|setup|signal)/i.test(text)) return { intent: "ANALYZE_GOLD", requiresSentinel: false };
+  // Risk/authorization language takes precedence over generic status words such as "system" or "status".
+  if (/(risk|sentinel|safe|permission|can i trade|risk status|risk check)/i.test(text)) return { intent: "RISK", requiresSentinel: true };
   if (/(status|system|health|paper account)/i.test(text)) return { intent: "STATUS", requiresSentinel: false };
   if (/(research|backtest|historical|walk.?forward|monte.?carlo)/i.test(text)) return { intent: "RESEARCH", requiresSentinel: false };
-  if (/(risk|sentinel|safe|permission|can i trade)/i.test(text)) return { intent: "RISK", requiresSentinel: true };
   return { intent: "UNKNOWN", requiresSentinel: false };
 }
 
