@@ -35,13 +35,15 @@ const snapshotInFlight = globalCache.__nineSnapshotInFlight ?? new Map<MarketSym
 globalCache.__nineSnapshotInFlight = snapshotInFlight;
 
 function ttl(timeframe: Timeframe): number {
+  // Higher timeframes change less frequently. Keeping their validated data cached
+  // prevents a low-credit REST provider from being polled on every dashboard refresh.
   return ({
-    "1min": 30_000,
-    "5min": 60_000,
-    "15min": 120_000,
-    "1h": 300_000,
-    "4h": 600_000,
-    "1day": 1_800_000,
+    "1min": 60_000,
+    "5min": 300_000,
+    "15min": 600_000,
+    "1h": 1_800_000,
+    "4h": 7_200_000,
+    "1day": 21_600_000,
   })[timeframe];
 }
 
