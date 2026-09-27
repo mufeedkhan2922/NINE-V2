@@ -55,6 +55,12 @@ export function runHistoricalIntelligenceTest(): void {
   assert.equal(result.researchQuality.outOfSampleTrades, result.selectedOutOfSample.reduce((sum, stat) => sum + stat.trades, 0), "research quality must report the selected OOS sample");
   assert.ok(result.researchQuality.foldConsistency >= 0 && result.researchQuality.foldConsistency <= 100, "fold consistency must be bounded");
   assert.ok(result.researchQuality.explanation.length >= 3, "research quality must explain qualification state");
+  assert.ok(result.riskProfile.trades === result.researchQuality.outOfSampleTrades, "risk profile must use the OOS trade set");
+  assert.ok(result.riskProfile.maxConsecutiveLosses >= 0, "loss streak must be bounded");
+  assert.ok(result.riskProfile.var95R <= result.riskProfile.bestTradeR, "VaR must be within observed return bounds");
+  assert.ok(result.riskProfile.cvar95R <= result.riskProfile.var95R + 1e-9, "CVaR must be no better than VaR");
+  assert.ok(result.riskProfile.conservativeRiskFraction >= 0 && result.riskProfile.conservativeRiskFraction <= 0.25, "risk fraction must be capped");
+
   assert.equal(result.researchIntegrity.memoryExcludedFromHistoricalSignals, true, "historical signals must not read persistent memory");
   assert.equal(result.researchIntegrity.nonOverlappingTradesPerStrategy, true, "historical trades must not overlap within a strategy");
   assert.equal(result.researchIntegrity.monteCarloUsesOutOfSampleTrades, true, "Monte Carlo must use out-of-sample trades");
