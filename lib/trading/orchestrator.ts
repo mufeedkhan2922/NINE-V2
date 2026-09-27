@@ -88,14 +88,23 @@ export async function orchestrateNINE(market: MarketSnapshot, account: PaperAcco
     ...(market.crossTimeframeValidation?.issues ?? []),
     ...(market.microstructureValidation?.issues ?? []),
   ].slice(0, 8);
-  const commandSummary = sentinel.approved
-    ? `${setup.direction} setup validated. Sentinel execution gate is open.`
+  const blockers = [...(sentinel.blockers ?? []), ...(setup.validation.blockers ?? []), ...(market.marketState?.reasons ?? [])].map((item) => item.replace(/^BLOCK:\\s*/, ""));
+  const warnings = [...(setup.validation.warnings ?? []), ...(market.marketState?.warnings ?? [])];
+  const evidence = [
+    `Market state: ${market.marketState?.marketState ?? "UNKNOWN"} / data: ${market.marketState?.dataState ?? "UNKNOWN"}`,
+    `Engine validation: ${setup.validation.score}%`,
+    `Chartist confluence: ${setup.smc.chartist?.confluenceScore ?? 0}%`,
+    `Atlas: ${atlas.instrumentImpact}`,
+  ];
+  const decision = sentinel.approved && setup.status === "VALID"
+    ? { decision: "TRADE" as const, title: "Trade candidate passed the current gates", summary: `${setup.direction} setup passed engine validation and Sentinel.`, blockers: [], warnings, evidence, confidence: setup.confidence }
     : setup.direction === "NONE"
-      ? "No executable setup. NINE is watching."
-      : `Trade blocked: ${sentinel.reason}`;
+      ? { decision: "WATCH" as const, title: "NINE is watching", summary: "No confirmed executable direction is present yet.", blockers, warnings, evidence, confidence: setup.confidence }
+      : { decision: "BLOCKED" as const, title: "NINE is blocked", summary: sentinel.reason, blockers, warnings, evidence, confidence: setup.confidence };
+  const commandSummary = decision.summary;
   return {
     agentReports: [atlasReport, chartist, sentinelAgent],
     atlas, setup, sentinel, executionMode: "PAPER", commandSummary, generatedAt: Date.now(),
-    marketHealth: { feed, validated: feed.tradingAllowed && setup.validation.checks.marketData, blockers: marketBlockers },
+    marketHealth: { feed, validated: feed.tradingAllowed && setup.validation.checks.marketData, blockers: marketBlockers }, decision,
   };
 }
