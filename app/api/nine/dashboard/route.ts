@@ -143,6 +143,8 @@ export async function GET(request: Request) {
       feed,
       market,
       orchestration,
+      agents: agentOrchestration,
+      workstation,
       v27: {
         commandCenter: {
           status: brainV26.action,
