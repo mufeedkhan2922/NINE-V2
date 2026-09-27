@@ -14,6 +14,7 @@ export async function POST(request: Request) {
     const email = typeof body.email === "string" ? body.email : "";
     const password = typeof body.password === "string" ? body.password : "";
     if (!email || !password) return NextResponse.json({ ok: false, error: "Email and password are required." }, { status: 400 });
+    if (email.length > 254 || password.length > 256) return NextResponse.json({ ok: false, error: "Credential fields exceed the allowed size." }, { status: 400 });
     const result = login(email, password);
     if (!result) return NextResponse.json({ ok: false, error: "Invalid credentials." }, { status: 401 });
     const response = NextResponse.json({ ok: true, user: result.user });
