@@ -91,6 +91,8 @@ function loadXAUSetupTracking(setup: Awaited<ReturnType<typeof orchestrateNINE>>
     "SELECT setup_id AS setupId, lifecycle, first_seen_at AS firstSeenAt, last_seen_at AS lastSeenAt, direction, entry, stop_loss AS stopLoss, take_profit AS takeProfit, matched_paper_position_id AS matchedPaperPositionId, status_reason AS statusReason FROM xau_setup_tracking WHERE symbol = ? ORDER BY last_seen_at DESC LIMIT 1",
   ).get(setup.symbol) as Record<string, unknown> | undefined;
 
+  const matchedId = row?.matchedPaperPositionId == null ? null : String(row.matchedPaperPositionId);
+  const matchedPosition = matchedId ? account.positions.find((position) => position.id === matchedId) : undefined;
   const existing = row
     ? {
         setupId: String(row.setupId),
@@ -102,7 +104,8 @@ function loadXAUSetupTracking(setup: Awaited<ReturnType<typeof orchestrateNINE>>
         stopLoss: row.stopLoss == null ? null : Number(row.stopLoss),
         takeProfit: row.takeProfit == null ? null : Number(row.takeProfit),
         ageSeconds: Math.max(0, Math.round((Date.now() - Number(row.firstSeenAt)) / 1000)),
-        matchedPaperPositionId: row.matchedPaperPositionId == null ? null : String(row.matchedPaperPositionId),
+        matchedPaperPositionId: matchedId,
+        paperPositionState: matchedPosition?.status === "OPEN" ? "OPEN" as const : matchedPosition?.status === "CLOSED" ? "CLOSED" as const : matchedId ? "CLOSED" as const : "NONE" as const,
         statusReason: String(row.statusReason ?? ""),
       }
     : undefined;
