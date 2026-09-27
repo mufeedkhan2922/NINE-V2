@@ -1,0 +1,22 @@
+name: NINE V2.10 CI
+
+on:
+  push:
+    branches: ["v2.10-development"]
+  pull_request:
+    branches: ["v2.6-development", "main"]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    env:
+      NINE_DB_PATH: .nine-test-data/nine.db
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
