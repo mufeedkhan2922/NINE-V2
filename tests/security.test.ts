@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { rateLimit } from "../lib/security/rateLimit";
+import { createServer } from "node:http";
 
 export function runSecurityTest(): void {
   const key = `test-${Date.now()}-${Math.random()}`;
