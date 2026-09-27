@@ -108,7 +108,7 @@ function MiniChart({ candles, setup, streaming }: { candles: any[]; setup: any; 
   const target = Number(setup?.takeProfit);
   return (
     <div className="terminal-chart">
-      <svg viewBox={\`0 0 \${width} \${height}\`} preserveAspectRatio="none" onMouseLeave={() => setHover(null)}>
+      <svg viewBox={`0 0 \${width} \${height}`} preserveAspectRatio="none" onMouseLeave={() => setHover(null)}>
         <rect x={left} y={top} width={width-left-right} height={height-top-bottom} className="terminal-chart-bg" />
         {grid.map((value, i) => (
           <g key={i}>
