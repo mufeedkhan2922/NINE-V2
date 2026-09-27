@@ -26,6 +26,7 @@ import { runHistoricalIntelligenceTest } from "./historicalIntelligence.test";
 import { runResearchMatrixTest } from "./researchMatrix.test";
 import { runAgentOrchestrationTest } from "./agentOrchestration.test";
 import { runPaperValidationTest } from "./paperValidation.test";
+import { runXAUDecisionEngineTest } from "./xauDecisionEngine.test";
 
 const tests: Array<[string, () => void | Promise<void>]> = [
   ["technical", runTechnicalTest],
@@ -54,6 +55,7 @@ const tests: Array<[string, () => void | Promise<void>]> = [
   ["research matrix", runResearchMatrixTest],
   ["agent orchestration", runAgentOrchestrationTest],
   ["final paper validation", runPaperValidationTest],
+  ["XAUUSD decision engine", runXAUDecisionEngineTest],
 ];
 
 async function main(): Promise<void> {
