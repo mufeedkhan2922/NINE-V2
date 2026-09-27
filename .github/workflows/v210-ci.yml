@@ -2,7 +2,7 @@ name: NINE V2.10 CI
 
 on:
   push:
-    branches: ["v2.10-development"]
+    branches: ["v2.10-development", "main"]
   pull_request:
     branches: ["v2.6-development", "main"]
 
