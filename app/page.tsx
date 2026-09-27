@@ -79,6 +79,7 @@ type Dashboard = {
   v29?: any;
   diagnostics?: any;
   strategyLab?: any;
+  strategyMemory?: any[];
   account?: any;
   chart?: Candle[];
   events?: any[];
@@ -1790,6 +1791,30 @@ export default function Home() {
                   <small>{lesson.objective}</small>
                 </div>
               ))}
+            </div>
+          </section>
+
+          <section id="section-strategy-memory" className="panel">
+            <SectionHeader
+              eyebrow="03 · STRATEGY MEMORY"
+              title="Historical edge memory"
+              description="Persistent strategy × session × regime evidence from completed historical research. Memory adjusts research scoring; it never bypasses Sentinel."
+              action={<StatusPill value={(dashboard?.strategyMemory?.length ?? 0) > 0 ? "LEARNING" : "EMPTY"} />}
+            />
+            <div className="signal-list">
+              {(dashboard?.strategyMemory ?? []).slice(0, 12).map((memory: any, index: number) => (
+                <div className="signal-row" key={memory.strategyId + memory.session + memory.regime + index}>
+                  <div className="signal-icon"><Brain size={15} /></div>
+                  <div>
+                    <b>{memory.strategyName}</b>
+                    <span>{memory.session} · {memory.regime} · {memory.trades} trades</span>
+                  </div>
+                  <small>{fmt(memory.winRate, 1)}% · {fmt(memory.expectancyR, 3)}R</small>
+                </div>
+              ))}
+              {!dashboard?.strategyMemory?.length && (
+                <div className="empty-state">Run historical intelligence to populate persistent strategy memory.</div>
+              )}
             </div>
           </section>
 

@@ -1,6 +1,7 @@
 import { analyzeSMC } from "./smc";
 import { analyzeTechnicals } from "./technical";
 import { NINE_STRATEGIES, type StrategyDefinition } from "./strategyLibrary";
+import { getStrategyMemoryWeight } from "./strategyMemory";
 import type { Candle, MarketSnapshot, TradeDirection } from "./types";
 
 export interface StrategyCandidate {
@@ -97,6 +98,8 @@ function scoreStrategy(strategy: StrategyDefinition, market: MarketSnapshot, can
   const rangeHigh = range20.length ? Math.max(...range20.map((c) => c.high)) : null;
   const rangeLow = range20.length ? Math.min(...range20.map((c) => c.low)) : null;
   const trendDirection: TradeDirection = tech.trend === "BULLISH" ? "LONG" : tech.trend === "BEARISH" ? "SHORT" : "NONE";
+  const regime = evaluateRegime(candles, tech.trend);
+  const memory = getStrategyMemoryWeight(market, strategy.id, session(last), regime);
   let direction: TradeDirection = trendDirection;
   let score = 0;
   const matchedConcepts: string[] = [];
@@ -180,6 +183,11 @@ function scoreStrategy(strategy: StrategyDefinition, market: MarketSnapshot, can
     if (smc.premiumDiscount !== "EQUILIBRIUM") add(10, "premium-discount", "location context");
     if (market.timeframes?.["1h"]?.candles?.length) add(10, "regime", "higher timeframe context available");
     if (direction === "NONE") blockers.push("No directional consensus.");
+  }
+
+  if (memory.sampleTrades > 0 && memory.adjustment !== 0) {
+    score += memory.adjustment;
+    reasons.push(`Historical memory adjustment ${memory.adjustment >= 0 ? "+" : ""}${memory.adjustment.toFixed(1)} from ${memory.sampleTrades} trades.`);
   }
 
   score = Math.max(0, Math.min(100, Math.round(score)));
