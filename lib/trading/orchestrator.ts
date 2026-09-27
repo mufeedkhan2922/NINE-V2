@@ -573,6 +573,8 @@ export async function orchestrateNINE(
         marketBlockers,
     },
 
+    marketAssessment: market.marketState,
+
     v26: {
       setup: setupV26,
       brain,
