@@ -48,7 +48,11 @@ export async function POST(request: Request) {
       ? (rawSymbol as MarketSymbol)
       : "XAUUSD";
 
-    const allowedTimeframes: Timeframe[] = ["1min", "5min", "15min", "1h", "4h", "1day"];\n    const timeframe = allowedTimeframes.includes(body.timeframe as Timeframe) ? body.timeframe as Timeframe : "1min";\n    const { candles, source } = await getBacktestCandles(symbol, timeframe);
+    const allowedTimeframes: Timeframe[] = ["1min", "5min", "15min", "1h", "4h", "1day"];
+    const timeframe = allowedTimeframes.includes(body.timeframe as Timeframe)
+      ? (body.timeframe as Timeframe)
+      : "1min";
+    const { candles, source } = await getBacktestCandles(symbol, timeframe);
     const initialBalance =
       Number.isFinite(body.initialBalance) &&
       Number(body.initialBalance) > 0
