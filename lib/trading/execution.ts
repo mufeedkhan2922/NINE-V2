@@ -22,6 +22,7 @@ import {
 
 import { getBrokerAdapter } from "./broker";
 import { liveTradingEnabled } from "./runtime";
+import { validateExecutionRequest } from "./coreSafety";
 
 const MAX_LIVE_NOTIONAL_USD = Number(
   process.env.NINE_LIVE_MAX_NOTIONAL_USD ?? 5_000,
@@ -133,6 +134,17 @@ export async function executeBrokerOrder(
   request: ExecutionRequest,
 ): Promise<ExecutionResult> {
   const timestamp = Date.now();
+
+  const coreSafety = validateExecutionRequest(request);
+  if (!coreSafety.valid && request.mode === "PAPER") {
+    return {
+      accepted: false,
+      mode: request.mode,
+      status: "REJECTED",
+      message: coreSafety.blockers.join(" "),
+      timestamp,
+    };
+  }
 
   if (request.mode === "LIVE" && !liveTradingEnabled()) {
     return {
