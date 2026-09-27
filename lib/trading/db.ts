@@ -224,6 +224,23 @@ CREATE TABLE IF NOT EXISTS strategy_memory (
 CREATE INDEX IF NOT EXISTS strategy_memory_lookup_idx
 ON strategy_memory(strategy_id, symbol, timeframe, session, regime, updated_at DESC);
 
+CREATE TABLE IF NOT EXISTS xau_setup_tracking (
+  setup_id TEXT PRIMARY KEY,
+  symbol TEXT NOT NULL,
+  lifecycle TEXT NOT NULL,
+  first_seen_at INTEGER NOT NULL,
+  last_seen_at INTEGER NOT NULL,
+  direction TEXT NOT NULL,
+  entry REAL,
+  stop_loss REAL,
+  take_profit REAL,
+  matched_paper_position_id TEXT,
+  status_reason TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS xau_setup_tracking_last_seen_idx
+ON xau_setup_tracking(symbol, last_seen_at DESC);
+
 CREATE TABLE IF NOT EXISTS research_runs (
   id TEXT PRIMARY KEY,
   symbol TEXT NOT NULL,
