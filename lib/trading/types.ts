@@ -452,3 +452,86 @@ export interface AtlasMacroEvent {
   previous?: string | null;
   time?: string;
 }
+
+
+export type ExplanationSeverity = "INFO" | "WARNING" | "BLOCK";
+
+export interface DecisionExplanationItem {
+  code: string;
+  severity: ExplanationSeverity;
+  title: string;
+  detail: string;
+  source: "MARKET" | "CHARTIST" | "ATLAS" | "NINE" | "SENTINEL" | "RUNTIME" | "PAPER";
+}
+
+export interface DecisionExplanation {
+  decision: "PAPER_READY" | "WATCHING" | "BLOCKED";
+  headline: string;
+  confidence: number;
+  blockers: DecisionExplanationItem[];
+  warnings: DecisionExplanationItem[];
+  evidence: DecisionExplanationItem[];
+  market: {
+    state: MarketState;
+    dataState: DataState;
+    tradingPermission: TradingPermission;
+    reasons: string[];
+    warnings: string[];
+  };
+  crossTimeframe: {
+    score: number | null;
+    valid: boolean;
+    issues: string[];
+    warnings: string[];
+    aggregationChecks?: CrossTimeframeResult["aggregationChecks"];
+  };
+  atlas: {
+    status: AtlasContext["sourceStatus"];
+    bias: MarketBias;
+    relevance: "HIGH" | "MEDIUM" | "LOW" | "UNAVAILABLE";
+    impact: string;
+    supportingHeadlines: string[];
+    events: number;
+    errors: string[];
+  };
+  sentinel: {
+    approved: boolean;
+    reason: string;
+    blockers: string[];
+    checksPassed: number;
+    checksTotal: number;
+  };
+  paper: {
+    allowed: boolean;
+    reason: string;
+    mode: ExecutionMode;
+  };
+}
+
+export interface BacktestEquityPoint {
+  trade: number;
+  timestamp: number;
+  balance: number;
+  drawdownPercent: number;
+}
+
+export interface BacktestDistribution {
+  buckets: Array<{ label: string; count: number; pnl: number }>;
+  largestWin: number;
+  largestLoss: number;
+}
+
+export interface BacktestAnalytics {
+  averageWin: number;
+  averageLoss: number;
+  expectancy: number;
+  winLossRatio: number;
+  profitFactor: number;
+  winningStreak: number;
+  losingStreak: number;
+  currentStreak: { outcome: "WIN" | "LOSS" | "NONE"; count: number };
+  equityCurve: BacktestEquityPoint[];
+  distribution: BacktestDistribution;
+  entryReasonCounts: Record<string, number>;
+  exitReasonCounts: Record<string, number>;
+}
