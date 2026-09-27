@@ -220,43 +220,26 @@ function paperOrderRequestHash(
 export function getPaperAccount(
   price?: number,
 ): PaperAccount {
-  const store = getStoreSnapshot();
-  const account = store.account;
+  return withStore((store) => {
+    const account = store.account;
+    const mark = safeNumber(price ?? 0, 0);
 
-  const mark = safeNumber(
-    price ?? 0,
-    0,
-  );
-
-  if (mark > 0) {
-    settleTriggeredPositions(
-      account,
-      mark,
-    );
-
-    markToMarket(
-      account,
-      mark,
-    );
-  } else {
-    const openPosition =
-      account.positions.find(
-        (position) =>
-          position.status === "OPEN",
+    if (mark > 0) {
+      resetDailyCounters(account);
+      settleTriggeredPositions(account, mark, store);
+      markToMarket(account, mark);
+    } else {
+      const openPosition = account.positions.find(
+        (position) => position.status === "OPEN",
       );
+      markToMarket(
+        account,
+        openPosition?.entryPrice ?? account.balance,
+      );
+    }
 
-    markToMarket(
-      account,
-      openPosition?.entryPrice ??
-        account.balance,
-    );
-  }
-
-  withStore((target) => {
-    target.account = account;
+    return account;
   });
-
-  return account;
 }
 
 export function getPaperEvents(
