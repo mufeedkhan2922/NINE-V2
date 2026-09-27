@@ -304,6 +304,22 @@ export async function buildAtlasContext(
       : "LIMITED";
   const freshnessSeconds = raw.length || macroEvents.length ? 0 : null;
 
+  const symbol = market.symbol;
+  const relevant = headlines.filter((item) => {
+    const title = item.title.toLowerCase();
+    if (symbol === "XAUUSD") return /(gold|xau|fed|federal reserve|treasury|yield|dollar|usd|inflation|cpi|ppi|jobs|payroll|interest rate|powell)/i.test(title);
+    if (symbol === "NIFTY" || symbol === "BANKNIFTY") return /(india|rbi|reserve bank|nifty|bank nifty|sensex|rupee|inr|inflation|cpi|gdp|rates|election|budget)/i.test(title);
+    return false;
+  });
+  const relevantEvents = macroEvents.filter((event) => {
+    const text = `${event.title} ${event.country ?? ""}`.toLowerCase();
+    if (symbol === "XAUUSD") return /(united states|us|usd|fed|federal|gold|global)/i.test(text);
+    return /(india|inr|rbi|united states|usd)/i.test(text);
+  });
+  const impactDirection: MarketBias = bullish > bearish ? "BULLISH" : bearish > bullish ? "BEARISH" : "NEUTRAL";
+  const instrumentImpact = relevant.length || relevantEvents.length
+    ? `${relevant.length} headline(s) and ${relevantEvents.length} event(s) are directly relevant to ${symbol}.`
+    : `No instrument-specific Atlas catalyst was identified for ${symbol} from the available source data.`;
   return {
     headlineCount: headlines.length,
     bullish,
@@ -316,5 +332,10 @@ export async function buildAtlasContext(
     macroEvents,
     sourceStatus,
     freshnessSeconds,
+    instrumentImpact,
+    instrumentImpactDirection: relevant.length ? impactDirection : "NEUTRAL",
+    relevantHeadlines: relevant.slice(0, 6).map((item) => item.title),
+    relevantEventCount: relevantEvents.length,
+    error: sourceStatus === "UNAVAILABLE" ? "FINNHUB_API_KEY is not configured." : null,
   };
 }
