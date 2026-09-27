@@ -200,6 +200,30 @@ CREATE TABLE IF NOT EXISTS backtest_trades (
   outcome TEXT NOT NULL,
   reason TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS strategy_memory (
+  id TEXT PRIMARY KEY,
+  strategy_id TEXT NOT NULL,
+  strategy_name TEXT NOT NULL,
+  symbol TEXT NOT NULL,
+  timeframe TEXT NOT NULL,
+  session TEXT NOT NULL,
+  regime TEXT NOT NULL,
+  trades INTEGER NOT NULL,
+  wins INTEGER NOT NULL,
+  win_rate REAL NOT NULL,
+  expectancy_r REAL NOT NULL,
+  profit_factor REAL NOT NULL,
+  max_drawdown_r REAL NOT NULL,
+  sample_start INTEGER NOT NULL,
+  sample_end INTEGER NOT NULL,
+  source TEXT NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS strategy_memory_lookup_idx
+ON strategy_memory(strategy_id, symbol, timeframe, session, regime, updated_at DESC);
+
 `);
 
 ensureColumn("positions", "order_id", "TEXT");
