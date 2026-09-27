@@ -50,4 +50,8 @@ export function runHistoricalIntelligenceTest(): void {
   assert.ok(result.monteCarlo === null || result.monteCarlo.simulations === 250, "Monte Carlo simulation count must be respected");
   assert.ok(rankMemory(result.memoryRecords).length === result.memoryRecords.length, "memory ranking must be deterministic");
   assert.ok(result.targetWinRate === 90, "target must remain an explicit validation threshold");
+  assert.equal(result.researchIntegrity.memoryExcludedFromHistoricalSignals, true, "historical signals must not read persistent memory");
+  assert.equal(result.researchIntegrity.nonOverlappingTradesPerStrategy, true, "historical trades must not overlap within a strategy");
+  assert.equal(result.researchIntegrity.monteCarloUsesOutOfSampleTrades, true, "Monte Carlo must use out-of-sample trades");
+  assert.equal(result.researchIntegrity.memorySource, "OUT_OF_SAMPLE", "persistent memory must be sourced from OOS evidence");
 }
