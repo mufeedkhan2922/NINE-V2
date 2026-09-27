@@ -7,6 +7,7 @@ import { getLiveMarketSnapshot } from "@/lib/trading/market";
 import { orchestrateNINE } from "@/lib/trading/orchestrator";
 import { buildAgentOrchestration } from "@/lib/trading/agentOrchestrator";
 import { buildXAUDecisionEngine, createSetupTracking, type XAUSetupTracking } from "@/lib/trading/xauDecisionEngine";
+import { runXAUAutonomousPaperLoop } from "@/lib/trading/paperLoop";
 import { buildDecisionExplanation } from "@/lib/trading/v210";
 import {
   getPaperAccount,
@@ -90,6 +91,8 @@ function loadXAUSetupTracking(setup: Awaited<ReturnType<typeof orchestrateNINE>>
     "SELECT setup_id AS setupId, lifecycle, first_seen_at AS firstSeenAt, last_seen_at AS lastSeenAt, direction, entry, stop_loss AS stopLoss, take_profit AS takeProfit, matched_paper_position_id AS matchedPaperPositionId, status_reason AS statusReason FROM xau_setup_tracking WHERE symbol = ? ORDER BY last_seen_at DESC LIMIT 1",
   ).get(setup.symbol) as Record<string, unknown> | undefined;
 
+  const matchedId = row?.matchedPaperPositionId == null ? null : String(row.matchedPaperPositionId);
+  const matchedPosition = matchedId ? account.positions.find((position) => position.id === matchedId) : undefined;
   const existing = row
     ? {
         setupId: String(row.setupId),
@@ -101,7 +104,8 @@ function loadXAUSetupTracking(setup: Awaited<ReturnType<typeof orchestrateNINE>>
         stopLoss: row.stopLoss == null ? null : Number(row.stopLoss),
         takeProfit: row.takeProfit == null ? null : Number(row.takeProfit),
         ageSeconds: Math.max(0, Math.round((Date.now() - Number(row.firstSeenAt)) / 1000)),
-        matchedPaperPositionId: row.matchedPaperPositionId == null ? null : String(row.matchedPaperPositionId),
+        matchedPaperPositionId: matchedId,
+        paperPositionState: matchedPosition?.status === "OPEN" ? "OPEN" as const : matchedPosition?.status === "CLOSED" ? "CLOSED" as const : matchedId ? "CLOSED" as const : "NONE" as const,
         statusReason: String(row.statusReason ?? ""),
       }
     : undefined;
@@ -164,21 +168,28 @@ export async function GET(request: Request) {
     const orchestration = await orchestrateNINE(market, account);
     const agentOrchestration = buildAgentOrchestration(market, orchestration.setup, orchestration.atlas, orchestration.sentinel);
     const workstation = buildWorkstationIntelligence(market, orchestration);
+    const initialTracking = symbol === "XAUUSD"
+      ? loadXAUSetupTracking(orchestration.setup, account)
+      : undefined;
+    const paperLoop = symbol === "XAUUSD"
+      ? runXAUAutonomousPaperLoop(market, orchestration, initialTracking)
+      : null;
+    const loopAccount = paperLoop?.account ?? account;
+    const finalTracking = symbol === "XAUUSD"
+      ? loadXAUSetupTracking(orchestration.setup, loopAccount)
+      : undefined;
     const decisionEngine = symbol === "XAUUSD"
       ? buildXAUDecisionEngine(
           market,
           orchestration.setup,
           orchestration.atlas,
           orchestration.sentinel,
-          account,
-          (() => {
-            const tracking = loadXAUSetupTracking(orchestration.setup, account);
-            const engine = buildXAUDecisionEngine(market, orchestration.setup, orchestration.atlas, orchestration.sentinel, account, tracking);
-            persistXAUSetupTracking(engine.tracking, symbol);
-            return engine.tracking;
-          })(),
+          loopAccount,
+          finalTracking ?? createSetupTracking(orchestration.setup, loopAccount),
         )
       : null;
+    if (finalTracking) persistXAUSetupTracking(finalTracking, symbol);
+
 
     const feed = marketFeedStatus(market);
     const setupV26 = orchestration.v26.setup;
@@ -216,6 +227,7 @@ export async function GET(request: Request) {
       agents: agentOrchestration,
       workstation,
       decisionEngine,
+      paperLoop,
       v27: {
         commandCenter: {
           status: brainV26.action,
@@ -248,7 +260,7 @@ export async function GET(request: Request) {
         risk: riskTelemetryV26,
         events: signalEventsV26,
       },
-      account,
+      account: loopAccount,
       orders: getOrders(50),
       events: getPaperEvents(30),
       chart: market.timeframes?.["1min"]?.candles.slice(-120) ?? [],
