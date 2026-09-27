@@ -142,6 +142,7 @@ export interface MarketSnapshot {
   tradingAllowed?: boolean;
   priceSource?: "QUOTE" | "CANDLE";
   providerErrors?: Partial<Record<Timeframe, string>>;
+  providerWarnings?: Partial<Record<Timeframe, string>>;
 }
 
 export interface TechnicalAnalysis {
