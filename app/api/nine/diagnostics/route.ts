@@ -1,4 +1,7 @@
 import { NextResponse } from "next/server";
+import { requireUser } from "@/lib/security/auth";
+import { assertSameOrigin } from "@/lib/security/requestSecurity";
+import { rateLimit, requestKey } from "@/lib/security/rateLimit";
 import { getLiveMarketSnapshot } from "@/lib/trading/market";
 import { orchestrateNINE } from "@/lib/trading/orchestrator";
 import { buildDecisionExplanation } from "@/lib/trading/v210";
@@ -12,6 +15,15 @@ export const runtime = "nodejs";
 const SYMBOLS: MarketSymbol[] = ["XAUUSD", "NIFTY", "BANKNIFTY"];
 
 export async function GET(request: Request) {
+  try {
+    assertSameOrigin(request);
+    const user = requireUser(request);
+    const limit = rateLimit(requestKey(request, user.id), 30, 60_000);
+    if (!limit.allowed) return NextResponse.json({ ok: false, error: "Diagnostics rate limit exceeded.", retryAfterSeconds: limit.retryAfterSeconds }, { status: 429 });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Authentication failed.";
+    return NextResponse.json({ ok: false, error: message }, { status: message === "UNAUTHENTICATED" ? 401 : message === "CROSS_ORIGIN" ? 403 : 500 });
+  }
   const raw = new URL(request.url).searchParams.get("symbol")?.toUpperCase();
   const symbol = SYMBOLS.includes(raw as MarketSymbol) ? raw as MarketSymbol : "XAUUSD";
   try {
