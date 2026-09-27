@@ -235,6 +235,7 @@ export interface NINEOrchestration {
     validated: boolean;
     blockers: string[];
   };
+  marketAssessment?: MarketStateAssessment;
 }
 
 export interface PaperPosition {
