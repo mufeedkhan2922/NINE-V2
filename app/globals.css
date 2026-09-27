@@ -3100,3 +3100,7 @@ body {
 .xau-topbar{background:rgba(4,13,10,.96)!important}.xau-shell{background:radial-gradient(circle at 50% 0%,rgba(40,100,78,.08),transparent 42%)}
 @media(max-width:1000px){.xau-modebar{grid-template-columns:1fr 1fr}.xau-modebar>div:first-child{grid-column:1/-1}}
 @media(max-width:560px){.xau-modebar{grid-template-columns:1fr}.xau-modebar>div:first-child{grid-column:auto}.xau-loop-steps{grid-template-columns:repeat(3,1fr)}}
+
+.xau-transition-title{margin-top:12px;padding-top:9px;border-top:1px solid rgba(255,255,255,.06);font-size:8px;letter-spacing:.15em;color:#6f827a}
+.xau-transition-list{max-height:190px;overflow:auto}.xau-transition{display:grid;grid-template-columns:58px 1fr;gap:4px 8px;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.045)}
+.xau-transition>span{font:8px ui-monospace,monospace;color:#5f716a}.xau-transition>b{font-size:9px;color:#d4e1db}.xau-transition small{grid-column:2;color:#81938b;font-size:8px;line-height:1.3}
