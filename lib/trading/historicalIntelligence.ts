@@ -97,6 +97,12 @@ export interface HistoricalIntelligenceResult {
   targetWinRate: number;
   targetReached: boolean;
   generatedAt: number;
+  researchIntegrity: {
+    memoryExcludedFromHistoricalSignals: boolean;
+    nonOverlappingTradesPerStrategy: boolean;
+    monteCarloUsesOutOfSampleTrades: boolean;
+    memorySource: "OUT_OF_SAMPLE";
+  };
 }
 
 const DEFAULT_EXECUTION: ExecutionModel = {
@@ -406,7 +412,8 @@ export function runHistoricalIntelligence(
   const targetReached = Boolean(best && best.trades >= 20 && best.winRate >= targetWinRate);
 
   const memoryRecords: StrategyMemoryRecord[] = [];
-  for (const s of stats) {
+  const memoryStats = aggregateTrades(wf.oosTrades);
+  for (const s of memoryStats) {
     if (!s.trades) continue;
     for (const session of Object.keys(s.sessions)) {
       const bucket = s.sessions[session];
@@ -442,6 +449,12 @@ export function runHistoricalIntelligence(
     targetWinRate,
     targetReached,
     generatedAt: Date.now(),
+    researchIntegrity: {
+      memoryExcludedFromHistoricalSignals: true,
+      nonOverlappingTradesPerStrategy: true,
+      monteCarloUsesOutOfSampleTrades: true,
+      memorySource: "OUT_OF_SAMPLE",
+    },
   };
 }
 
