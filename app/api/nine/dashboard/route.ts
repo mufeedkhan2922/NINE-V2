@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { getLiveMarketSnapshot } from "@/lib/trading/market";
 import { orchestrateNINE } from "@/lib/trading/orchestrator";
+import { buildDecisionExplanation } from "@/lib/trading/v210";
 import {
   getPaperAccount,
   getPaperEvents,
@@ -48,6 +49,7 @@ export async function GET(request: Request) {
     const brainV26 = orchestration.v26.brain;
     const riskTelemetryV26 = orchestration.v26.riskTelemetry;
     const signalEventsV26 = orchestration.v26.signalEvents;
+    const decisionExplanation = buildDecisionExplanation(orchestration);
 
     return NextResponse.json({
       ok: true,
@@ -71,6 +73,10 @@ export async function GET(request: Request) {
         marketHealth: marketHealthV26,
         risk: riskTelemetryV26,
         events: signalEventsV26,
+      },
+      v210: {
+        decision: decisionExplanation,
+        backtestAnalytics: null,
       },
       v29: {
         commandCenter: {

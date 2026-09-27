@@ -6,7 +6,7 @@ import { rateLimit, requestKey } from "@/lib/security/rateLimit";
 import { getBacktestCandles } from "@/lib/trading/market";
 import { runBacktest } from "@/lib/trading/backtest";
 import { db } from "@/lib/trading/db";
-import type { MarketSymbol } from "@/lib/trading/types";
+import type { MarketSymbol, Timeframe } from "@/lib/trading/types";
 import { NINE_VERSION } from "@/lib/trading/runtime";
 
 export const dynamic = "force-dynamic";
@@ -41,6 +41,7 @@ export async function POST(request: Request) {
       initialBalance?: number;
       riskPercent?: number;
       symbol?: string;
+      timeframe?: string;
     };
 
     const rawSymbol = body.symbol?.toUpperCase();
@@ -48,7 +49,11 @@ export async function POST(request: Request) {
       ? (rawSymbol as MarketSymbol)
       : "XAUUSD";
 
-    const { candles, source } = await getBacktestCandles(symbol, "1min");
+    const allowedTimeframes: Timeframe[] = ["1min", "5min", "15min", "1h", "4h", "1day"];
+    const timeframe = allowedTimeframes.includes(body.timeframe as Timeframe)
+      ? (body.timeframe as Timeframe)
+      : "1min";
+    const { candles, source } = await getBacktestCandles(symbol, timeframe);
     const initialBalance =
       Number.isFinite(body.initialBalance) &&
       Number(body.initialBalance) > 0
@@ -76,7 +81,7 @@ export async function POST(request: Request) {
     ).run(
       runId,
       symbol,
-      "1min",
+      timeframe,
       now,
       Date.now(),
       result.initialBalance,
@@ -88,7 +93,7 @@ export async function POST(request: Request) {
       result.netPnl,
       result.maxDrawdown,
       result.profitFactor,
-      JSON.stringify({ ...result.config, source }),
+      JSON.stringify({ ...result.config, source, timeframe }),
     );
 
     const insert = db.prepare(
