@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/trading/db";
-import { NINE_VERSION } from "@/lib/trading/runtime";
+import { NINE_VERSION, runtimeSafety } from "@/lib/trading/runtime";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
