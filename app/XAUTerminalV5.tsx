@@ -250,8 +250,8 @@ export default function XAUTerminalV5(props: Props) {
           <section className="terminal-module">
             <div className="terminal-module-head"><span>SESSION MAP</span><Clock3 size={15}/></div>
             <div className="terminal-session-grid">
-              <Metric label="ASIA" value={n(setup?.smc?.asiaHigh) + " / " + n(setup?.smc?.asiaLow")} />
-              <Metric label="LONDON" value={n(setup?.smc?.londonHigh) + " / " + n(setup?.smc?.londonLow")} />
+              <Metric label="ASIA" value={n(setup?.smc?.asiaHigh) + " / " + n(setup?.smc?.asiaLow)} />
+              <Metric label="LONDON" value={n(setup?.smc?.londonHigh) + " / " + n(setup?.smc?.londonLow)} />
               <Metric label="PD HIGH" value={n(setup?.smc?.previousDayHigh)} />
               <Metric label="PD LOW" value={n(setup?.smc?.previousDayLow)} />
             </div>
