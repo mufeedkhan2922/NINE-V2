@@ -157,7 +157,10 @@ export function runtimeDiagnostics() {
   const provider = providerHealth();
   return {
     version: NINE_VERSION,
-    provider,
+    provider: {
+      ...provider,
+      quoteEndpointEnabled: process.env.NINE_MARKET_USE_QUOTE === "true",
+    },
     atlasConfigured: Boolean(process.env.FINNHUB_API_KEY),
     brokerConfigured: safety.brokerConfigured,
     paperTradingEnabled: safety.paperTradingEnabled,
