@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import type { AtlasContext, MarketSnapshot, PaperAccount, SentinelDecision, TradingSetup, TradeDirection } from "./types";
 
-export type XAUSetupLifecycle = "WATCH" | "FORMING" | "PAPER_READY" | "BLOCKED" | "EXPIRED" | "PAPER_ACTIVE";
+export type XAUSetupLifecycle = "WATCH" | "FORMING" | "PAPER_READY" | "BLOCKED" | "EXPIRED" | "PAPER_ACTIVE" | "PAPER_CLOSED";
 export type XAUEventType = "SESSION_OPEN" | "LIQUIDITY_SWEEP" | "MSS" | "CHOCH" | "FVG" | "ORDER_BLOCK" | "SETUP_FORMED" | "SETUP_VALIDATED" | "SETUP_BLOCKED" | "SETUP_INVALIDATED";
 
 export interface XAUEvent {
@@ -34,6 +34,7 @@ export interface XAUSetupTracking {
   takeProfit: number | null;
   ageSeconds: number;
   matchedPaperPositionId: string | null;
+  paperPositionState: "NONE" | "OPEN" | "CLOSED";
   statusReason: string;
 }
 
@@ -149,10 +150,26 @@ export function buildXAUDecisionEngine(market: MarketSnapshot, setup: TradingSet
   const invalidated = setup.direction !== "NONE" && setup.stopLoss !== null && ((setup.direction === "LONG" && market.price <= setup.stopLoss) || (setup.direction === "SHORT" && market.price >= setup.stopLoss));
   if (invalidated) events.unshift(event("SETUP_INVALIDATED", market.timestamp, "SETUP INVALIDATED", "Price crossed the setup invalidation level.", setup.direction, "NINE", "HIGH", setup.stopLoss ?? undefined));
 
-  const lifecycle: XAUSetupLifecycle = invalidated ? "EXPIRED" : tracking.matchedPaperPositionId ? "PAPER_ACTIVE" : setup.direction === "NONE" ? "WATCH" : !setup.validation.valid ? "FORMING" : !sentinel.approved ? "BLOCKED" : "PAPER_READY";
+  const matchedPosition = tracking.matchedPaperPositionId
+    ? account.positions.find((position) => position.id === tracking.matchedPaperPositionId)
+    : undefined;
+  const lifecycle: XAUSetupLifecycle = invalidated
+    ? "EXPIRED"
+    : matchedPosition?.status === "OPEN"
+      ? "PAPER_ACTIVE"
+      : tracking.paperPositionState === "CLOSED"
+        ? "PAPER_CLOSED"
+        : setup.direction === "NONE"
+          ? "WATCH"
+          : !setup.validation.valid
+            ? "FORMING"
+            : !sentinel.approved
+              ? "BLOCKED"
+              : "PAPER_READY";
   const nextTracking: XAUSetupTracking = {
     ...tracking,
     lifecycle,
+    paperPositionState: matchedPosition?.status === "OPEN" ? "OPEN" : tracking.paperPositionState,
     ageSeconds: Math.max(0, Math.round((Date.now() - tracking.firstSeenAt) / 1000)),
     statusReason: invalidated ? "Price crossed the setup invalidation level." : tracking.matchedPaperPositionId ? "A paper position matches the current setup geometry." : lifecycle === "PAPER_READY" ? "Setup passed validation and Sentinel approval." : lifecycle === "FORMING" ? "Directional structure exists but validation is incomplete." : lifecycle === "BLOCKED" ? sentinel.reason : "No validated directional setup.",
   };
@@ -160,7 +177,7 @@ export function buildXAUDecisionEngine(market: MarketSnapshot, setup: TradingSet
   return {
     lifecycle,
     session,
-    sessionPhase: lifecycle === "PAPER_ACTIVE" ? "MANAGING" : lifecycle === "PAPER_READY" ? "CONFIRMATION" : setup.direction === "NONE" ? "RANGE MAPPING" : "VALIDATION",
+    sessionPhase: lifecycle === "PAPER_ACTIVE" ? "MANAGING" : lifecycle === "PAPER_CLOSED" ? "RECORDED" : lifecycle === "PAPER_READY" ? "CONFIRMATION" : setup.direction === "NONE" ? "RANGE MAPPING" : "VALIDATION",
     sessionRule: sessionRule(session),
     events,
     debate: buildDebate(setup, atlas, sentinel),
@@ -175,6 +192,11 @@ export function createSetupTracking(setup: TradingSetup, account: PaperAccount, 
   const id = setupId(setup);
   const now = Date.now();
   const matched = account.positions.find((position) => position.status === "OPEN" && position.symbol === setup.symbol && ((setup.direction === "LONG" && position.side === "BUY") || (setup.direction === "SHORT" && position.side === "SELL")) && Math.abs(position.entryPrice - (setup.entry ?? position.entryPrice)) <= Math.max(0.5, Math.abs(setup.entry ?? position.entryPrice) * 0.0008));
-  if (existing?.setupId === id) return { ...existing, lastSeenAt: now, matchedPaperPositionId: matched?.id ?? existing.matchedPaperPositionId };
+  if (existing?.setupId === id) return {
+    ...existing,
+    lastSeenAt: now,
+    matchedPaperPositionId: matched?.id ?? existing.matchedPaperPositionId,
+    paperPositionState: matched ? "OPEN" : existing.paperPositionState,
+  };
   return { setupId: id, lifecycle: setup.direction === "NONE" ? "WATCH" : setup.validation.valid ? "PAPER_READY" : "FORMING", firstSeenAt: now, lastSeenAt: now, direction: setup.direction, entry: setup.entry, stopLoss: setup.stopLoss, takeProfit: setup.takeProfit, ageSeconds: 0, matchedPaperPositionId: matched?.id ?? null, statusReason: "Setup tracking initialized." };
 }
