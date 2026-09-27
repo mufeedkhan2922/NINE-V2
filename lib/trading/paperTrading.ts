@@ -347,6 +347,7 @@ export function executePaperSetup(
     settleTriggeredPositions(
       account,
       market.price,
+      store,
     );
 
     markToMarket(
@@ -689,6 +690,7 @@ export function closePaperPosition(
     settleTriggeredPositions(
       account,
       marketPrice,
+      store,
     );
 
     const position =
