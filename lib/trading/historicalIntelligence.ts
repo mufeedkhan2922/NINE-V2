@@ -283,12 +283,17 @@ function aggregateTrades(trades: HistoricalTrade[]): HistoricalStrategyStats[] {
 
 function evaluateRange(candles: Candle[], start: number, end: number, base: MarketSnapshot, model: ExecutionModel): HistoricalTrade[] {
   const trades: HistoricalTrade[] = [];
+  const nextAvailable = new Map<string, number>();
   for (let i = Math.max(60, start); i < Math.min(end - 1, candles.length - 1); i += 1) {
-    const consensus = evaluateStrategyBook(snapshotAt(candles, i, base));
+    const consensus = evaluateStrategyBook(snapshotAt(candles, i, base), { useMemory: false });
     for (const candidate of consensus.candidates) {
       if (candidate.direction === "NONE" || candidate.score < 50) continue;
+      if (i < (nextAvailable.get(candidate.strategyId) ?? start)) continue;
       const trade = simulate(candles, i, candidate, base, model);
-      if (trade && trade.exitIndex < end) trades.push(trade);
+      if (trade && trade.exitIndex < end) {
+        trades.push(trade);
+        nextAvailable.set(candidate.strategyId, trade.exitIndex + 1);
+      }
     }
   }
   return trades;
