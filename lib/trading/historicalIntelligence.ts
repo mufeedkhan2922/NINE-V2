@@ -352,9 +352,10 @@ function monteCarlo(trades: HistoricalTrade[], simulations = 1000, riskRuinR = -
   };
 }
 
-function walkForward(candles: Candle[], base: MarketSnapshot, model: ExecutionModel, folds = 4): { folds: WalkForwardFold[]; selected: HistoricalStrategyStats[] } {
+function walkForward(candles: Candle[], base: MarketSnapshot, model: ExecutionModel, folds = 4): { folds: WalkForwardFold[]; selected: HistoricalStrategyStats[]; oosTrades: HistoricalTrade[] } {
   const results: WalkForwardFold[] = [];
   const selectedOutOfSample: HistoricalStrategyStats[] = [];
+  const oosTrades: HistoricalTrade[] = [];
   const warmup = 60;
   const segment = Math.floor((candles.length - warmup) / (folds + 1));
 
@@ -374,6 +375,7 @@ function walkForward(candles: Candle[], base: MarketSnapshot, model: ExecutionMo
     const ids = new Set(selected.map((s) => s.strategyId));
     const validationTrades = evaluateRange(candles, validationStart, validationEnd, base, model)
       .filter((t) => ids.has(t.strategyId));
+    oosTrades.push(...validationTrades);
     const validationStats = aggregateTrades(validationTrades);
     results.push({
       fold: fold + 1,
@@ -386,7 +388,7 @@ function walkForward(candles: Candle[], base: MarketSnapshot, model: ExecutionMo
     });
     selectedOutOfSample.push(...validationStats.filter((s) => ids.has(s.strategyId) && s.trades > 0));
   }
-  return { folds: results, selected: selectedOutOfSample };
+  return { folds: results, selected: selectedOutOfSample, oosTrades };
 }
 
 export function runHistoricalIntelligence(
@@ -398,12 +400,8 @@ export function runHistoricalIntelligence(
   const source = options.source ?? "HISTORICAL_PROVIDER";
   const stats = aggregateTrades(evaluateRange(candles, 60, candles.length, base, model));
   const wf = walkForward(candles, base, model, Math.max(2, Math.min(8, options.folds ?? 4)));
-  const oosTrades = wf.selected.flatMap((s) => {
-    const count = s.trades;
-    return Array.from({ length: count }, () => ({ rMultiple: s.expectancyR, strategyId: s.strategyId } as HistoricalTrade));
-  });
-  const selectedOutOfSample = wf.selected;
-  const best = [...selectedOutOfSample].sort((a, b) => b.winRate - a.winRate)[0] ?? null;
+  const selectedOutOfSample = aggregateTrades(wf.oosTrades).filter((s) => s.trades > 0);
+  const best = [...selectedOutOfSample].sort((a, b) => (b.expectancyR - a.expectancyR) || (b.winRate - a.winRate))[0] ?? null;
   const targetWinRate = Math.max(50, Math.min(99.9, options.targetWinRate ?? 90));
   const targetReached = Boolean(best && best.trades >= 20 && best.winRate >= targetWinRate);
 
@@ -439,7 +437,7 @@ export function runHistoricalIntelligence(
     strategyStats: stats,
     walkForward: wf.folds,
     selectedOutOfSample,
-    monteCarlo: monteCarlo(evaluateRange(candles, 60, candles.length, base, model), options.monteCarloSimulations ?? 1000),
+    monteCarlo: monteCarlo(wf.oosTrades, options.monteCarloSimulations ?? 1000),
     memoryRecords,
     targetWinRate,
     targetReached,
