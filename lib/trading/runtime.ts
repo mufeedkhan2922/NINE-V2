@@ -1,7 +1,7 @@
 import { MarketFeedStatus } from "./types";
 import { providerName } from "./provider";
 
-export const NINE_VERSION = "2.5.0";
+export const NINE_VERSION = "2.10.0";
 
 export function liveTradingEnabled(): boolean {
   return process.env.NINE_LIVE_TRADING_ENABLED === "true" &&
@@ -72,4 +72,14 @@ export function marketFeedStatus(market: {
     tradingAllowed: Boolean(market.tradingAllowed) && !stale,
     reason: stale ? "Market data is stale or failed freshness validation." : "Validated market snapshot is available.",
   };
+}
+
+
+export function providerDiagnostics(symbol: import("./types").MarketSymbol, extra?: { error?: string | null; lastCandleAt?: number | null; lastQuoteAt?: number | null; status?: import("./types").ProviderDiagnostics["status"] }): import("./types").ProviderDiagnostics {
+  const mapping = symbol === "XAUUSD" ? (process.env.NINE_TWELVE_XAUUSD_SYMBOL ?? "XAU/USD") : symbol === "NIFTY" ? (process.env.NINE_TWELVE_NIFTY_SYMBOL ?? "NIFTY") : (process.env.NINE_TWELVE_BANKNIFTY_SYMBOL ?? "BANKNIFTY");
+  const now = Date.now();
+  const last = Math.max(extra?.lastCandleAt ?? 0, extra?.lastQuoteAt ?? 0);
+  const age = last > 0 ? Math.max(0, (now - last) / 1000) : null;
+  const status = extra?.status ?? (process.env.TWELVE_DATA_API_KEY ? "HEALTHY" : "OFFLINE");
+  return { provider: providerName(), symbol, mapping, credentialsConfigured: Boolean(process.env.TWELVE_DATA_API_KEY), status, error: extra?.error ?? null, cooldownUntil: null, lastQuoteAt: extra?.lastQuoteAt ?? null, lastCandleAt: extra?.lastCandleAt ?? null, cacheAgeSeconds: age };
 }
