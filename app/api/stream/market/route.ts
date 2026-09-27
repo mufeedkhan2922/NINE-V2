@@ -82,6 +82,13 @@ export async function GET(request: Request) {
             ? runXAUAutonomousPaperLoop(market, orchestration)
             : null;
           const loopAccount = paperLoop?.account ?? account;
+          const streamTracking = symbol === "XAUUSD"
+            ? createSetupTracking(orchestration.setup, loopAccount)
+            : null;
+          if (streamTracking && paperLoop?.state === "CLOSED") {
+            streamTracking.paperPositionState = "CLOSED";
+            streamTracking.matchedPaperPositionId = paperLoop.positionId;
+          }
           const decisionEngine = symbol === "XAUUSD"
             ? buildXAUDecisionEngine(
                 market,
@@ -89,7 +96,7 @@ export async function GET(request: Request) {
                 orchestration.atlas,
                 orchestration.sentinel,
                 loopAccount,
-                createSetupTracking(orchestration.setup, loopAccount),
+                streamTracking ?? createSetupTracking(orchestration.setup, loopAccount),
               )
             : null;
 
