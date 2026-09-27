@@ -198,5 +198,5 @@ export function createSetupTracking(setup: TradingSetup, account: PaperAccount, 
     matchedPaperPositionId: matched?.id ?? existing.matchedPaperPositionId,
     paperPositionState: matched ? "OPEN" : existing.paperPositionState,
   };
-  return { setupId: id, lifecycle: setup.direction === "NONE" ? "WATCH" : setup.validation.valid ? "PAPER_READY" : "FORMING", firstSeenAt: now, lastSeenAt: now, direction: setup.direction, entry: setup.entry, stopLoss: setup.stopLoss, takeProfit: setup.takeProfit, ageSeconds: 0, matchedPaperPositionId: matched?.id ?? null, statusReason: "Setup tracking initialized." };
+  return { setupId: id, lifecycle: setup.direction === "NONE" ? "WATCH" : setup.validation.valid ? "PAPER_READY" : "FORMING", firstSeenAt: now, lastSeenAt: now, direction: setup.direction, entry: setup.entry, stopLoss: setup.stopLoss, takeProfit: setup.takeProfit, ageSeconds: 0, matchedPaperPositionId: matched?.id ?? null, paperPositionState: matched ? "OPEN" : "NONE", statusReason: "Setup tracking initialized." };
 }
