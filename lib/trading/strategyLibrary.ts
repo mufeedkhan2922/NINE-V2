@@ -1,5 +1,3 @@
-import type { TradeDirection } from "./types";
-
 export type StrategyFamily =
   | "TREND"
   | "BREAKOUT"
