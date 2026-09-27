@@ -1,3 +1,5 @@
+import { requireUser } from "@/lib/security/auth";
+import { rateLimit, requestKey } from "@/lib/security/rateLimit";
 import { getLiveMarketSnapshot } from "@/lib/trading/market";
 import { getPaperAccount } from "@/lib/trading/paperTrading";
 import { orchestrateNINE } from "@/lib/trading/orchestrator";
@@ -22,6 +24,23 @@ function requestedSymbol(request: Request): MarketSymbol {
 }
 
 export async function GET(request: Request) {
+  let user;
+  try {
+    user = requireUser(request);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "UNAUTHENTICATED";
+    return new Response(JSON.stringify({ ok: false, error: message }), {
+      status: message === "UNAUTHENTICATED" ? 401 : 500,
+      headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
+    });
+  }
+  const limit = rateLimit(requestKey(request, user.id), 6, 60_000);
+  if (!limit.allowed) {
+    return new Response(JSON.stringify({ ok: false, error: "Market stream connection rate limit exceeded.", retryAfterSeconds: limit.retryAfterSeconds }), {
+      status: 429,
+      headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
+    });
+  }
   const symbol = requestedSymbol(request);
   const encoder = new TextEncoder();
   const intervalMs = Math.max(
@@ -130,7 +149,7 @@ export async function GET(request: Request) {
   return new Response(stream, {
     headers: {
       "Content-Type": "text/event-stream; charset=utf-8",
-      "Cache-Control": "no-cache, no-transform",
+      "Cache-Control": "no-cache, no-transform, no-store",
       Connection: "keep-alive",
       "X-Accel-Buffering": "no",
     },
