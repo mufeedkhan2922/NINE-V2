@@ -1129,7 +1129,7 @@ export default function Home() {
       <main className="nine-app loading-app">
         <div className="loading-mark">N</div>
         <div className="eyebrow">
-          INITIALIZING NINE V2.9
+          INITIALIZING NINE V2.10.1
         </div>
         <p>Loading protected command center…</p>
       </main>
@@ -1144,7 +1144,7 @@ export default function Home() {
           <div>
             <div className="brand-name">NINE</div>
             <div className="brand-version">
-              AI TRADING DESK · V2.9
+              AI TRADING DESK · V2.10.1
             </div>
           </div>
         </div>
@@ -2250,7 +2250,7 @@ export default function Home() {
 
           <footer className="footer">
             <span>
-              NINE V2.9.2 · PAPER EXECUTION
+              NINE V2.10.1 · PAPER EXECUTION
             </span>
             <span>
               {feed?.provider ?? "—"} ·{" "}
