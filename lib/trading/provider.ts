@@ -27,6 +27,10 @@ export type ProviderHealth = {
   requestBudgetPerMinute: number;
   rateLimited: boolean;
   cooldownRemainingSeconds: number;
+  apiCreditsUsed: number | null;
+  apiCreditsLeft: number | null;
+  apiCreditsLimit: number | null;
+  lastCreditSampleAt: number | null;
 };
 
 const BASE_URL = "https://api.twelvedata.com";
@@ -52,6 +56,10 @@ type ProviderRuntimeState = {
   lastQuoteError: string | null;
   lastError: string | null;
   lastRequestAt: number | null;
+  apiCreditsUsed: number | null;
+  apiCreditsLeft: number | null;
+  apiCreditsLimit: number | null;
+  lastCreditSampleAt: number | null;
 };
 
 const globalProvider = globalThis as typeof globalThis & {
@@ -67,6 +75,10 @@ const state: ProviderRuntimeState = globalProvider.__nineProviderState ?? {
   lastQuoteError: null,
   lastError: null,
   lastRequestAt: null,
+  apiCreditsUsed: null,
+  apiCreditsLeft: null,
+  apiCreditsLimit: null,
+  lastCreditSampleAt: null,
 };
 globalProvider.__nineProviderState = state;
 
@@ -110,6 +122,10 @@ function reserveRequest(label: string): void {
     throw new Error(`${PROVIDER} request cooldown active for ${cooldown}s. ${label} is temporarily paused.`);
   }
 
+  if (state.apiCreditsLeft !== null && state.apiCreditsLeft <= 0) {
+    throw new Error(PROVIDER + " API credit quota exhausted. Retry after the provider minute resets.");
+  }
+
   if (state.requestTimestamps.length >= REQUEST_BUDGET_PER_MINUTE) {
     const oldest = state.requestTimestamps[0] ?? timestamp;
     const retryAfter = Math.max(1, Math.ceil((oldest + 60_000 - timestamp) / 1000));
@@ -118,6 +134,20 @@ function reserveRequest(label: string): void {
 
   state.requestTimestamps.push(timestamp);
   state.lastRequestAt = timestamp;
+}
+
+function recordCreditHeaders(response: Response): void {
+  const usedRaw = response.headers.get("api-credits-used");
+  const leftRaw = response.headers.get("api-credits-left");
+  const used = usedRaw == null ? null : Number(usedRaw);
+  const left = leftRaw == null ? null : Number(leftRaw);
+
+  if (used !== null && Number.isFinite(used)) state.apiCreditsUsed = used;
+  if (left !== null && Number.isFinite(left)) state.apiCreditsLeft = left;
+  if (state.apiCreditsUsed !== null && state.apiCreditsLeft !== null) {
+    state.apiCreditsLimit = state.apiCreditsUsed + state.apiCreditsLeft;
+  }
+  if (used !== null || left !== null) state.lastCreditSampleAt = now();
 }
 
 function applyRateLimit(response: Response): never {
@@ -166,6 +196,7 @@ async function fetchCandlesUncached(symbol: MarketSymbol, timeframe: Timeframe, 
 
   try {
     const response = await fetch(url, { cache: "no-store", signal: timeoutSignal() });
+    recordCreditHeaders(response);
     if (response.status === 429) applyRateLimit(response);
     if (!response.ok) throw new Error(`${PROVIDER} ${symbol} ${timeframe} HTTP ${response.status}.`);
     const payload = await response.json();
@@ -252,5 +283,9 @@ export function providerHealth(): ProviderHealth {
     requestBudgetPerMinute: REQUEST_BUDGET_PER_MINUTE,
     rateLimited: cooldownSeconds(timestamp) > 0,
     cooldownRemainingSeconds: cooldownSeconds(timestamp),
+    apiCreditsUsed: state.apiCreditsUsed,
+    apiCreditsLeft: state.apiCreditsLeft,
+    apiCreditsLimit: state.apiCreditsLimit,
+    lastCreditSampleAt: state.lastCreditSampleAt,
   };
 }
