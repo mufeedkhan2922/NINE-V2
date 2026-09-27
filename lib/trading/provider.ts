@@ -233,6 +233,7 @@ async function fetchProviderQuoteUncached(symbol: MarketSymbol): Promise<Provide
   url.searchParams.set("apikey", key);
   try {
     const response = await fetch(url, { cache: "no-store", signal: timeoutSignal() });
+    recordCreditHeaders(response);
     if (response.status === 429) applyRateLimit(response);
     if (!response.ok) throw new Error(`${PROVIDER} quote ${symbol} HTTP ${response.status}.`);
     const payload = await response.json();
