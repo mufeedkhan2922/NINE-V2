@@ -41,6 +41,7 @@ export async function POST(request: Request) {
       initialBalance?: number;
       riskPercent?: number;
       symbol?: string;
+      timeframe?: string;
     };
 
     const rawSymbol = body.symbol?.toUpperCase();
@@ -80,7 +81,7 @@ export async function POST(request: Request) {
     ).run(
       runId,
       symbol,
-      "1min",
+      timeframe,
       now,
       Date.now(),
       result.initialBalance,
