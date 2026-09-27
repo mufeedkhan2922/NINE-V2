@@ -73,7 +73,8 @@ export async function GET(request: Request) {
 
     const researchHistory = db.prepare(
       "SELECT id, timeframe, start_date AS startDate, end_date AS endDate, candles, oos_trades AS oosTrades, research_status AS researchStatus, research_score AS researchScore, target_win_rate AS targetWinRate, target_reached AS targetReached, created_at AS createdAt FROM research_runs WHERE symbol = ? ORDER BY created_at DESC LIMIT 8",
-    ).all(market.symbol).map((row: Record<string, unknown>) => ({
+    ).all(market.symbol) as Array<Record<string, unknown>>;
+    const researchHistory = researchHistoryRows.map((row) => ({
       ...row,
       targetReached: Number(row.targetReached) === 1,
     }));
