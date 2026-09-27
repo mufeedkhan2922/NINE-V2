@@ -800,6 +800,7 @@ export function buildBrainDecision(
         "MTF alignment, setup confluence, validated market data, Sentinel approval, and multi-strategy evidence are present.",
 
       strategyConsensus,
+      learning,
 
       generatedAt:
         Date.now(),
@@ -828,6 +829,7 @@ export function buildBrainDecision(
         "A directional structure is forming but confirmation is incomplete.",
 
       strategyConsensus,
+      learning,
 
       generatedAt:
         Date.now(),
