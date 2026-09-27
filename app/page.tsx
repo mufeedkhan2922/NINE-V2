@@ -1460,7 +1460,7 @@ export default function Home() {
               <div><span>CREDITS LEFT</span><b>{dashboard?.diagnostics?.provider?.apiCreditsLeft ?? "—"} / {dashboard?.diagnostics?.provider?.apiCreditsLimit ?? "—"}</b></div>
               <div><span>COOLDOWN</span><b>{dashboard?.diagnostics?.provider?.cooldownRemainingSeconds ? `${dashboard.diagnostics.provider.cooldownRemainingSeconds}s` : "READY"}</b></div>
               <div><span>QUOTE CACHE</span><b>{dashboard?.diagnostics?.provider?.quoteCacheAgeSeconds != null ? `${fmt(dashboard.diagnostics.provider.quoteCacheAgeSeconds, 0)}s` : "CANDLE MODE"}</b></div>
-              <div><span>QUOTE MODE</span><b>{process.env.NINE_MARKET_USE_QUOTE === "true" ? "ENDPOINT" : "CANDLE-FIRST"}</b></div>
+              <div><span>QUOTE MODE</span><b>{dashboard?.diagnostics?.provider?.quoteEndpointEnabled ? "ENDPOINT" : "CANDLE-FIRST"}</b></div>
               <div><span>LAST ERROR</span><b>{dashboard?.diagnostics?.provider?.lastError ?? "NONE"}</b></div>
             </div>
             <small>Validated cache is reused during provider cooldowns. NINE will not fabricate market data or bypass Sentinel.</small>
