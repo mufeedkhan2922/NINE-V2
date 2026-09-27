@@ -3052,3 +3052,10 @@ body {
 .ledger-watch,.ledger-limited{color:#e6c56c}
 .ledger-blocked,.ledger-unavailable,.ledger-missing{color:#ff7d87}
 @media(max-width:850px){.xau-intel-grid{grid-template-columns:1fr}.xau-agent-authority{display:none}}
+
+/* V4.2 chart intelligence overlays */
+.workstation-level-line{stroke:currentColor;stroke-width:1;stroke-dasharray:6 5;opacity:.72}
+.workstation-level-tag{fill:rgba(8,12,20,.9);stroke:currentColor;stroke-width:1;opacity:.96}
+.workstation-level-text{fill:currentColor;font-size:9px;font-weight:800;letter-spacing:.08em}
+.workstation-level-price{fill:currentColor;font-size:9px;font-weight:700;opacity:.9}
+.workstation-entry{color:#76e0a8}.workstation-stop{color:#ff7c86}.workstation-target{color:#79aefc}.workstation-equilibrium{color:#d0b6ff}

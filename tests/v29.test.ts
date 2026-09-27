@@ -19,7 +19,7 @@ function micro(): MicrostructureResult { return { valid: true, score: 100, issue
 function tf(timeframe: Timeframe): TimeframeData { const data = candles(100); return { timeframe, candles: data, latestPrice: data.at(-1)!.close, previousClose: data.at(-2)!.close, changePercent: 0, updatedAt: Date.now() }; }
 
 export function runV29Test(): void {
-  assert.equal(NINE_VERSION, "4.1.0");
+  assert.equal(NINE_VERSION, "4.2.0");
   const provider = providerHealth();
   assert.ok(provider.requestBudgetPerMinute >= 2, "provider request budget must be bounded");
   assert.equal(provider.rateLimited, false, "provider should not start in cooldown");

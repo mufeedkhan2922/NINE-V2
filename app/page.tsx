@@ -215,12 +215,14 @@ function CandlestickChart({
   live,
   chartist,
   setup,
+  workstation,
   height = 440,
 }: {
   candles: Candle[];
   live: boolean;
   chartist?: any;
   setup?: any;
+  workstation?: any;
   height?: number;
 }) {
   const [timeframe, setTimeframe] = useState("1m");
@@ -490,6 +492,21 @@ function CandlestickChart({
           {chartist?.sessionLow != null && (
             <line x1={plotLeft} x2={width - plotRight} y1={y(chartist.sessionLow)} y2={y(chartist.sessionLow)} className="session-level low" />
           )}
+          {(workstation?.annotations ?? []).filter((annotation: any) => annotation?.price != null).map((annotation: any, index: number) => {
+            const price = Number(annotation.price);
+            if (!Number.isFinite(price) || price < chartMin || price > chartMax) return null;
+            const annotationY = y(price);
+            const type = String(annotation.type ?? "LEVEL");
+            const toneClass = type === "ENTRY" ? "workstation-entry" : type === "STOP" ? "workstation-stop" : type === "TARGET" ? "workstation-target" : "workstation-equilibrium";
+            return (
+              <g key={`workstation-${type}-${index}`} className={toneClass}>
+                <line x1={plotLeft} x2={width - plotRight} y1={annotationY} y2={annotationY} className="workstation-level-line" />
+                <rect x={plotLeft + 6} y={annotationY - 10} width={Math.max(58, String(annotation.label ?? type).length * 7 + 18)} height="20" rx="4" className="workstation-level-tag" />
+                <text x={plotLeft + 14} y={annotationY + 3} className="workstation-level-text">{annotation.label ?? type}</text>
+                <text x={width - plotRight - 6} y={annotationY - 4} textAnchor="end" className="workstation-level-price">{formatPrice(price)}</text>
+              </g>
+            );
+          })}
 
           {visible.map((candle, index) => {
             const bullish = candle.close >= candle.open;
@@ -1195,7 +1212,7 @@ export default function Home() {
         </aside>
         <section className="xau-center">
           <div className="xau-chart-header"><div><span className="xau-kicker">MARKET STRUCTURE ENGINE</span><h1>XAUUSD <em>{fmt(market?.price, 2)}</em></h1><p>{setup?.technical?.structure ?? "Awaiting structure analysis."}</p></div><div className="xau-chart-tags"><span>LIQUIDITY</span><span>FVG</span><span>ORDER BLOCK</span><span>MSS / CHoCH</span></div></div>
-          <div className="xau-chart-card"><CandlestickChart candles={dashboard?.chart ?? []} live={streaming && feed?.tradingAllowed === true} chartist={chartist} setup={setup} height={500} /></div>
+          <div className="xau-chart-card"><CandlestickChart candles={dashboard?.chart ?? []} live={streaming && feed?.tradingAllowed === true} chartist={chartist} setup={setup} workstation={workstation} height={500} /></div>
           <div className="xau-intel-grid"><section className="xau-panel xau-lifecycle"><div className="xau-panel-head"><span>SETUP LIFECYCLE</span><b className={`xau-life-${String(workstation?.lifecycle ?? "WATCH").toLowerCase()}`}>{workstation?.lifecycle ?? "WATCH"}</b></div><div className="xau-life-track"><span className={["WATCH","FORMING","PAPER_READY","BLOCKED"].includes(workstation?.lifecycle) ? "on" : ""}>WATCH</span><i /><span className={["FORMING","PAPER_READY"].includes(workstation?.lifecycle) ? "on" : ""}>FORMING</span><i /><span className={workstation?.lifecycle === "PAPER_READY" ? "on" : ""}>READY</span></div><p>{workstation?.nextTrigger ?? "Awaiting next validated trigger."}</p><small>{workstation?.invalidation ?? "No active invalidation rule."}</small></section><section className="xau-panel xau-evidence-ledger"><div className="xau-panel-head"><span>EVIDENCE LEDGER</span><span>{workstation?.confluenceScore ?? 0}/100</span></div>{(workstation?.evidence ?? []).map((item:any,i:number)=><div className="xau-ledger-row" key={i}><b>{item.source}</b><span className={`ledger-${String(item.state ?? "").toLowerCase()}`}>{item.state}</span><p>{item.signal}</p></div>)}</section></div>
           <div className="xau-analysis-tabs"><div className="xau-analysis-title"><Brain size={15} /> MULTI-AGENT ANALYSIS <span className="xau-agent-authority">{agents?.decision ?? "WATCHING"} · SENTINEL ONLY</span></div><div className="xau-agent-grid">{(agents?.messages ?? dashboard?.orchestration?.agentReports ?? []).map((agent: any, i: number) => <article className={`xau-agent xau-agent-${String(agent.status ?? "ONLINE").toLowerCase()}`} key={agent.id ?? i}><div className="xau-agent-top"><b>{agent.name ?? agent.agent ?? agent.id}</b><span>{agent.status ?? "—"}</span></div><strong>{agent.confidence != null ? agent.confidence + "% confidence" : "No confidence"}</strong><p>{agent.summary ?? "No validated report."}</p><div className="xau-evidence">{(agent.evidence ?? agent.signals ?? []).slice(0,3).map((s: string, j: number) => <span key={j}>{s}</span>)}</div></article>)}</div></div>
           <div className="xau-battle"><div className="xau-battle-head"><span><Activity size={15} /> BULL vs BEAR ENGINE</span><small>Evidence, not prediction</small></div><div className="xau-battle-grid"><article className="xau-bull"><div><b>BULL CASE</b><span>{setup?.direction === "LONG" ? "ACTIVE" : "NOT CONFIRMED"}</span></div><p>{setup?.direction === "LONG" ? "Current validated evidence supports a bullish setup." : "No validated long confluence at the current snapshot."}</p><ul><li>Trend: {setup?.technical?.trend ?? "—"}</li><li>Structure: {setup?.smc?.structureDirection ?? "—"}</li><li>HTF: {chartist?.higherTimeframeBias ?? "—"}</li></ul></article><article className="xau-bear"><div><b>BEAR CASE</b><span>{setup?.direction === "SHORT" ? "ACTIVE" : "NOT CONFIRMED"}</span></div><p>{setup?.direction === "SHORT" ? "Current validated evidence supports a bearish setup." : "No validated short confluence at the current snapshot."}</p><ul><li>Trend: {setup?.technical?.trend ?? "—"}</li><li>Structure: {setup?.smc?.structureDirection ?? "—"}</li><li>Premium/Discount: {setup?.smc?.premiumDiscount ?? "—"}</li></ul></article></div></div>
@@ -1207,7 +1224,7 @@ export default function Home() {
           <section className="xau-panel xau-events"><div className="xau-panel-head"><span><Bell size={14}/> LIVE EVENTS</span><span>{events.length}</span></div>{events.slice(0,5).map((event:any,i:number)=><div className="xau-event" key={i}><span>{event.type ?? "EVENT"}</span><p>{event.message ?? "Signal event."}</p></div>)}{!events.length && <p className="xau-muted">No new validated events.</p>}</section>
         </aside>
       </div>
-      <footer className="xau-footer"><span>NINE XAUUSD AI WORKSTATION · V4.1</span><span>{feed?.provider ?? "—"} · {feedState.label}</span><span>LIVE BROKER <b className="xau-blocked">HARD LOCKED</b></span></footer>
+      <footer className="xau-footer"><span>NINE XAUUSD AI WORKSTATION · V4.2</span><span>{feed?.provider ?? "—"} · {feedState.label}</span><span>LIVE BROKER <b className="xau-blocked">HARD LOCKED</b></span></footer>
       {!user && <div className="auth-overlay"><form className="auth-card" onSubmit={loginSubmit}><div className="auth-mark">N</div><div className="eyebrow">NINE SECURE ACCESS</div><h2>Sign in to control NINE</h2><p>Market intelligence remains visible, while commands and paper execution require authentication.</p><input value={login.email} onChange={event => setLogin({...login,email:event.target.value})} placeholder="Admin email" type="email" autoComplete="username" required /><input value={login.password} onChange={event => setLogin({...login,password:event.target.value})} placeholder="Password" type="password" autoComplete="current-password" required />{loginError && <div className="login-error"><AlertTriangle size={14}/>{loginError}</div>}<button className="login-button" type="submit">AUTHENTICATE</button></form></div>}
     </main>
   );
