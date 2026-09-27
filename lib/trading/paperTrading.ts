@@ -91,6 +91,7 @@ function markToMarket(
 function settleTriggeredPositions(
   account: PaperAccount,
   price: number,
+  store?: ReturnType<typeof getStoreSnapshot>,
 ): void {
   const now = Date.now();
 
@@ -140,7 +141,8 @@ function settleTriggeredPositions(
       });
     }
 
-    appendEvent(account === getStoreSnapshot().account ? { ...({} as never) } : ({} as never), {
+    if (store) {
+      appendEvent(store, {
       type: "PAPER_CLOSE",
       message: `Paper position ${position.id} closed at ${exitPrice.toFixed(2)}.`,
       symbol: position.symbol,
@@ -150,7 +152,8 @@ function settleTriggeredPositions(
         orderId: position.orderId,
         reason: stopHit ? "STOP" : "TARGET",
       },
-    });
+      });
+    }
 
     account.balance += pnl;
     account.realizedPnl += pnl;
