@@ -1868,9 +1868,9 @@ export default function Home() {
             {research ? (
               <>
                 <div className="metric-grid">
-                  <Metric label="OOS TRADES" value={research.outOfSampleTrades ?? 0} sub="Unseen validation trades" />
-                  <Metric label="OOS WIN RATE" value={research.outOfSampleWinRate != null ? fmt(research.outOfSampleWinRate, 1) + "%" : "—"} sub="Measured, not guaranteed" />
-                  <Metric label="EXPECTANCY" value={research.outOfSampleExpectancyR != null ? fmt(research.outOfSampleExpectancyR, 3) + "R" : "—"} sub="Out-of-sample" />
+                  <Metric label="OOS TRADES" value={(research.selectedOutOfSample ?? []).reduce((sum: number, item: any) => sum + (item.trades ?? 0), 0)} sub="Unseen validation trades" />
+                  <Metric label="OOS WIN RATE" value={(research.selectedOutOfSample ?? []).length ? fmt((research.selectedOutOfSample.reduce((sum: number, item: any) => sum + (item.winRate ?? 0) * (item.trades ?? 0), 0) / Math.max(1, research.selectedOutOfSample.reduce((sum: number, item: any) => sum + (item.trades ?? 0), 0))), 1) + "%" : "—"} sub="Measured, not guaranteed" />
+                  <Metric label="EXPECTANCY" value={(research.selectedOutOfSample ?? []).length ? fmt((research.selectedOutOfSample.reduce((sum: number, item: any) => sum + (item.expectancyR ?? 0) * (item.trades ?? 0), 0) / Math.max(1, research.selectedOutOfSample.reduce((sum: number, item: any) => sum + (item.trades ?? 0), 0))), 3) + "R" : "—"} sub="Out-of-sample" />
                   <Metric label="TARGET 90%" value={research.targetReached ? "REACHED" : "NOT PROVEN"} sub="Evidence threshold" />
                   <Metric label="WALK-FORWARD" value={research.walkForward?.length ?? 0} sub="Validation folds" />
                   <Metric label="MONTE CARLO" value={research.monteCarlo?.simulations ?? "—"} sub="OOS simulations" />
