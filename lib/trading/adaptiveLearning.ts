@@ -212,7 +212,9 @@ export function buildAdaptiveLearningSnapshot(
     targetWinRate: Math.max(50, Math.min(99.9, inputOptions.targetWinRate ?? DEFAULTS.targetWinRate)),
   };
 
-  const candles = market.candles;
+  // Keep live brain evaluation bounded so a large provider cache cannot turn
+  // every new candle into an O(n²) dashboard computation.
+  const candles = market.candles.slice(-420);
   const cacheKey = [
     market.symbol,
     candles.length,
