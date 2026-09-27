@@ -8,7 +8,7 @@ import {
 export function runRuntimeTest(): void {
   assert.equal(
     NINE_VERSION,
-    "3.8.0",
+    "3.9.0",
   );
 
   const safety =
