@@ -64,8 +64,8 @@ export function buildDecisionExplanation(orchestration: NINEOrchestration): Deci
       ? "NINE is watching because no executable direction is confirmed."
       : `NINE is blocked: ${orchestration.sentinel.reason}`;
 
-  const marketState = feed?.tradingAllowed ? "OPEN" as const : "UNKNOWN" as const;
-  const dataState = setup.validation.checks.marketData ? "LIVE" as const : "UNKNOWN" as const;
+  const marketState = orchestration.marketAssessment?.marketState ?? (feed?.tradingAllowed ? "OPEN" as const : "UNKNOWN" as const);
+  const dataState = orchestration.marketAssessment?.dataState ?? (setup.validation.checks.marketData ? "LIVE" as const : "UNKNOWN" as const);
 
   return {
     decision,
@@ -77,9 +77,9 @@ export function buildDecisionExplanation(orchestration: NINEOrchestration): Deci
     market: {
       state: marketState,
       dataState,
-      tradingPermission: feed?.tradingAllowed ? "ALLOWED" : "BLOCKED",
-      reasons: orchestration.marketHealth?.blockers ?? [],
-      warnings: setup.validation.warnings,
+      tradingPermission: orchestration.marketAssessment?.tradingPermission ?? (feed?.tradingAllowed ? "ALLOWED" : "BLOCKED"),
+      reasons: orchestration.marketAssessment?.reasons ?? orchestration.marketHealth?.blockers ?? [],
+      warnings: orchestration.marketAssessment?.warnings ?? setup.validation.warnings,
     },
     crossTimeframe: {
       score: crossValid ? 100 : 0,
