@@ -1129,7 +1129,7 @@ export default function Home() {
       <main className="nine-app loading-app">
         <div className="loading-mark">N</div>
         <div className="eyebrow">
-          INITIALIZING NINE V2.9
+          INITIALIZING NINE V2.10.1
         </div>
         <p>Loading protected command center…</p>
       </main>
@@ -1144,7 +1144,7 @@ export default function Home() {
           <div>
             <div className="brand-name">NINE</div>
             <div className="brand-version">
-              AI TRADING DESK · V2.9
+              AI TRADING DESK · V2.10.1
             </div>
           </div>
         </div>
@@ -1457,8 +1457,10 @@ export default function Home() {
             </div>
             <div className="provider-diagnostics-grid">
               <div><span>REQUESTS / MIN</span><b>{dashboard?.diagnostics?.provider?.requestsLastMinute ?? 0} / {dashboard?.diagnostics?.provider?.requestBudgetPerMinute ?? "—"}</b></div>
+              <div><span>CREDITS LEFT</span><b>{dashboard?.diagnostics?.provider?.apiCreditsLeft ?? "—"} / {dashboard?.diagnostics?.provider?.apiCreditsLimit ?? "—"}</b></div>
               <div><span>COOLDOWN</span><b>{dashboard?.diagnostics?.provider?.cooldownRemainingSeconds ? `${dashboard.diagnostics.provider.cooldownRemainingSeconds}s` : "READY"}</b></div>
-              <div><span>QUOTE CACHE</span><b>{dashboard?.diagnostics?.provider?.quoteCacheAgeSeconds != null ? `${fmt(dashboard.diagnostics.provider.quoteCacheAgeSeconds, 0)}s` : "EMPTY"}</b></div>
+              <div><span>QUOTE CACHE</span><b>{dashboard?.diagnostics?.provider?.quoteCacheAgeSeconds != null ? `${fmt(dashboard.diagnostics.provider.quoteCacheAgeSeconds, 0)}s` : "CANDLE MODE"}</b></div>
+              <div><span>QUOTE MODE</span><b>{dashboard?.diagnostics?.provider?.quoteEndpointEnabled ? "ENDPOINT" : "CANDLE-FIRST"}</b></div>
               <div><span>LAST ERROR</span><b>{dashboard?.diagnostics?.provider?.lastError ?? "NONE"}</b></div>
             </div>
             <small>Validated cache is reused during provider cooldowns. NINE will not fabricate market data or bypass Sentinel.</small>
@@ -2250,7 +2252,7 @@ export default function Home() {
 
           <footer className="footer">
             <span>
-              NINE V2.9.2 · PAPER EXECUTION
+              NINE V2.10.1 · PAPER EXECUTION
             </span>
             <span>
               {feed?.provider ?? "—"} ·{" "}

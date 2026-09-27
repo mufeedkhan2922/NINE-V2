@@ -135,12 +135,21 @@ async function buildLiveMarketSnapshot(symbol: MarketSymbol): Promise<MarketSnap
     catch (error) { return { timeframe, error: error instanceof Error ? error.message : "Unknown provider error." } as const; }
   }));
 
-  const timeframes = Object.fromEntries(settled.filter((item) => "data" in item).map((item) => [item.timeframe, item.data])) as Partial<Record<Timeframe, TimeframeData>>;
-  const providerErrors = Object.fromEntries(
-    settled
-      .filter((item) => "error" in item || ("data" in item && Boolean(item.data.providerError)))
-      .map((item) => [item.timeframe, "error" in item ? item.error : item.data.providerError!]),
-  ) as Partial<Record<Timeframe, string>>;
+  const timeframes: Partial<Record<Timeframe, TimeframeData>> = {};
+  const providerErrors: Partial<Record<Timeframe, string>> = {};
+  const providerWarnings: Partial<Record<Timeframe, string>> = {};
+
+  for (const item of settled) {
+    if ("data" in item && item.data) {
+      timeframes[item.timeframe] = item.data;
+      if (item.data.providerError) {
+        providerWarnings[item.timeframe] = item.data.providerError;
+      }
+    } else if ("error" in item && item.error) {
+      providerErrors[item.timeframe] = item.error;
+    }
+  }
+
   const oneMinute = timeframes["1min"];
   const daily = timeframes["1day"];
   if (!oneMinute || !daily || !daily.candles.at(-2)) {
@@ -149,7 +158,10 @@ async function buildLiveMarketSnapshot(symbol: MarketSymbol): Promise<MarketSnap
   const previousDay = daily.candles.at(-2)!;
 
   let quotePrice: number | null = null;
-  try { quotePrice = (await fetchProviderQuote(symbol)).price; } catch { quotePrice = null; }
+  const useQuoteEndpoint = process.env.NINE_MARKET_USE_QUOTE === "true";
+  if (useQuoteEndpoint) {
+    try { quotePrice = (await fetchProviderQuote(symbol)).price; } catch { quotePrice = null; }
+  }
 
   const latestPrice = quotePrice ?? oneMinute.latestPrice;
   const dataQuality: Partial<Record<Timeframe, DataQualityResult>> = {};
@@ -183,12 +195,13 @@ async function buildLiveMarketSnapshot(symbol: MarketSymbol): Promise<MarketSnap
     tradingAllowed,
     priceSource: quotePrice !== null ? "QUOTE" : "CANDLE",
     providerErrors,
+    providerWarnings,
   };
   return snapshot;
 }
 
 export async function getLiveMarketSnapshot(symbol: MarketSymbol): Promise<MarketSnapshot> {
-  const snapshotTtl = Math.max(5000, Math.min(Number(process.env.NINE_SNAPSHOT_CACHE_MS ?? 10000), 30_000));
+  const snapshotTtl = Math.max(10_000, Math.min(Number(process.env.NINE_SNAPSHOT_CACHE_MS ?? 15_000), 60_000));
   const cachedSnapshot = snapshotCache.get(symbol);
   if (cachedSnapshot && cachedSnapshot.expiresAt > Date.now()) return cachedSnapshot.data;
 

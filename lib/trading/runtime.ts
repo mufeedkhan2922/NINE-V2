@@ -1,7 +1,7 @@
 import { MarketFeedStatus } from "./types";
 import { providerHealth, providerName } from "./provider";
 
-export const NINE_VERSION = "2.10.0";
+export const NINE_VERSION = "2.10.1";
 
 export function liveTradingEnabled(): boolean {
   return (
@@ -115,11 +115,14 @@ export function marketFeedStatus(
     tradingAllowed?: boolean;
     marketState?: { dataState?: string; reasons?: string[] };
     providerErrors?: Partial<Record<string, string>>;
+    providerWarnings?: Partial<Record<string, string>>;
   } | null,
 ): MarketFeedStatus {
   const health = providerHealth();
   const configured = health.configured;
-  const diagnostics = Object.values(market?.providerErrors ?? {}).filter(Boolean) as string[];
+  const hardDiagnostics = Object.values(market?.providerErrors ?? {}).filter(Boolean) as string[];
+  const softDiagnostics = Object.values(market?.providerWarnings ?? {}).filter(Boolean) as string[];
+  const diagnostics = [...hardDiagnostics, ...softDiagnostics];
   if (health.rateLimited && health.cooldownRemainingSeconds > 0) {
     diagnostics.unshift(`${providerName()} rate-limit protection active for ${health.cooldownRemainingSeconds}s.`);
   }
@@ -134,7 +137,7 @@ export function marketFeedStatus(
   const ageSeconds = Math.max(0, (Date.now() - market.timestamp) / 1000);
   const staleThreshold = Number(process.env.NINE_MARKET_STALE_SECONDS ?? 20);
   const stale = ageSeconds > staleThreshold || market.marketState?.dataState === "STALE" || market.marketState?.dataState === "SUSPICIOUS";
-  const blockedByProvider = diagnostics.length > 0 || health.rateLimited;
+  const blockedByProvider = hardDiagnostics.length > 0 || health.rateLimited;
   return {
     provider: providerName(),
     connection: stale || blockedByProvider ? "DEGRADED" : "CONNECTED",
@@ -154,7 +157,10 @@ export function runtimeDiagnostics() {
   const provider = providerHealth();
   return {
     version: NINE_VERSION,
-    provider,
+    provider: {
+      ...provider,
+      quoteEndpointEnabled: process.env.NINE_MARKET_USE_QUOTE === "true",
+    },
     atlasConfigured: Boolean(process.env.FINNHUB_API_KEY),
     brokerConfigured: safety.brokerConfigured,
     paperTradingEnabled: safety.paperTradingEnabled,
