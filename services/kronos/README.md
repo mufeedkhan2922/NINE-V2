@@ -13,7 +13,7 @@ Kronos is a Python/PyTorch model, while NINE is a Next.js/TypeScript workstation
 Use Python 3.12 when possible:
 
 ```bash
-services/kronos/start.sh
+bash services/kronos/start.sh
 ```
 
 Then configure NINE:
