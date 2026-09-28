@@ -76,6 +76,38 @@ if [[ ! -f "$KRONOS_DIR/model/kronos.py" ]]; then
   fi
 fi
 
+# Ensure this Python build has venv/ensurepip support before rebuilding the environment.
+ensure_venv_support() {
+  local probe="$SERVICE_DIR/.venv-preflight"
+  rm -rf "$probe"
+  if "$PYTHON_BIN" -m venv --without-pip "$probe" >/dev/null 2>&1; then
+    rm -rf "$probe"
+    return
+  fi
+
+  echo "Python venv support is missing; installing python3.12-venv..."
+  if command -v sudo >/dev/null; then
+    sudo apt-get update
+    sudo apt-get install -y python3.12-venv || sudo apt-get install -y python3-venv
+  elif [[ "$(id -u)" == "0" ]]; then
+    apt-get update
+    apt-get install -y python3.12-venv || apt-get install -y python3-venv
+  else
+    echo "Cannot install the Python venv package automatically."
+    echo "Install python3.12-venv (or python3-venv) and rerun this script."
+    exit 1
+  fi
+
+  rm -rf "$probe"
+  "$PYTHON_BIN" -m venv --without-pip "$probe" >/dev/null 2>&1 || {
+    echo "Python venv support is still unavailable after installing the venv package."
+    exit 1
+  }
+  rm -rf "$probe"
+}
+
+ensure_venv_support
+
 if [[ -x "$ENV_DIR/bin/python" ]]; then
   VENV_VERSION="$("$ENV_DIR/bin/python" -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')"
   TARGET_VERSION="$("$PYTHON_BIN" -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')"
