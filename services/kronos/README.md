@@ -10,10 +10,23 @@ Kronos is a Python/PyTorch model, while NINE is a Next.js/TypeScript workstation
 
 ## Start
 
-Use Python 3.12 when possible:
+From the NINE repository root:
 
 ```bash
 bash services/kronos/start.sh
+```
+
+The startup script is intentionally self-healing for GitHub Codespaces:
+- prefers Python 3.12 (then 3.11);
+- installs Python 3.12 + venv support through apt when neither is available and sudo/apt are available;
+- recreates an incompatible existing Kronos venv instead of reusing Python 3.14;
+- installs the CPU-only PyTorch wheel when `NINE_KRONOS_DEVICE=cpu`, avoiding the large CUDA dependency download seen on CPU Codespaces;
+- clones the official Kronos repository when it is missing.
+
+You can override the interpreter if required:
+
+```bash
+export NINE_KRONOS_PYTHON=python3.12
 ```
 
 Then configure NINE:
@@ -29,6 +42,7 @@ Restart Next.js after changing environment variables.
 ## Controls
 
 ```text
+NINE_KRONOS_PYTHON=python3.12
 NINE_KRONOS_MODEL=Kronos-small
 NINE_KRONOS_HORIZON=12
 NINE_KRONOS_SAMPLES=20
@@ -40,6 +54,10 @@ NINE_KRONOS_DIRECTION_DEADBAND_PCT=0.05
 ```
 
 Kronos-small uses a 512-candle context; NINE defaults to it for the first integration. The model weights are downloaded from Hugging Face on first load.
+
+## Runtime behavior
+
+The service is bound to `127.0.0.1` and is XAUUSD-only. NINE consumes the forecast as evidence, not as an execution signal. Kronos inference is asynchronous and cached by the latest candle so the dashboard does not block on model generation.
 
 ## Safety
 
