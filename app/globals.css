@@ -3150,3 +3150,10 @@ body {
 .xau-v5-row{display:grid;grid-template-columns:1fr auto 30px;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid rgba(148,163,184,.06);color:#94a3b8;font-size:9px}.xau-v5-row b{font-size:8px;color:#cbd5e1}.xau-v5-row em{font-style:normal;text-align:right;color:#60a5fa;font-weight:800}
 .xau-v5-panel>p{margin:7px 0;color:#94a3b8;font-size:9px;line-height:1.45}.xau-v5-evidence{padding:6px 0;border-bottom:1px solid rgba(148,163,184,.06)}.xau-v5-evidence span{color:#60a5fa;font-size:8px;font-weight:800}.xau-v5-evidence p{margin:3px 0 0;color:#94a3b8;font-size:9px;line-height:1.4}
 @media(max-width:1000px){.xau-v5-metrics{grid-template-columns:repeat(3,1fr)}.xau-v5-grid{grid-template-columns:repeat(2,1fr)}}@media(max-width:650px){.xau-v5-head{align-items:flex-start;flex-direction:column;gap:12px}.xau-v5-metrics{grid-template-columns:repeat(2,1fr)}.xau-v5-grid{grid-template-columns:1fr}}
+
+
+/* V5.5 regime engine + setup ranking */
+.xau-v55-regime{display:flex;align-items:baseline;justify-content:space-between;gap:8px;padding:8px 0 7px;border-bottom:1px solid rgba(148,163,184,.07)}
+.xau-v55-regime b{font-size:14px;color:#e2e8f0;letter-spacing:.06em}.xau-v55-regime span{font-size:9px;color:#60a5fa;font-weight:800}
+.xau-v55-rank{display:grid;grid-template-columns:24px minmax(0,1fr) 28px auto;gap:6px;align-items:center;padding:6px 0;border-bottom:1px solid rgba(148,163,184,.06);font-size:8px}
+.xau-v55-rank>span{color:#64748b}.xau-v55-rank strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#aab5c7;font-weight:700}.xau-v55-rank em{font-style:normal;text-align:right;color:#60a5fa;font-weight:900}.xau-v55-rank small{font-size:7px;color:#64748b;letter-spacing:.06em}
