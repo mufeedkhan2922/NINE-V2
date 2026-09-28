@@ -113,7 +113,7 @@ export async function generateGeminiReply(
 
 export function sanitizeGeminiReply(text: string): string {
   return text
-    .replace(/(?:api[_ -]?key|secret|token)\s*[:=]\s*[^\s,;]+/gi, "$1: [REDACTED]")
+    .replace(/(api[_ -]?key|secret|token)\s*[:=]\s*[^\s,;]+/gi, "$1: [REDACTED]")
     .trim()
     .slice(0, 6_000);
 }
