@@ -46,8 +46,8 @@ export async function runV27Test(): Promise<void> {
    */
   assert.equal(
     NINE_VERSION,
-    "5.0.0",
-    "NINE runtime version must be 5.0.0.",
+    "5.5.0",
+    "NINE runtime version must be 5.5.0.",
   );
 
   /*
