@@ -375,10 +375,6 @@ export async function answerAssistant(input: string, sessionId = "default"): Pro
       break;
     }
 
-    case "TRADING_STATUS":
-      evidence.push({ label: "SYMBOL", value: "XAUUSD ONLY" });
-      message = "I can route XAUUSD analysis through the NINE trading-intelligence stack. The assistant itself does not invent a market price or signal when validated feed data is unavailable. Ask for “XAUUSD status”, “current regime”, “Kronos”, or “explain the setup” and the workstation panels provide the underlying evidence.";
-      break;
 
     case "TRADE_ACTION":
       return requestAssistantAction(sessionId, text);
