@@ -1,0 +1,11 @@
+{
+  "name": "NINE V2 Codespace",
+  "forwardPorts": [3000],
+  "portsAttributes": {
+    "3000": {
+      "label": "NINE Web",
+      "onAutoForward": "openBrowser",
+      "visibility": "private"
+    }
+  }
+}
