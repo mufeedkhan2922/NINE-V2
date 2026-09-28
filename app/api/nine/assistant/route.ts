@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ ok: false, error: "message is required" }, { status: 400 });
     }
 
-    return NextResponse.json(answerAssistant(message, user.id));
+    return NextResponse.json(await answerAssistant(message, user.id));
   } catch (error) {
     const message = error instanceof Error ? error.message : "Assistant request failed.";
     const status =
