@@ -119,7 +119,9 @@ if importlib.util.find_spec("pandas") is None:
     raise SystemExit("pandas import check failed")
 if importlib.util.find_spec("einops") is None:
     raise SystemExit("einops import check failed")
-repo = sys.argv[1] if len(sys.argv) > 1 else None
+sys.path.insert(0, "$KRONOS_DIR")
+from model import Kronos, KronosPredictor, KronosTokenizer
+print("Kronos model imports: OK")
 PY
 
 if [[ ! -f "$KRONOS_DIR/model/kronos.py" ]]; then
