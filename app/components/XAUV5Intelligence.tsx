@@ -8,6 +8,7 @@ export function XAUV5Intelligence({ intelligence }: { intelligence?: any }) {
   const consensus = v.strategyConsensus;
   const learning = v.learning;
   const regime = v.regimeEngine;
+  const kronos = v.kronos;
   const color = v.action === "PAPER_READY" ? "ready" : v.action === "BLOCKED" ? "blocked" : "watch";
 
   return (
@@ -38,6 +39,46 @@ export function XAUV5Intelligence({ intelligence }: { intelligence?: any }) {
           <p>Efficiency: {regime?.features?.directionalEfficiency?.toFixed?.(2) ?? "—"}</p>
           <p>Sweep: {regime?.features?.sweepDetected ? "DETECTED" : "NONE"} · MSS: {regime?.features?.structureShiftDetected ? "CONFIRMED" : "NONE"}</p>
           <small>{(regime?.preferredFamilies ?? []).join(" · ") || "No preferred families"}</small>
+        </div>
+
+        <div className="xau-v5-panel xau-kronos-panel">
+          <header><Waves size={13} /> KRONOS FORECAST</header>
+          <div className="xau-kronos-status"><b>{kronos?.status ?? "UNAVAILABLE"}</b><span>{kronos?.model ?? "Kronos-small"}</span></div>
+          <div className="xau-kronos-grid">
+            <div><span>MEDIAN</span><b>{kronos?.medianFinal?.toFixed?.(2) ?? "—"}</b></div>
+            <div><span>5%</span><b>{kronos?.lowFinal?.toFixed?.(2) ?? "—"}</b></div>
+            <div><span>95%</span><b>{kronos?.highFinal?.toFixed?.(2) ?? "—"}</b></div>
+            <div><span>BAND</span><b>{kronos?.bandWidthPercent != null ? kronos.bandWidthPercent.toFixed(2) + "%" : "—"}</b></div>
+          </div>
+          {kronos?.medianPath?.length ? (
+            <div className="xau-kronos-chart">
+              <svg viewBox="0 0 320 82" preserveAspectRatio="none" aria-label="Kronos forecast percentile paths">
+                {(() => {
+                  const low = kronos.lowPath ?? [];
+                  const median = kronos.medianPath ?? [];
+                  const high = kronos.highPath ?? [];
+                  const all = [...low, ...high].filter((n: number) => Number.isFinite(n));
+                  const min = Math.min(...all);
+                  const max = Math.max(...all);
+                  const span = max - min || 1;
+                  const point = (value: number, index: number) => ((index / Math.max(1, median.length - 1)) * 320) + "," + (76 - ((value - min) / span) * 68);
+                  const line = (values: number[]) => values.map((value, index) => point(value, index)).join(" ");
+                  return <>
+                    <polyline points={line(high)} className="xau-kronos-high" />
+                    <polyline points={line(low)} className="xau-kronos-low" />
+                    <polyline points={line(median)} className="xau-kronos-median" />
+                  </>;
+                })()}
+              </svg>
+            </div>
+          ) : null}
+          <div className="xau-kronos-meta">
+            <span>{kronos?.sampleCount ?? 0} sampled paths</span>
+            <span>{kronos?.horizonCandles ?? 0} candles</span>
+            <span>{kronos?.uncertainty ?? "UNKNOWN"} uncertainty</span>
+          </div>
+          <small>{kronos?.calibrationState === "CALIBRATED" ? "XAUUSD walk-forward calibrated" : "ZERO-SHOT · NOT CALIBRATED · evidence only"}</small>
+          {(kronos?.warnings ?? []).slice(0, 2).map((warning: string, index: number) => <p className="xau-kronos-warning" key={index}>{warning}</p>)}
         </div>
 
         <div className="xau-v5-panel">
