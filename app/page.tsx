@@ -28,6 +28,7 @@ import {
   Zap,
 } from "lucide-react";
 import { XAUPaperLoopMonitor } from "./components/XAUPaperLoopMonitor";
+import { XAUV5Intelligence } from "./components/XAUV5Intelligence";
 import {
   FormEvent,
   ReactNode,
@@ -80,6 +81,7 @@ type Dashboard = {
   workstation?: any;
   decisionEngine?: any;
   paperLoop?: any;
+  v5?: any;
   v27?: any;
   v29?: any;
   diagnostics?: any;
@@ -798,6 +800,7 @@ export default function Home() {
           orchestration: data.orchestration,
           decisionEngine: data.decisionEngine,
           paperLoop: data.paperLoop,
+          v5: data.v5,
           account: data.account,
           orders: data.orders,
           chart: data.chart,
@@ -1227,6 +1230,7 @@ export default function Home() {
       </header>
       <div className="xau-modebar"><div><span className="xau-mode-dot" /> AUTONOMOUS PAPER LOOP <b>{paperLoop?.state ?? "INITIALIZING"}</b></div><div><span>SESSION</span><b>{decisionEngine?.session ?? "—"}</b></div><div><span>LIFECYCLE</span><b>{decisionEngine?.lifecycle ?? "WATCH"}</b></div><div><span>POSITION</span><b>{paperLoop?.positionId ? String(paperLoop.positionId).slice(0, 16) : "NONE"}</b></div><div><span>LIVE BROKER</span><b className="xau-blocked">LOCKED</b></div></div>
       <XAUPaperLoopMonitor paperLoop={paperLoop} decisionEngine={decisionEngine} />
+      <XAUV5Intelligence intelligence={dashboard?.v5?.intelligence} />
       <div className="xau-shell">
         <aside className="xau-left">
           <section className="xau-panel xau-brain"><div className="xau-panel-head"><span><Brain size={14} /> NINE BRAIN</span><span className="xau-pulse" /></div><div className="brain-state">{status}</div><div className="brain-direction">{v27?.brain?.direction ?? "NONE"}</div><p>{v27?.brain?.rationale ?? "Waiting for validated market intelligence."}</p><div className="xau-confidence"><span>CONFIDENCE</span><b>{fmt(v27?.brain?.confidence, 0)}%</b></div><div className="xau-progress"><i /></div></section>
