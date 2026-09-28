@@ -57,13 +57,12 @@ function classify(input: string): AssistantIntent {
   if (/\b(help|what can you do|commands|capabilities)\b/.test(q)) return "HELP";
   if (/\b(open position|open trade|positions|position)\b/.test(q)) return "OPEN_POSITIONS";
   if (/\b(performance|p&l|pnl|profit|loss|win rate|winrate|paper performance)\b/.test(q)) return "PAPER_PERFORMANCE";
-  if (/\b(risk|drawdown|exposure|risk status)\b/.test(q)) return "RISK_STATUS";
+  if (/\b(risk|drawdown|exposure|risk status|sentinel)\b/.test(q)) return "RISK_STATUS";
+  if (/\b(buy|sell|long|short|enter|exit|trade|place order|execute|close all)\b/.test(q)) return "TRADE_ACTION";
   if (/\b(status|health|system|runtime|nine status|are you running)\b/.test(q)) return "SYSTEM_STATUS";
-  if (/\b(analyze|analyse|xauusd|gold|market|setup|regime|kronos|signal)\b/.test(q)) return "TRADING_STATUS";
-  if (/\b(buy|sell|long|short|enter|exit|trade|place order|execute)\b/.test(q)) return "TRADE_ACTION";
+  if (/\b(analyze|analyse|xauusd|gold|market|setup|regime|kronos|signal|chart)\b/.test(q)) return "TRADING_STATUS";
   return "GENERAL_CHAT";
 }
-
 function record(sessionId: string, role: "user" | "assistant", content: string, intent?: AssistantIntent) {
   db.prepare(
     `INSERT INTO assistant_messages (id, session_id, role, content, intent, created_at)
