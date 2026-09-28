@@ -172,7 +172,8 @@ async function fetchKronos(market: MarketSnapshot, requestedTimeframe: Timeframe
 
 export async function getKronosForecast(market: MarketSnapshot, timeframe: Timeframe = "5min"): Promise<KronosForecast> {
   const selected = timeframeForKronos(market, timeframe);
-  const key = `XAUUSD:${selected.timeframe}:${market.timestamp}`;
+  const latestCandleTime = selected.candles.at(-1)?.time ?? market.timestamp;
+  const key = `XAUUSD:${selected.timeframe}:${latestCandleTime}:${process.env.NINE_KRONOS_MODEL ?? "Kronos-small"}`;
   const cached = cache.get(key);
   if (cached && cached.expiresAt > Date.now()) return cached.forecast;
   if (inflight.has(key)) {
