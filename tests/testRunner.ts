@@ -28,6 +28,7 @@ import { runAgentOrchestrationTest } from "./agentOrchestration.test";
 import { runPaperValidationTest } from "./paperValidation.test";
 import { runXAUDecisionEngineTest } from "./xauDecisionEngine.test";
 import { runPaperLoopTest } from "./paperLoop.test";
+import { runPaperTelemetryTest } from "./paperTelemetry.test";
 
 const tests: Array<[string, () => void | Promise<void>]> = [
   ["technical", runTechnicalTest],
@@ -58,6 +59,7 @@ const tests: Array<[string, () => void | Promise<void>]> = [
   ["final paper validation", runPaperValidationTest],
   ["XAUUSD decision engine", runXAUDecisionEngineTest],
   ["autonomous paper loop", runPaperLoopTest],
+  ["paper telemetry", runPaperTelemetryTest],
 ];
 
 async function main(): Promise<void> {
