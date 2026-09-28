@@ -8,6 +8,13 @@ import { orchestrateNINE } from "@/lib/trading/orchestrator";
 import { createSetupTracking } from "@/lib/trading/xauDecisionEngine";
 import { buildV5Intelligence } from "@/lib/trading/v5Intelligence";
 import { getKronosForecast } from "@/lib/trading/kronosForecast";
+import { executePaperSetup, closePaperPosition } from "@/lib/trading/paperTrading";
+import {
+  claimPendingAssistantAction,
+  createPendingAssistantAction,
+  getLatestPendingAssistantAction,
+  resolvePendingAssistantAction,
+} from "./pendingActions";
 
 export type AssistantIntent =
   | "GENERAL_CHAT"
@@ -20,6 +27,14 @@ export type AssistantIntent =
   | "TRADE_ACTION";
 
 export type AssistantActionStatus = "NONE" | "CONFIRM_REQUIRED" | "BLOCKED";
+
+type AssistantActionResult = {
+  ok: boolean;
+  message: string;
+  actionId?: string;
+  actionStatus: AssistantActionStatus;
+  evidence: Array<{ label: string; value: string }>;
+};
 
 export interface AssistantResponse {
   ok: boolean;
@@ -74,6 +89,159 @@ function record(sessionId: string, role: "user" | "assistant", content: string, 
     `INSERT INTO assistant_messages (id, session_id, role, content, intent, created_at)
      VALUES (?, ?, ?, ?, ?, ?)`,
   ).run(`AST-${randomUUID()}`, sessionId, role, content, intent ?? null, Date.now());
+}
+
+async function executeConfirmedAssistantAction(
+  sessionId: string,
+  actionId?: string,
+): Promise<AssistantActionResult> {
+  const pending = claimPendingAssistantAction(sessionId, actionId);
+  if (!pending) {
+    return {
+      ok: false,
+      message: "There is no active confirmed action. Ask me to trade again if you want a fresh confirmation.",
+      actionStatus: "BLOCKED",
+      evidence: [{ label: "EXECUTION", value: "BLOCKED" }],
+    };
+  }
+
+  try {
+    const market = await getLiveMarketSnapshot("XAUUSD");
+    const account = getPaperAccount(market.price);
+    const orchestration = await orchestrateNINE(market, account);
+
+    if (pending.action === "OPEN_PAPER") {
+      if (market.symbol !== "XAUUSD") {
+        throw new Error("Assistant execution is restricted to XAUUSD.");
+      }
+      if (!orchestration.sentinel.approved) {
+        throw new Error(`Sentinel blocked the confirmed action: ${orchestration.sentinel.reason}`);
+      }
+      if (!orchestration.setup.validation.valid) {
+        throw new Error("The setup is no longer valid. Confirmation must be repeated on a fresh setup.");
+      }
+
+      const result = executePaperSetup(orchestration, market);
+      if (!result.ok) {
+        resolvePendingAssistantAction(pending.id, "FAILED", result.message);
+        return {
+          ok: false,
+          message: `Confirmed paper trade was rejected: ${result.message}`,
+          actionId: pending.id,
+          actionStatus: "BLOCKED",
+          evidence: [
+            { label: "SENTINEL", value: orchestration.sentinel.approved ? "APPROVED" : "BLOCKED" },
+            { label: "EXECUTION", value: "PAPER ONLY" },
+          ],
+        };
+      }
+
+      resolvePendingAssistantAction(pending.id, "EXECUTED", result.message);
+      return {
+        ok: true,
+        message: `Confirmed. ${result.message}`,
+        actionId: pending.id,
+        actionStatus: "NONE",
+        evidence: [
+          { label: "ACTION", value: "OPEN_PAPER" },
+          { label: "SYMBOL", value: "XAUUSD" },
+          { label: "ORDER", value: result.orderId ?? "—" },
+          { label: "POSITION", value: result.position?.id ?? "—" },
+          { label: "SENTINEL", value: "APPROVED" },
+          { label: "EXECUTION", value: "PAPER ONLY" },
+        ],
+      };
+    }
+
+    if (!orchestration.sentinel.approved) {
+      throw new Error(`Sentinel blocked close-all: ${orchestration.sentinel.reason}`);
+    }
+
+    const openPositions = account.positions.filter(
+      (position) => position.status === "OPEN" && position.symbol === "XAUUSD",
+    );
+
+    if (!openPositions.length) {
+      resolvePendingAssistantAction(pending.id, "EXECUTED", "No open XAUUSD paper positions were found.");
+      return {
+        ok: true,
+        message: "Confirmed. There are no open XAUUSD paper positions to close.",
+        actionId: pending.id,
+        actionStatus: "NONE",
+        evidence: [
+          { label: "ACTION", value: "CLOSE_ALL" },
+          { label: "POSITIONS", value: "0" },
+          { label: "SENTINEL", value: "APPROVED" },
+          { label: "EXECUTION", value: "PAPER ONLY" },
+        ],
+      };
+    }
+
+    const results = openPositions.map((position) =>
+      closePaperPosition(position.id, market.price),
+    );
+    const closed = results.filter((result) => result.ok).length;
+    const failed = results.length - closed;
+    const message = `Confirmed. Closed ${closed} of ${results.length} XAUUSD paper position(s).${failed ? ` ${failed} position(s) were not closed.` : ""}`;
+    resolvePendingAssistantAction(
+      pending.id,
+      failed ? "FAILED" : "EXECUTED",
+      message,
+    );
+
+    return {
+      ok: failed === 0,
+      message,
+      actionId: pending.id,
+      actionStatus: failed ? "BLOCKED" : "NONE",
+      evidence: [
+        { label: "ACTION", value: "CLOSE_ALL" },
+        { label: "CLOSED", value: String(closed) },
+        { label: "FAILED", value: String(failed) },
+        { label: "SENTINEL", value: "APPROVED" },
+        { label: "EXECUTION", value: "PAPER ONLY" },
+      ],
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Confirmed action failed.";
+    resolvePendingAssistantAction(pending.id, "FAILED", message);
+    return {
+      ok: false,
+      message,
+      actionId: pending.id,
+      actionStatus: "BLOCKED",
+      evidence: [{ label: "EXECUTION", value: "BLOCKED" }],
+    };
+  }
+}
+
+function requestAssistantAction(
+  sessionId: string,
+  text: string,
+): AssistantResponse {
+  const normalized = text.toLowerCase();
+  const action = /\b(close all|close positions|exit all)\b/.test(normalized)
+    ? "CLOSE_ALL"
+    : "OPEN_PAPER";
+  const pending = createPendingAssistantAction(sessionId, action, text);
+  const label = action === "CLOSE_ALL" ? "CLOSE ALL XAUUSD PAPER POSITIONS" : "OPEN XAUUSD PAPER POSITION";
+  const message = `I can prepare ${label}. This does not execute anything yet. Confirm within 90 seconds and I will refresh the market, rerun Sentinel, and use the paper execution gate. Action ID: ${pending.id}`;
+  record(sessionId, "assistant", message, "TRADE_ACTION");
+  return {
+    ok: true,
+    intent: "TRADE_ACTION",
+    message,
+    actionStatus: "CONFIRM_REQUIRED",
+    evidence: [
+      { label: "ACTION", value: action },
+      { label: "SYMBOL", value: "XAUUSD" },
+      { label: "CONFIRMATION", value: "REQUIRED" },
+      { label: "EXPIRY", value: "90 SECONDS" },
+      { label: "AUTHORITY", value: "SENTINEL ONLY" },
+      { label: "EXECUTION", value: "PAPER ONLY" },
+    ],
+    timestamp: Date.now(),
+  };
 }
 
 async function answerXAUStatus(sessionId: string): Promise<AssistantResponse> {
@@ -212,11 +380,7 @@ export async function answerAssistant(input: string, sessionId = "default"): Pro
       break;
 
     case "TRADE_ACTION":
-      actionStatus = "CONFIRM_REQUIRED";
-      evidence.push({ label: "AUTHORITY", value: "SENTINEL ONLY" });
-      evidence.push({ label: "EXECUTION", value: diagnostics.liveTradingEnabled ? "LIVE GATE PRESENT" : "PAPER ONLY" });
-      message = "Trade actions are protected. I will not place, modify, or close an order from natural language alone. The requested action must be explicitly confirmed and pass the existing Sentinel approval and execution safety gates.";
-      break;
+      return requestAssistantAction(sessionId, text);
 
     case "GENERAL_CHAT":
     default:
