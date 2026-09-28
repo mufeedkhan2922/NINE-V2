@@ -1,15 +1,15 @@
 import { randomUUID } from "node:crypto";
-import { db } from "@/lib/trading/db";
-import { getStoreSnapshot } from "@/lib/trading/store";
-import { runtimeDiagnostics } from "@/lib/trading/runtime";
-import { getLiveMarketSnapshot } from "@/lib/trading/market";
-import { getPaperAccount } from "@/lib/trading/paperTrading";
-import { orchestrateNINE } from "@/lib/trading/orchestrator";
-import { createSetupTracking } from "@/lib/trading/xauDecisionEngine";
-import { buildV5Intelligence } from "@/lib/trading/v5Intelligence";
-import { getKronosForecast } from "@/lib/trading/kronosForecast";
+import { db } from "../trading/db";
+import { getStoreSnapshot } from "../trading/store";
+import { runtimeDiagnostics } from "../trading/runtime";
+import { getLiveMarketSnapshot } from "../trading/market";
+import { getPaperAccount } from "../trading/paperTrading";
+import { orchestrateNINE } from "../trading/orchestrator";
+import { createSetupTracking } from "../trading/xauDecisionEngine";
+import { buildV5Intelligence } from "../trading/v5Intelligence";
+import { getKronosForecast } from "../trading/kronosForecast";
 import { generateGeminiReply, geminiConfigured, sanitizeGeminiReply } from "./geminiProvider";
-import { executePaperSetup, closePaperPosition } from "@/lib/trading/paperTrading";
+import { executePaperSetup, closePaperPosition } from "../trading/paperTrading";
 import {
   claimPendingAssistantAction,
   createPendingAssistantAction,
