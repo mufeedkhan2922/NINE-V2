@@ -175,11 +175,29 @@ export async function getKronosForecast(market: MarketSnapshot, timeframe: Timef
   const key = `XAUUSD:${selected.timeframe}:${market.timestamp}`;
   const cached = cache.get(key);
   if (cached && cached.expiresAt > Date.now()) return cached.forecast;
-  const existing = inflight.get(key);
-  if (existing) return existing;
-  const request = fetchKronos(market, selected.timeframe).finally(() => inflight.delete(key));
+  if (inflight.has(key)) {
+    return buildUnavailableKronosForecast(selected.timeframe, "UNAVAILABLE", [
+      "Kronos inference is running in the background; the next NINE refresh will consume the completed forecast.",
+    ]);
+  }
+
+  const request = fetchKronos(market, selected.timeframe);
   inflight.set(key, request);
-  const forecast = await request;
-  cache.set(key, { forecast, expiresAt: Date.now() + Math.max(2_500, Number(process.env.NINE_KRONOS_CACHE_MS ?? 15_000)) });
-  return forecast;
+  void request
+    .then((forecast) => {
+      cache.set(key, {
+        forecast,
+        expiresAt: Date.now() + Math.max(2_500, Number(process.env.NINE_KRONOS_CACHE_MS ?? 15_000)),
+      });
+    })
+    .catch(() => {
+      // fetchKronos converts inference failures into a structured ERROR forecast.
+    })
+    .finally(() => {
+      inflight.delete(key);
+    });
+
+  return buildUnavailableKronosForecast(selected.timeframe, "UNAVAILABLE", [
+    "Kronos inference started asynchronously; forecast evidence will appear after the sidecar completes.",
+  ]);
 }
