@@ -31,6 +31,7 @@ import { runPaperLoopTest } from "./paperLoop.test";
 import { runPaperTelemetryTest } from "./paperTelemetry.test";
 import { runV5IntelligenceTest } from "./v5Intelligence.test";
 import { runRegimeEngineTest } from "./regimeEngine.test";
+import { runKronosForecastTest } from "./kronosForecast.test";
 
 const tests: Array<[string, () => void | Promise<void>]> = [
   ["technical", runTechnicalTest],
@@ -64,6 +65,7 @@ const tests: Array<[string, () => void | Promise<void>]> = [
   ["paper telemetry", runPaperTelemetryTest],
   ["v5 intelligence", runV5IntelligenceTest],
   ["v5.5 regime engine", runRegimeEngineTest],
+  ["v5.6 Kronos forecast adapter", runKronosForecastTest],
 ];
 
 async function main(): Promise<void> {
