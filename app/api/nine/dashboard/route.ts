@@ -17,6 +17,7 @@ import { getOrders } from "@/lib/trading/orders";
 import { buildStrategyLabSnapshot } from "@/lib/trading/strategyLab";
 import { db } from "@/lib/trading/db";
 import { reconcilePaperState } from "@/lib/trading/paperReconciliation";
+import { buildV5Intelligence } from "@/lib/trading/v5Intelligence";
 import type { MarketSymbol } from "@/lib/trading/types";
 import {
   buildBrainDecision,
@@ -189,6 +190,9 @@ export async function GET(request: Request) {
         )
       : null;
     if (finalTracking) persistXAUSetupTracking(finalTracking, symbol);
+    const v5Intelligence = symbol === "XAUUSD" && finalTracking
+      ? buildV5Intelligence(market, orchestration, loopAccount, finalTracking)
+      : null;
 
 
     const feed = marketFeedStatus(market);
@@ -244,6 +248,9 @@ export async function GET(request: Request) {
       strategyMemory,
       researchHistory,
       paperReconciliation,
+      v5: {
+        intelligence: v5Intelligence,
+      },
       v210: {
         decision: decisionExplanation,
         backtestAnalytics: null,
