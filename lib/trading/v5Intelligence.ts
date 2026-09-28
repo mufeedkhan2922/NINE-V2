@@ -5,7 +5,7 @@ import { buildXAUDecisionEngine, type XAUDecisionEngine, type XAUSetupTracking }
 import type { MarketSnapshot, NINEOrchestration, PaperAccount } from "./types";
 import { buildPaperTelemetry, type PaperTelemetry } from "./paperTelemetry";
 import { buildV55RegimeEngine, type V55RegimeEngine } from "./regimeEngine";
-import type { KronosForecast } from "./kronosForecast";
+import { buildUnavailableKronosForecast, type KronosForecast } from "./kronosForecast";
 
 export type V5Action = "PAPER_READY" | "WATCHING" | "BLOCKED";
 
@@ -106,8 +106,9 @@ export function buildV5Intelligence(
   orchestration: NINEOrchestration,
   account: PaperAccount,
   tracking: XAUSetupTracking,
-  kronos: KronosForecast,
+  kronos?: KronosForecast,
 ): V5Intelligence {
+  const effectiveKronos = kronos ?? buildUnavailableKronosForecast("5min");
   const strategyConsensus = evaluateStrategyBook(market, { useMemory: true });
   const regimeEngine = buildV55RegimeEngine(market, strategyConsensus);
   const learning = buildAdaptiveLearningSnapshot(market, {
@@ -146,7 +147,7 @@ export function buildV5Intelligence(
     ...(market.crossTimeframeValidation?.warnings ?? []),
     ...learning.methodology.filter((item) => /insufficient|target|not guaranteed/i.test(item)),
     ...regimeEngine.warnings,
-    ...kronos.warnings,
+    ...effectiveKronos.warnings,
   ].slice(0, 12);
 
   const action: V5Action =
@@ -177,12 +178,12 @@ export function buildV5Intelligence(
     regimeEngine,
     strategyConsensus,
     recommendedStrategyId: regimeEngine.topSetup?.strategyId ?? null,
-    kronos,
+    kronos: effectiveKronos,
     learning,
     agents,
     decisionEngine,
     telemetry,
-    evidence: buildEvidence(market, orchestration, strategyConsensus, learning, telemetry, kronos),
+    evidence: buildEvidence(market, orchestration, strategyConsensus, learning, telemetry, effectiveKronos),
     blockers,
     warnings,
     executionAuthority: "SENTINEL_ONLY",
