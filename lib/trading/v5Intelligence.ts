@@ -5,17 +5,18 @@ import { buildXAUDecisionEngine, type XAUDecisionEngine, type XAUSetupTracking }
 import type { MarketSnapshot, NINEOrchestration, PaperAccount } from "./types";
 import { buildPaperTelemetry, type PaperTelemetry } from "./paperTelemetry";
 import { buildV55RegimeEngine, type V55RegimeEngine } from "./regimeEngine";
+import type { KronosForecast } from "./kronosForecast";
 
 export type V5Action = "PAPER_READY" | "WATCHING" | "BLOCKED";
 
 export interface V5Evidence {
-  source: "MARKET" | "STRATEGY" | "LEARNING" | "CHARTIST" | "ATLAS" | "SENTINEL" | "PAPER";
+  source: "MARKET" | "STRATEGY" | "LEARNING" | "CHARTIST" | "ATLAS" | "SENTINEL" | "PAPER" | "KRONOS";
   strength: "HIGH" | "MEDIUM" | "LOW";
   statement: string;
 }
 
 export interface V5Intelligence {
-  version: "5.5.0";
+  version: "5.6.0";
   symbol: "XAUUSD";
   action: V5Action;
   direction: "LONG" | "SHORT" | "NONE";
@@ -24,6 +25,7 @@ export interface V5Intelligence {
   regimeEngine: V55RegimeEngine;
   strategyConsensus: StrategyConsensus;
   recommendedStrategyId: string | null;
+  kronos: KronosForecast;
   learning: AdaptiveLearningSnapshot;
   agents: AgentOrchestration;
   decisionEngine: XAUDecisionEngine;
@@ -46,6 +48,7 @@ function buildEvidence(
   consensus: StrategyConsensus,
   learning: AdaptiveLearningSnapshot,
   telemetry: PaperTelemetry,
+  kronos: KronosForecast,
 ): V5Evidence[] {
   const evidence: V5Evidence[] = [
     {
@@ -87,6 +90,13 @@ function buildEvidence(
       strength: telemetry.closedTrades >= 20 ? "HIGH" : "MEDIUM",
       statement: `Paper account: ${telemetry.closedTrades} closed trades, ${telemetry.winRate.toFixed(1)}% win rate, net P&L ${telemetry.netPnl.toFixed(2)}.`,
     },
+    {
+      source: "KRONOS",
+      strength: kronos.status === "LIVE" ? "MEDIUM" : "LOW",
+      statement: kronos.status === "LIVE"
+        ? `Kronos ${kronos.model} produced ${kronos.sampleCount} sampled XAUUSD paths; median endpoint is ${kronos.medianFinal?.toFixed(2) ?? "—"} with a ${kronos.uncertainty.toLowerCase()} forecast band. It is not calibrated for execution.`
+        : kronos.warnings[0] ?? "Kronos forecast unavailable.",
+    },
   ];
   return evidence;
 }
@@ -96,6 +106,7 @@ export function buildV5Intelligence(
   orchestration: NINEOrchestration,
   account: PaperAccount,
   tracking: XAUSetupTracking,
+  kronos: KronosForecast,
 ): V5Intelligence {
   const strategyConsensus = evaluateStrategyBook(market, { useMemory: true });
   const regimeEngine = buildV55RegimeEngine(market, strategyConsensus);
@@ -135,6 +146,7 @@ export function buildV5Intelligence(
     ...(market.crossTimeframeValidation?.warnings ?? []),
     ...learning.methodology.filter((item) => /insufficient|target|not guaranteed/i.test(item)),
     ...regimeEngine.warnings,
+    ...kronos.warnings,
   ].slice(0, 12);
 
   const action: V5Action =
@@ -156,7 +168,7 @@ export function buildV5Intelligence(
   );
 
   return {
-    version: "5.5.0",
+    version: "5.6.0",
     symbol: "XAUUSD",
     action,
     direction: action === "WATCHING" ? "NONE" : orchestration.setup.direction,
@@ -165,11 +177,12 @@ export function buildV5Intelligence(
     regimeEngine,
     strategyConsensus,
     recommendedStrategyId: regimeEngine.topSetup?.strategyId ?? null,
+    kronos,
     learning,
     agents,
     decisionEngine,
     telemetry,
-    evidence: buildEvidence(market, orchestration, strategyConsensus, learning, telemetry),
+    evidence: buildEvidence(market, orchestration, strategyConsensus, learning, telemetry, kronos),
     blockers,
     warnings,
     executionAuthority: "SENTINEL_ONLY",
