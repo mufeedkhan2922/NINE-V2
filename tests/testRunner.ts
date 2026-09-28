@@ -29,6 +29,7 @@ import { runPaperValidationTest } from "./paperValidation.test";
 import { runXAUDecisionEngineTest } from "./xauDecisionEngine.test";
 import { runPaperLoopTest } from "./paperLoop.test";
 import { runPaperTelemetryTest } from "./paperTelemetry.test";
+import { runV5IntelligenceTest } from "./v5Intelligence.test";
 
 const tests: Array<[string, () => void | Promise<void>]> = [
   ["technical", runTechnicalTest],
@@ -60,6 +61,7 @@ const tests: Array<[string, () => void | Promise<void>]> = [
   ["XAUUSD decision engine", runXAUDecisionEngineTest],
   ["autonomous paper loop", runPaperLoopTest],
   ["paper telemetry", runPaperTelemetryTest],
+  ["v5 intelligence", runV5IntelligenceTest],
 ];
 
 async function main(): Promise<void> {
