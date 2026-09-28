@@ -15,9 +15,9 @@ export function XAUV5Intelligence({ intelligence }: { intelligence?: any }) {
     <section className={`xau-v5-intelligence ${color}`}>
       <div className="xau-v5-head">
         <div>
-          <div className="xau-v5-kicker"><BrainCircuit size={13} /> V5.5 AUTONOMOUS INTELLIGENCE</div>
+          <div className="xau-v5-kicker"><BrainCircuit size={13} /> V5.6 AUTONOMOUS INTELLIGENCE</div>
           <h2>Decision Fusion</h2>
-          <p>Regime-aware strategy selection + walk-forward learning + Chartist + Atlas + Sentinel</p>
+          <p>Kronos forecast distribution + regime-aware strategy selection + walk-forward learning + Chartist + Atlas + Sentinel</p>
         </div>
         <div className="xau-v5-action"><span />{v.action}<small>{v.direction} · {v.confidence}% confidence</small></div>
       </div>
