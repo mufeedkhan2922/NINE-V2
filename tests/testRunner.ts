@@ -32,6 +32,7 @@ import { runKronosForecastTest } from "./kronosForecast.test";
 import { buildKronosCalibrationReport } from "../lib/trading/kronosCalibration";
 import { runKronosCalibrationStoreTest } from "./kronosCalibrationStore.test";
 import { runNineAssistantTest } from "./nineAssistant.test";
+import { runGeminiProviderTest } from "./geminiProvider.test";
 
 const tests: Array<[string, () => void | Promise<void>]> = [
   ["technical", runTechnicalTest],
@@ -74,6 +75,7 @@ const tests: Array<[string, () => void | Promise<void>]> = [
     }
   }],
   ["NINE personal assistant", runNineAssistantTest],
+  ["Gemini assistant provider", runGeminiProviderTest],
 ];
 
 async function main(): Promise<void> {
