@@ -32,6 +32,7 @@ import { runPaperTelemetryTest } from "./paperTelemetry.test";
 import { runV5IntelligenceTest } from "./v5Intelligence.test";
 import { runRegimeEngineTest } from "./regimeEngine.test";
 import { runKronosForecastTest } from "./kronosForecast.test";
+import { buildKronosCalibrationReport } from "../lib/trading/kronosCalibration";
 
 const tests: Array<[string, () => void | Promise<void>]> = [
   ["technical", runTechnicalTest],
@@ -66,6 +67,7 @@ const tests: Array<[string, () => void | Promise<void>]> = [
   ["v5 intelligence", runV5IntelligenceTest],
   ["v5.5 regime engine", runRegimeEngineTest],
   ["v5.7 Kronos intelligence", runKronosForecastTest],
+  ["Kronos calibration baseline", () => { const report = buildKronosCalibrationReport([]); if (report.state !== "NOT_CALIBRATED" || report.sampleCount !== 0) throw new Error("Kronos calibration baseline failed"); }],
 ];
 
 async function main(): Promise<void> {
