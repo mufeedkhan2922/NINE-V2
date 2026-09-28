@@ -1,9 +1,6 @@
 import { runTechnicalTest } from "./technical.test";
 import { runSmcTest } from "./smc.test";
-import {
-  runRiskTest,
-  runAdvancedRiskTest,
-} from "./risk.test";
+import { runRiskTest, runAdvancedRiskTest } from "./risk.test";
 import { runBacktestTest } from "./backtest.test";
 import { runOrdersTests } from "./orders.test";
 import { runPaperOrdersTests } from "./paperOrders.test";
@@ -34,6 +31,7 @@ import { runRegimeEngineTest } from "./regimeEngine.test";
 import { runKronosForecastTest } from "./kronosForecast.test";
 import { buildKronosCalibrationReport } from "../lib/trading/kronosCalibration";
 import { runKronosCalibrationStoreTest } from "./kronosCalibrationStore.test";
+import { runNineAssistantTest } from "./nineAssistant.test";
 
 const tests: Array<[string, () => void | Promise<void>]> = [
   ["technical", runTechnicalTest],
@@ -69,7 +67,13 @@ const tests: Array<[string, () => void | Promise<void>]> = [
   ["v5.5 regime engine", runRegimeEngineTest],
   ["v5.7 Kronos intelligence", runKronosForecastTest],
   ["Kronos calibration ledger", runKronosCalibrationStoreTest],
-  ["Kronos calibration baseline", () => { const report = buildKronosCalibrationReport([]); if (report.state !== "NOT_CALIBRATED" || report.sampleCount !== 0) throw new Error("Kronos calibration baseline failed"); }],
+  ["Kronos calibration baseline", () => {
+    const report = buildKronosCalibrationReport([]);
+    if (report.state !== "NOT_CALIBRATED" || report.sampleCount !== 0) {
+      throw new Error("Kronos calibration baseline failed");
+    }
+  }],
+  ["NINE personal assistant", runNineAssistantTest],
 ];
 
 async function main(): Promise<void> {
@@ -85,10 +89,7 @@ async function main(): Promise<void> {
     }
   }
 
-  if (failed) {
-    (globalThis as any).process.exit(1);
-  }
-
+  if (failed) (globalThis as any).process.exit(1);
   console.log(`NINE test suite: ${tests.length} passed.`);
 }
 
