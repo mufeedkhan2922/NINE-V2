@@ -2,6 +2,12 @@ import { randomUUID } from "node:crypto";
 import { db } from "@/lib/trading/db";
 import { getStoreSnapshot } from "@/lib/trading/store";
 import { runtimeDiagnostics } from "@/lib/trading/runtime";
+import { getLiveMarketSnapshot } from "@/lib/trading/market";
+import { getPaperAccount } from "@/lib/trading/paperTrading";
+import { orchestrateNINE } from "@/lib/trading/orchestrator";
+import { createSetupTracking } from "@/lib/trading/xauDecisionEngine";
+import { buildV5Intelligence } from "@/lib/trading/v5Intelligence";
+import { getKronosForecast } from "@/lib/trading/kronosForecast";
 
 export type AssistantIntent =
   | "GENERAL_CHAT"
@@ -70,7 +76,52 @@ function record(sessionId: string, role: "user" | "assistant", content: string, 
   ).run(`AST-${randomUUID()}`, sessionId, role, content, intent ?? null, Date.now());
 }
 
-export function answerAssistant(input: string, sessionId = "default"): AssistantResponse {
+async function answerXAUStatus(sessionId: string): Promise<AssistantResponse> {
+  const now = Date.now();
+  try {
+    const market = await getLiveMarketSnapshot("XAUUSD");
+    const account = getPaperAccount(market.price);
+    const orchestration = await orchestrateNINE(market, account);
+    const tracking = createSetupTracking(orchestration.setup, account);
+    const kronos = await getKronosForecast(market, "5min");
+    const intelligence = buildV5Intelligence(market, orchestration, account, tracking, kronos);
+    const setup = orchestration.setup;
+    const direction = intelligence.direction;
+    const regime = intelligence.regime;
+    const topSetup = intelligence.recommendedStrategyId ?? "—";
+    const evidence: Array<{ label: string; value: string }> = [
+      { label: "VERSION", value: intelligence.version },
+      { label: "SYMBOL", value: "XAUUSD" },
+      { label: "PRICE", value: Number.isFinite(market.price) ? market.price.toFixed(2) : "—" },
+      { label: "REGIME", value: regime },
+      { label: "DIRECTION", value: direction },
+      { label: "CONFIDENCE", value: `${intelligence.confidence}%` },
+      { label: "TOP SETUP", value: topSetup },
+      { label: "SENTINEL", value: orchestration.sentinel.approved ? "APPROVED" : "BLOCKED" },
+      { label: "KRONOS", value: kronos.status === "LIVE" ? `${kronos.model} LIVE` : "UNAVAILABLE" },
+      { label: "KRONOS CALIBRATION", value: intelligence.kronosCalibration.report.state },
+    ];
+    const message = direction === "NONE"
+      ? `XAUUSD is in observation mode. Regime: ${regime}. The current setup has no validated direction; Sentinel remains ${orchestration.sentinel.approved ? "approved for the paper gate" : "blocked"}.`
+      : `XAUUSD analysis: ${direction} direction, ${regime} regime, ${intelligence.confidence}% intelligence confidence. Setup validation is ${setup.validation.valid ? "valid" : "not valid"} and Sentinel is ${orchestration.sentinel.approved ? "approved" : "blocking"} execution. This is paper-trading intelligence, not a live order.`;
+    const response: AssistantResponse = { ok: true, intent: "TRADING_STATUS", message, actionStatus: "NONE", evidence, timestamp: now };
+    record(sessionId, "assistant", message, "TRADING_STATUS");
+    return response;
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : "XAUUSD intelligence is unavailable.";
+    const response: AssistantResponse = {
+      ok: false,
+      intent: "TRADING_STATUS",
+      message: `XAUUSD intelligence is unavailable. No market number or signal was invented. Reason: ${reason}`,
+      actionStatus: "BLOCKED",
+      evidence: [{ label: "SYMBOL", value: "XAUUSD" }, { label: "PRICE", value: "—" }, { label: "EXECUTION", value: "PAPER ONLY" }],
+      timestamp: now,
+    };
+    record(sessionId, "assistant", response.message, "TRADING_STATUS");
+    return response;
+  }
+}
+export async function answerAssistant(input: string, sessionId = "default"): Promise<AssistantResponse> {
   const text = input.trim();
   const intent = classify(text);
   const now = Date.now();
@@ -83,6 +134,8 @@ export function answerAssistant(input: string, sessionId = "default"): Assistant
   }
 
   record(sessionId, "user", text, intent);
+
+  if (intent === "TRADING_STATUS") return answerXAUStatus(sessionId);
 
   const store = getStoreSnapshot();
   const account = store.account;
