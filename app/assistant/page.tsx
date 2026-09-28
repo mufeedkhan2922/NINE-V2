@@ -2,6 +2,8 @@
 
 import { FormEvent, useEffect, useRef, useState } from "react";
 import "./page.css";
+
+declare global { interface Window { SpeechRecognition?: any; webkitSpeechRecognition?: any; } }
 import { Bot, Mic, MicOff, Send, ShieldCheck, Volume2, VolumeX, Activity } from "lucide-react";
 
 type Message = { id: string; role: "user" | "assistant"; content: string; intent?: string; createdAt?: number };
