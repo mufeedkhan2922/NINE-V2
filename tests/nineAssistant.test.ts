@@ -22,7 +22,10 @@ export async function runNineAssistantTest() {
     throw new Error("NINE assistant cancellation workflow failed.");
   }
 
-  const trading = await answerAssistant("analyze XAUUSD", session);\n  if (trading.intent !== "TRADING_STATUS") throw new Error("NINE assistant XAUUSD routing failed.");\n\n  const history = getAssistantHistory(session, 10);
+  const trading = await answerAssistant("analyze XAUUSD", session);
+  if (trading.intent !== "TRADING_STATUS") throw new Error("NINE assistant XAUUSD routing failed.");
+
+  const history = getAssistantHistory(session, 10);
   if (history.length < 6) throw new Error("NINE assistant history persistence failed.");
 
   return true;
