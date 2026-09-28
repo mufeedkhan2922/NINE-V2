@@ -190,7 +190,7 @@ export function buildV5Intelligence(
     agents,
     decisionEngine,
     telemetry,
-    evidence: buildEvidence(market, orchestration, strategyConsensus, learning, telemetry, effectiveKronos),
+    evidence: buildEvidence(market, orchestration, strategyConsensus, learning, telemetry, effectiveKronos, kronosQuality),
     blockers,
     warnings,
     executionAuthority: "SENTINEL_ONLY",
