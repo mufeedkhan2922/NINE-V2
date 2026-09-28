@@ -3157,3 +3157,21 @@ body {
 .xau-v55-regime b{font-size:14px;color:#e2e8f0;letter-spacing:.06em}.xau-v55-regime span{font-size:9px;color:#60a5fa;font-weight:800}
 .xau-v55-rank{display:grid;grid-template-columns:24px minmax(0,1fr) 28px auto;gap:6px;align-items:center;padding:6px 0;border-bottom:1px solid rgba(148,163,184,.06);font-size:8px}
 .xau-v55-rank>span{color:#64748b}.xau-v55-rank strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#aab5c7;font-weight:700}.xau-v55-rank em{font-style:normal;text-align:right;color:#60a5fa;font-weight:900}.xau-v55-rank small{font-size:7px;color:#64748b;letter-spacing:.06em}
+
+
+/* V5.6 Kronos forecast evidence */
+.xau-kronos-panel{grid-column:span 2}
+.xau-kronos-status{display:flex;justify-content:space-between;align-items:center;margin:7px 0;color:#94a3b8;font-size:8px;letter-spacing:.06em}
+.xau-kronos-status b{font-size:9px;color:#60a5fa}.xau-kronos-status span{color:#64748b}
+.xau-kronos-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.xau-kronos-grid div{padding:7px;border:1px solid rgba(148,163,184,.08);background:rgba(15,23,42,.22)}
+.xau-kronos-grid span{display:block;font-size:7px;color:#64748b;letter-spacing:.08em}
+.xau-kronos-grid b{display:block;margin-top:3px;font-size:10px;color:#cbd5e1}
+.xau-kronos-chart{height:82px;margin-top:8px;border:1px solid rgba(148,163,184,.07);background:rgba(2,6,23,.18)}
+.xau-kronos-chart svg{width:100%;height:100%}
+.xau-kronos-chart polyline{fill:none;vector-effect:non-scaling-stroke;stroke-width:1.4}
+.xau-kronos-high,.xau-kronos-low{stroke:rgba(148,163,184,.45)}.xau-kronos-median{stroke:#60a5fa;stroke-width:2}
+.xau-kronos-meta{display:flex;gap:10px;margin-top:7px;font-size:7px;color:#64748b;letter-spacing:.04em}
+.xau-kronos-panel>small{display:block;margin-top:7px;font-size:7px;color:#64748b}
+.xau-kronos-warning{margin:5px 0 0!important;font-size:7px!important;color:#94a3b8!important}
+@media (max-width:900px){.xau-kronos-panel{grid-column:span 1}.xau-kronos-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
