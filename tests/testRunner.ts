@@ -65,7 +65,7 @@ const tests: Array<[string, () => void | Promise<void>]> = [
   ["paper telemetry", runPaperTelemetryTest],
   ["v5 intelligence", runV5IntelligenceTest],
   ["v5.5 regime engine", runRegimeEngineTest],
-  ["v5.6 Kronos forecast adapter", runKronosForecastTest],
+  ["v5.7 Kronos intelligence", runKronosForecastTest],
 ];
 
 async function main(): Promise<void> {
