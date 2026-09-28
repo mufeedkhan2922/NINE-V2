@@ -7,6 +7,7 @@ import { buildPaperTelemetry, type PaperTelemetry } from "./paperTelemetry";
 import { buildV55RegimeEngine, type V55RegimeEngine } from "./regimeEngine";
 import { buildUnavailableKronosForecast, type KronosForecast } from "./kronosForecast";
 import { assessKronosQuality, type KronosQuality } from "./kronosQuality";
+import { getKronosCalibrationSnapshot, recordKronosForecast, resolveKronosForecasts, type KronosCalibrationSnapshot } from "./kronosCalibrationStore";
 
 export type V5Action = "PAPER_READY" | "WATCHING" | "BLOCKED";
 
@@ -28,6 +29,7 @@ export interface V5Intelligence {
   recommendedStrategyId: string | null;
   kronos: KronosForecast;
   kronosQuality: KronosQuality;
+  kronosCalibration: KronosCalibrationSnapshot;
   learning: AdaptiveLearningSnapshot;
   agents: AgentOrchestration;
   decisionEngine: XAUDecisionEngine;
@@ -113,6 +115,16 @@ export function buildV5Intelligence(
 ): V5Intelligence {
   const effectiveKronos = kronos ?? buildUnavailableKronosForecast("5min");
   const kronosCandles = market.timeframes?.[effectiveKronos.timeframe]?.candles ?? market.candles;
+  const latestKronosCandle = kronosCandles.at(-1);
+  if (latestKronosCandle) {
+    resolveKronosForecasts(effectiveKronos.timeframe, kronosCandles, effectiveKronos.model);
+    recordKronosForecast(effectiveKronos, latestKronosCandle.time);
+  }
+  const kronosCalibration = getKronosCalibrationSnapshot(
+    effectiveKronos.timeframe,
+    effectiveKronos.model,
+    effectiveKronos.horizonCandles,
+  );
   const kronosQuality = assessKronosQuality(effectiveKronos, kronosCandles);
   const strategyConsensus = evaluateStrategyBook(market, { useMemory: true });
   const regimeEngine = buildV55RegimeEngine(market, strategyConsensus);
@@ -154,6 +166,7 @@ export function buildV5Intelligence(
     ...regimeEngine.warnings,
     ...effectiveKronos.warnings,
     ...kronosQuality.notes.filter((item) => /conflict|zero-shot|uncalibrated|wide forecast/i.test(item)),
+    ...kronosCalibration.report.warnings.slice(0, 3),
   ].slice(0, 12);
 
   const action: V5Action =
@@ -186,6 +199,7 @@ export function buildV5Intelligence(
     recommendedStrategyId: regimeEngine.topSetup?.strategyId ?? null,
     kronos: effectiveKronos,
     kronosQuality,
+    kronosCalibration,
     learning,
     agents,
     decisionEngine,
