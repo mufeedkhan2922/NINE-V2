@@ -193,7 +193,7 @@ export function buildV5Intelligence(
   );
 
   return {
-    version: "5.7.0",
+    version: "5.8.0",
     symbol: "XAUUSD",
     action,
     direction: action === "WATCHING" ? "NONE" : orchestration.setup.direction,
