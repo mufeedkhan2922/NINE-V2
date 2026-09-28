@@ -1223,10 +1223,10 @@ export default function Home() {
   return (
     <main className="nine-app xau-terminal">
       <header className="xau-topbar">
-        <div className="xau-brand"><div className="xau-logo">N</div><div><b>NINE</b><span>XAUUSD AUTONOMOUS PAPER DESK · V4.4</span></div></div>
+        <div className="xau-brand"><div className="xau-logo">N</div><div><b>NINE</b><span>XAUUSD AUTONOMOUS PAPER DESK · V5.8</span></div></div>
         <div className="xau-instrument"><span className="xau-kicker">PRIMARY INSTRUMENT</span><strong>XAUUSD</strong><span>GOLD / US DOLLAR</span></div>
         <div className="xau-price"><strong>{fmt(market?.price, 2)}</strong><span className={liveMove >= 0 ? "xau-up" : "xau-down"}>{signed(liveMove)} · {feedState.label}</span></div>
-        <div className="xau-top-status"><span className={streaming ? "xau-live-dot" : "xau-live-dot off"} />{streaming ? "LIVE DATA" : "DATA DEGRADED"}<button type="button" onClick={() => void load()} aria-label="Refresh"><RefreshCw size={15} /></button>{user && <button type="button" onClick={() => void logout()} className="xau-signout"><LogOut size={13} /> EXIT</button>}</div>
+        <div className="xau-top-status"><span className={streaming ? "xau-live-dot" : "xau-live-dot off"} />{streaming ? "LIVE DATA" : "DATA DEGRADED"}<button type="button" onClick={() => void load()} aria-label="Refresh"><RefreshCw size={15} /></button><button type="button" onClick={() => window.location.assign("/assistant")} className="xau-assistant-link"><Sparkles size={13} /> ASSISTANT</button>{user && <button type="button" onClick={() => void logout()} className="xau-signout"><LogOut size={13} /> EXIT</button>}</div>
       </header>
       <div className="xau-modebar"><div><span className="xau-mode-dot" /> AUTONOMOUS PAPER LOOP <b>{paperLoop?.state ?? "INITIALIZING"}</b></div><div><span>SESSION</span><b>{decisionEngine?.session ?? "—"}</b></div><div><span>LIFECYCLE</span><b>{decisionEngine?.lifecycle ?? "WATCH"}</b></div><div><span>POSITION</span><b>{paperLoop?.positionId ? String(paperLoop.positionId).slice(0, 16) : "NONE"}</b></div><div><span>LIVE BROKER</span><b className="xau-blocked">LOCKED</b></div></div>
       <XAUPaperLoopMonitor paperLoop={paperLoop} decisionEngine={decisionEngine} />
@@ -1257,7 +1257,7 @@ export default function Home() {
           <section className="xau-panel xau-events"><div className="xau-panel-head"><span><Bell size={14}/> LIVE EVENTS</span><span>{events.length}</span></div>{events.slice(0,5).map((event:any,i:number)=><div className="xau-event" key={i}><span>{event.type ?? "EVENT"}</span><p>{event.message ?? "Signal event."}</p></div>)}{!events.length && <p className="xau-muted">No new validated events.</p>}</section>
         </aside>
       </div>
-      <footer className="xau-footer"><span>NINE XAUUSD AUTONOMOUS PAPER DESK · V5.6</span><span>{feed?.provider ?? "—"} · {feedState.label}</span><span>LIVE BROKER <b className="xau-blocked">HARD LOCKED</b></span></footer>
+      <footer className="xau-footer"><span>NINE XAUUSD AUTONOMOUS PAPER DESK · V5.8</span><span>{feed?.provider ?? "—"} · {feedState.label}</span><span>LIVE BROKER <b className="xau-blocked">HARD LOCKED</b></span></footer>
       {!user && <div className="auth-overlay"><form className="auth-card" onSubmit={loginSubmit}><div className="auth-mark">N</div><div className="eyebrow">NINE SECURE ACCESS</div><h2>Sign in to control NINE</h2><p>Market intelligence remains visible, while commands and paper execution require authentication.</p><input value={login.email} onChange={event => setLogin({...login,email:event.target.value})} placeholder="Admin email" type="email" autoComplete="username" required /><input value={login.password} onChange={event => setLogin({...login,password:event.target.value})} placeholder="Password" type="password" autoComplete="current-password" required />{loginError && <div className="login-error"><AlertTriangle size={14}/>{loginError}</div>}<button className="login-button" type="submit">AUTHENTICATE</button></form></div>}
     </main>
   );
