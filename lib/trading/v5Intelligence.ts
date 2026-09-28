@@ -6,6 +6,7 @@ import type { MarketSnapshot, NINEOrchestration, PaperAccount } from "./types";
 import { buildPaperTelemetry, type PaperTelemetry } from "./paperTelemetry";
 import { buildV55RegimeEngine, type V55RegimeEngine } from "./regimeEngine";
 import { buildUnavailableKronosForecast, type KronosForecast } from "./kronosForecast";
+import { assessKronosQuality, type KronosQuality } from "./kronosQuality";
 
 export type V5Action = "PAPER_READY" | "WATCHING" | "BLOCKED";
 
@@ -26,6 +27,7 @@ export interface V5Intelligence {
   strategyConsensus: StrategyConsensus;
   recommendedStrategyId: string | null;
   kronos: KronosForecast;
+  kronosQuality: KronosQuality;
   learning: AdaptiveLearningSnapshot;
   agents: AgentOrchestration;
   decisionEngine: XAUDecisionEngine;
@@ -49,6 +51,7 @@ function buildEvidence(
   learning: AdaptiveLearningSnapshot,
   telemetry: PaperTelemetry,
   kronos: KronosForecast,
+  kronosQuality: KronosQuality,
 ): V5Evidence[] {
   const evidence: V5Evidence[] = [
     {
@@ -94,7 +97,7 @@ function buildEvidence(
       source: "KRONOS",
       strength: kronos.status === "LIVE" ? "MEDIUM" : "LOW",
       statement: kronos.status === "LIVE"
-        ? `Kronos ${kronos.model} produced ${kronos.sampleCount} sampled XAUUSD paths; median endpoint is ${kronos.medianFinal?.toFixed(2) ?? "—"} with a ${kronos.uncertainty.toLowerCase()} forecast band. It is not calibrated for execution.`
+        ? `Kronos ${kronos.model} produced ${kronos.sampleCount} sampled XAUUSD paths; median endpoint is ${kronos.medianFinal?.toFixed(2) ?? "—"} with a ${kronos.uncertainty.toLowerCase()} forecast band. Quality=${kronosQuality.score}/100 (${kronosQuality.agreement.toLowerCase()}). It is not calibrated for execution.`
         : kronos.warnings[0] ?? "Kronos forecast unavailable.",
     },
   ];
@@ -109,6 +112,8 @@ export function buildV5Intelligence(
   kronos?: KronosForecast,
 ): V5Intelligence {
   const effectiveKronos = kronos ?? buildUnavailableKronosForecast("5min");
+  const kronosCandles = market.timeframes?.[effectiveKronos.timeframe]?.candles ?? market.candles;
+  const kronosQuality = assessKronosQuality(effectiveKronos, kronosCandles);
   const strategyConsensus = evaluateStrategyBook(market, { useMemory: true });
   const regimeEngine = buildV55RegimeEngine(market, strategyConsensus);
   const learning = buildAdaptiveLearningSnapshot(market, {
@@ -148,6 +153,7 @@ export function buildV5Intelligence(
     ...learning.methodology.filter((item) => /insufficient|target|not guaranteed/i.test(item)),
     ...regimeEngine.warnings,
     ...effectiveKronos.warnings,
+    ...kronosQuality.notes.filter((item) => /conflict|zero-shot|uncalibrated|wide forecast/i.test(item)),
   ].slice(0, 12);
 
   const action: V5Action =
@@ -179,6 +185,7 @@ export function buildV5Intelligence(
     strategyConsensus,
     recommendedStrategyId: regimeEngine.topSetup?.strategyId ?? null,
     kronos: effectiveKronos,
+    kronosQuality,
     learning,
     agents,
     decisionEngine,
