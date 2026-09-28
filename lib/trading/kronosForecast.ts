@@ -65,7 +65,7 @@ function timeframeForKronos(market: MarketSnapshot, requested: Timeframe): { tim
   return { timeframe: "1min", candles: market.timeframes?.["1min"]?.candles ?? market.candles };
 }
 
-function unavailable(timeframe: Timeframe, status: KronosForecastStatus = "UNAVAILABLE", warnings: string[] = []): KronosForecast {
+export function buildUnavailableKronosForecast(timeframe: Timeframe, status: KronosForecastStatus = "UNAVAILABLE", warnings: string[] = []): KronosForecast {
   return {
     version: "1.0.0", symbol: "XAUUSD", timeframe, status,
     model: process.env.NINE_KRONOS_MODEL ?? "Kronos-small",
@@ -81,7 +81,7 @@ function unavailable(timeframe: Timeframe, status: KronosForecastStatus = "UNAVA
 }
 
 function validateResponse(payload: KronosServiceResponse, requestedTimeframe: Timeframe): KronosForecast {
-  if (!payload.ok) return unavailable(requestedTimeframe, "ERROR", [payload.error ?? "Kronos service returned an unsuccessful response."]);
+  if (!payload.ok) return buildUnavailableKronosForecast(requestedTimeframe, "ERROR", [payload.error ?? "Kronos service returned an unsuccessful response."]);
 
   const timestamps = Array.isArray(payload.timestamps) ? payload.timestamps.map(Number) : [];
   const lowPath = Array.isArray(payload.lowPath) ? payload.lowPath.map(Number) : [];
@@ -89,10 +89,10 @@ function validateResponse(payload: KronosServiceResponse, requestedTimeframe: Ti
   const highPath = Array.isArray(payload.highPath) ? payload.highPath.map(Number) : [];
 
   if (!medianPath.length || lowPath.length !== medianPath.length || highPath.length !== medianPath.length) {
-    return unavailable(requestedTimeframe, "ERROR", ["Kronos response did not contain aligned forecast paths."]);
+    return buildUnavailableKronosForecast(requestedTimeframe, "ERROR", ["Kronos response did not contain aligned forecast paths."]);
   }
   if (timestamps.length !== medianPath.length || medianPath.some((value) => !Number.isFinite(value))) {
-    return unavailable(requestedTimeframe, "ERROR", ["Kronos response contained invalid forecast values."]);
+    return buildUnavailableKronosForecast(requestedTimeframe, "ERROR", ["Kronos response contained invalid forecast values."]);
   }
 
   const currentPrice = Number(payload.currentPrice);
@@ -128,15 +128,15 @@ function validateResponse(payload: KronosServiceResponse, requestedTimeframe: Ti
 
 async function fetchKronos(market: MarketSnapshot, requestedTimeframe: Timeframe): Promise<KronosForecast> {
   const endpoint = process.env.NINE_KRONOS_ENDPOINT?.trim();
-  if (!endpoint) return unavailable(requestedTimeframe, "UNAVAILABLE", [
+  if (!endpoint) return buildUnavailableKronosForecast(requestedTimeframe, "UNAVAILABLE", [
     "Kronos forecasting service is not configured. Set NINE_KRONOS_ENDPOINT to enable zero-shot XAUUSD forecasting.",
   ]);
-  if (market.symbol !== "XAUUSD") return unavailable(requestedTimeframe, "UNAVAILABLE", ["Kronos integration is intentionally XAUUSD-only."]);
+  if (market.symbol !== "XAUUSD") return buildUnavailableKronosForecast(requestedTimeframe, "UNAVAILABLE", ["Kronos integration is intentionally XAUUSD-only."]);
 
   const selected = timeframeForKronos(market, requestedTimeframe);
   const maxContext = process.env.NINE_KRONOS_MODEL === "Kronos-mini" ? 2048 : 512;
   const candles = selected.candles.slice(-maxContext);
-  if (candles.length < 60) return unavailable(selected.timeframe, "UNAVAILABLE", [
+  if (candles.length < 60) return buildUnavailableKronosForecast(selected.timeframe, "UNAVAILABLE", [
     `Insufficient ${selected.timeframe} candles for Kronos: ${candles.length}; at least 60 are required.`,
   ]);
 
@@ -160,11 +160,11 @@ async function fetchKronos(market: MarketSnapshot, requestedTimeframe: Timeframe
       }),
       signal: controller.signal, cache: "no-store",
     });
-    if (!response.ok) return unavailable(selected.timeframe, "ERROR", [`Kronos service HTTP ${response.status}.`]);
+    if (!response.ok) return buildUnavailableKronosForecast(selected.timeframe, "ERROR", [`Kronos service HTTP ${response.status}.`]);
     return validateResponse((await response.json()) as KronosServiceResponse, selected.timeframe);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown Kronos service error.";
-    return unavailable(selected.timeframe, "ERROR", [`Kronos service unavailable: ${message}`]);
+    return buildUnavailableKronosForecast(selected.timeframe, "ERROR", [`Kronos service unavailable: ${message}`]);
   } finally {
     clearTimeout(timer);
   }
