@@ -7,6 +7,7 @@ import { buildXAUDecisionEngine, createSetupTracking } from "@/lib/trading/xauDe
 import { runXAUAutonomousPaperLoop } from "@/lib/trading/paperLoop";
 import { orchestrateNINE } from "@/lib/trading/orchestrator";
 import { buildV5Intelligence } from "@/lib/trading/v5Intelligence";
+import { getKronosForecast } from "@/lib/trading/kronosForecast";
 import { getOrders } from "@/lib/trading/orders";
 import {
   marketFeedStatus,
@@ -100,8 +101,11 @@ export async function GET(request: Request) {
                 streamTracking ?? createSetupTracking(orchestration.setup, loopAccount),
               )
             : null;
+          const kronosForecast = symbol === "XAUUSD"
+            ? await getKronosForecast(market, "5min")
+            : null;
           const v5Intelligence = symbol === "XAUUSD" && streamTracking
-            ? buildV5Intelligence(market, orchestration, loopAccount, streamTracking)
+            ? buildV5Intelligence(market, orchestration, loopAccount, streamTracking, kronosForecast ?? undefined)
             : null;
 
           controller.enqueue(
@@ -115,7 +119,7 @@ export async function GET(request: Request) {
                 orchestration,
                 decisionEngine,
                 paperLoop,
-                v5: { intelligence: v5Intelligence },
+                v5: { intelligence: v5Intelligence, kronos: kronosForecast },
                 account: loopAccount,
                 orders: getOrders(20),
                 chart:
