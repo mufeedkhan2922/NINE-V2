@@ -39,9 +39,28 @@ export async function POST(request: Request) {
     if (action === "ANALYZE") return NextResponse.json({ ok: true, action, message: orchestration.commandSummary, market, orchestration });
     if (action === "OPEN_PAPER") return NextResponse.json({ ...(executePaperSetup(orchestration, market)), action, orchestration });
 
+    if (!orchestration.sentinel.approved) {
+      return NextResponse.json({
+        ok: false,
+        action,
+        symbol,
+        message: `Close-all blocked by Sentinel: ${orchestration.sentinel.reason}`,
+        sentinel: orchestration.sentinel,
+        account: getPaperAccount(market.price),
+      });
+    }
+
     const open = getPaperAccount(market.price).positions.filter((p) => p.status === "OPEN");
     const results = open.map((p) => closePaperPosition(p.id, market.price));
-    return NextResponse.json({ ok: true, action, symbol, message: results.length ? `${results.length} paper position(s) closed.` : "No open paper positions.", results, account: getPaperAccount(market.price) });
+    return NextResponse.json({
+      ok: true,
+      action,
+      symbol,
+      message: results.length ? `${results.length} paper position(s) closed.` : "No open paper positions.",
+      results,
+      sentinel: orchestration.sentinel,
+      account: getPaperAccount(market.price),
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Command execution failed.";
     const status = message === "UNAUTHENTICATED" ? 401 : message === "CROSS_ORIGIN" ? 403 : 500;
