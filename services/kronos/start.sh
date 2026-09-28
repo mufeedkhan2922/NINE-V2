@@ -52,8 +52,40 @@ find_python() {
   echo "Install Python 3.12 + python3.12-venv or set NINE_KRONOS_PYTHON."
   exit 1
 }
-
 find_python
+
+ensure_venv_support() {
+  # Debian/Ubuntu images can have python3.12 but omit ensurepip/venv.
+  # Probe the exact interpreter before attempting to rebuild the real venv.
+  local probe="$SERVICE_DIR/.venv-preflight"
+  rm -rf "$probe"
+  if "$PYTHON_BIN" -m venv --without-pip "$probe" >/dev/null 2>&1; then
+    rm -rf "$probe"
+    return
+  fi
+
+  echo "Python $("$PYTHON_BIN" -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")') lacks venv/ensurepip; installing it..."
+  if command -v sudo >/dev/null; then
+    sudo apt-get update
+    sudo apt-get install -y "python$("$PYTHON_BIN" -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')-venv" || sudo apt-get install -y python3-venv
+  elif [[ "$(id -u)" == "0" ]]; then
+    apt-get update
+    apt-get install -y "python$("$PYTHON_BIN" -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')-venv" || apt-get install -y python3-venv
+  else
+    echo "Cannot install the venv package automatically because sudo/root is unavailable."
+    echo "Install python3.12-venv (or python3-venv) and rerun this script."
+    exit 1
+  fi
+
+  rm -rf "$probe"
+  "$PYTHON_BIN" -m venv --without-pip "$probe" >/dev/null 2>&1 || {
+    echo "Python venv support is still unavailable after package installation."
+    exit 1
+  }
+  rm -rf "$probe"
+}
+
+ensure_venv_support
 
 "$PYTHON_BIN" - <<'PY'
 import sys
