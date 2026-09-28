@@ -3175,3 +3175,6 @@ body {
 .xau-kronos-panel>small{display:block;margin-top:7px;font-size:7px;color:#64748b}
 .xau-kronos-warning{margin:5px 0 0!important;font-size:7px!important;color:#94a3b8!important}
 @media (max-width:900px){.xau-kronos-panel{grid-column:span 1}.xau-kronos-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+.xau-assistant-link{display:inline-flex;align-items:center;gap:6px;border:1px solid rgba(96,165,250,.24);background:rgba(30,64,175,.12);color:#93c5fd;border-radius:7px;padding:6px 8px;font-size:9px;font-weight:900;letter-spacing:.08em;cursor:pointer}.xau-assistant-link:hover{border-color:rgba(96,165,250,.5);color:#fff}
+.nine-assistant-evidence{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}.nine-assistant-evidence span{padding:5px 7px;border:1px solid rgba(148,163,184,.12);border-radius:7px;background:rgba(2,6,23,.35);color:#94a3b8;font-size:8px;line-height:1.2}.nine-assistant-evidence b{color:#cbd5e1;margin-right:3px}
