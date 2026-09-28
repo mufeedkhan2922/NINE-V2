@@ -27,6 +27,7 @@ import {
   X,
   Zap,
 } from "lucide-react";
+import { XAUPaperLoopMonitor } from "./components/XAUPaperLoopMonitor";
 import {
   FormEvent,
   ReactNode,
@@ -1225,6 +1226,7 @@ export default function Home() {
         <div className="xau-top-status"><span className={streaming ? "xau-live-dot" : "xau-live-dot off"} />{streaming ? "LIVE DATA" : "DATA DEGRADED"}<button type="button" onClick={() => void load()} aria-label="Refresh"><RefreshCw size={15} /></button>{user && <button type="button" onClick={() => void logout()} className="xau-signout"><LogOut size={13} /> EXIT</button>}</div>
       </header>
       <div className="xau-modebar"><div><span className="xau-mode-dot" /> AUTONOMOUS PAPER LOOP <b>{paperLoop?.state ?? "INITIALIZING"}</b></div><div><span>SESSION</span><b>{decisionEngine?.session ?? "—"}</b></div><div><span>LIFECYCLE</span><b>{decisionEngine?.lifecycle ?? "WATCH"}</b></div><div><span>POSITION</span><b>{paperLoop?.positionId ? String(paperLoop.positionId).slice(0, 16) : "NONE"}</b></div><div><span>LIVE BROKER</span><b className="xau-blocked">LOCKED</b></div></div>
+      <XAUPaperLoopMonitor paperLoop={paperLoop} decisionEngine={decisionEngine} />
       <div className="xau-shell">
         <aside className="xau-left">
           <section className="xau-panel xau-brain"><div className="xau-panel-head"><span><Brain size={14} /> NINE BRAIN</span><span className="xau-pulse" /></div><div className="brain-state">{status}</div><div className="brain-direction">{v27?.brain?.direction ?? "NONE"}</div><p>{v27?.brain?.rationale ?? "Waiting for validated market intelligence."}</p><div className="xau-confidence"><span>CONFIDENCE</span><b>{fmt(v27?.brain?.confidence, 0)}%</b></div><div className="xau-progress"><i /></div></section>
