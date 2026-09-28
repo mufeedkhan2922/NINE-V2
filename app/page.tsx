@@ -1257,7 +1257,7 @@ export default function Home() {
           <section className="xau-panel xau-events"><div className="xau-panel-head"><span><Bell size={14}/> LIVE EVENTS</span><span>{events.length}</span></div>{events.slice(0,5).map((event:any,i:number)=><div className="xau-event" key={i}><span>{event.type ?? "EVENT"}</span><p>{event.message ?? "Signal event."}</p></div>)}{!events.length && <p className="xau-muted">No new validated events.</p>}</section>
         </aside>
       </div>
-      <footer className="xau-footer"><span>NINE XAUUSD AUTONOMOUS PAPER DESK · V4.4</span><span>{feed?.provider ?? "—"} · {feedState.label}</span><span>LIVE BROKER <b className="xau-blocked">HARD LOCKED</b></span></footer>
+      <footer className="xau-footer"><span>NINE XAUUSD AUTONOMOUS PAPER DESK · V5.6</span><span>{feed?.provider ?? "—"} · {feedState.label}</span><span>LIVE BROKER <b className="xau-blocked">HARD LOCKED</b></span></footer>
       {!user && <div className="auth-overlay"><form className="auth-card" onSubmit={loginSubmit}><div className="auth-mark">N</div><div className="eyebrow">NINE SECURE ACCESS</div><h2>Sign in to control NINE</h2><p>Market intelligence remains visible, while commands and paper execution require authentication.</p><input value={login.email} onChange={event => setLogin({...login,email:event.target.value})} placeholder="Admin email" type="email" autoComplete="username" required /><input value={login.password} onChange={event => setLogin({...login,password:event.target.value})} placeholder="Password" type="password" autoComplete="current-password" required />{loginError && <div className="login-error"><AlertTriangle size={14}/>{loginError}</div>}<button className="login-button" type="submit">AUTHENTICATE</button></form></div>}
     </main>
   );
