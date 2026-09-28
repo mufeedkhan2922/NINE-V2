@@ -8,6 +8,7 @@ import { orchestrateNINE } from "@/lib/trading/orchestrator";
 import { createSetupTracking } from "@/lib/trading/xauDecisionEngine";
 import { buildV5Intelligence } from "@/lib/trading/v5Intelligence";
 import { getKronosForecast } from "@/lib/trading/kronosForecast";
+import { generateGeminiReply, geminiConfigured, sanitizeGeminiReply } from "./geminiProvider";
 import { executePaperSetup, closePaperPosition } from "@/lib/trading/paperTrading";
 import {
   claimPendingAssistantAction,
@@ -383,9 +384,23 @@ export async function answerAssistant(input: string, sessionId = "default"): Pro
       return requestAssistantAction(sessionId, text);
 
     case "GENERAL_CHAT":
-    default:
-      message = "I’m NINE Assistant. I’m connected to the NINE workstation context. Ask me about system status, paper performance, positions, risk, or XAUUSD intelligence.";
+    default: {
+      const recent = getAssistantHistory(sessionId, 8).map((item: any) => `${item.role.toUpperCase()}: ${String(item.content)}`);
+      const gemini = await generateGeminiReply(text, recent);
+      if (gemini?.text) {
+        message = sanitizeGeminiReply(gemini.text);
+        evidence.push(
+          { label: "AI PROVIDER", value: "GEMINI" },
+          { label: "MODEL", value: gemini.model },
+        );
+      } else {
+        message = geminiConfigured()
+          ? "Gemini is configured but unavailable right now. NINE's deterministic assistant remains online."
+          : "I’m NINE Assistant. Ask me about system status, paper performance, positions, risk, or XAUUSD intelligence. Gemini is not configured yet.";
+        evidence.push({ label: "AI PROVIDER", value: geminiConfigured() ? "GEMINI UNAVAILABLE" : "DETERMINISTIC" });
+      }
       break;
+    }
   }
 
   record(sessionId, "assistant", message, intent);
