@@ -186,7 +186,7 @@ function rankCandidates(candidates: StrategyCandidate[], regime: V55Regime): Set
         regimeAdjustment,
         finalScore,
         rank: 0,
-        fit: finalScore >= 70 ? "PRIMARY" : finalScore >= 50 ? "SECONDARY" : "DISCOURAGED",
+        fit: (finalScore >= 70 ? "PRIMARY" : finalScore >= 50 ? "SECONDARY" : "DISCOURAGED") as SetupRanking["fit"],
         reason: regimeAdjustment >= 10
           ? `Regime fit: ${regime} favors this strategy family.`
           : regimeAdjustment <= -8
