@@ -4,6 +4,7 @@ import { buildAgentOrchestration, type AgentOrchestration } from "./agentOrchest
 import { buildXAUDecisionEngine, type XAUDecisionEngine, type XAUSetupTracking } from "./xauDecisionEngine";
 import type { MarketSnapshot, NINEOrchestration, PaperAccount } from "./types";
 import { buildPaperTelemetry, type PaperTelemetry } from "./paperTelemetry";
+import { buildV55RegimeEngine, type V55RegimeEngine } from "./regimeEngine";
 
 export type V5Action = "PAPER_READY" | "WATCHING" | "BLOCKED";
 
@@ -14,13 +15,15 @@ export interface V5Evidence {
 }
 
 export interface V5Intelligence {
-  version: "5.0.0";
+  version: "5.5.0";
   symbol: "XAUUSD";
   action: V5Action;
   direction: "LONG" | "SHORT" | "NONE";
   confidence: number;
-  regime: StrategyConsensus["regime"];
+  regime: V55RegimeEngine["regime"];
+  regimeEngine: V55RegimeEngine;
   strategyConsensus: StrategyConsensus;
+  recommendedStrategyId: string | null;
   learning: AdaptiveLearningSnapshot;
   agents: AgentOrchestration;
   decisionEngine: XAUDecisionEngine;
@@ -95,6 +98,7 @@ export function buildV5Intelligence(
   tracking: XAUSetupTracking,
 ): V5Intelligence {
   const strategyConsensus = evaluateStrategyBook(market, { useMemory: true });
+  const regimeEngine = buildV55RegimeEngine(market, strategyConsensus);
   const learning = buildAdaptiveLearningSnapshot(market, {
     warmupCandles: 100,
     evaluationHorizon: 12,
@@ -130,6 +134,7 @@ export function buildV5Intelligence(
     ...(market.marketState?.warnings ?? []),
     ...(market.crossTimeframeValidation?.warnings ?? []),
     ...learning.methodology.filter((item) => /insufficient|target|not guaranteed/i.test(item)),
+    ...regimeEngine.warnings,
   ].slice(0, 12);
 
   const action: V5Action =
@@ -146,17 +151,20 @@ export function buildV5Intelligence(
     orchestration.setup.confidence * 0.45 +
       strategyConsensus.confidence * 0.35 +
       (learning.robust ? 10 : learning.totalEvaluatedSignals > 0 ? 5 : 0) +
-      (orchestration.sentinel.approved ? 10 : 0),
+      (orchestration.sentinel.approved ? 10 : 0) +
+      (regimeEngine.topSetup ? regimeEngine.topSetup.finalScore * 0.05 : 0),
   );
 
   return {
-    version: "5.0.0",
+    version: "5.5.0",
     symbol: "XAUUSD",
     action,
     direction: action === "WATCHING" ? "NONE" : orchestration.setup.direction,
     confidence,
-    regime: strategyConsensus.regime,
+    regime: regimeEngine.regime,
+    regimeEngine,
     strategyConsensus,
+    recommendedStrategyId: regimeEngine.topSetup?.strategyId ?? null,
     learning,
     agents,
     decisionEngine,
