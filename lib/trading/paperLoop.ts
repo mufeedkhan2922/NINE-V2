@@ -1,6 +1,7 @@
 import { db } from "./db";
 import { executePaperSetup, getPaperAccount } from "./paperTrading";
 import { buildXAUDecisionEngine, createSetupTracking, type XAUDecisionEngine, type XAUSetupTracking } from "./xauDecisionEngine";
+import { buildPaperTelemetry, paperTelemetryHealth, type PaperTelemetry } from "./paperTelemetry";
 import type { MarketSnapshot, NINEOrchestration } from "./types";
 
 export type PaperLoopState = "DETECTED" | "VALIDATED" | "TRACKING" | "ENTERED" | "MANAGING" | "CLOSED" | "BLOCKED" | "EXPIRED";
@@ -14,6 +15,8 @@ export interface XAUAutonomousPaperLoop {
   transition: { from: string | null; to: PaperLoopState; timestamp: number; reason: string };
   history: Array<{ id: number; fromState: string | null; toState: string; timestamp: number; reason: string; positionId: string | null }>;
   account: ReturnType<typeof getPaperAccount>;
+  telemetry: PaperTelemetry;
+  health: ReturnType<typeof paperTelemetryHealth>;
 }
 
 function ensureTables(): void {
@@ -59,7 +62,7 @@ function transition(setupId: string, symbol: string, to: PaperLoopState, reason:
   return { from: existing?.state ?? null, timestamp: now };
 }
 
-export function runXAUAutonomousPaperLoop(
+function runXAUAutonomousPaperLoopCore(
   market: MarketSnapshot,
   orchestration: NINEOrchestration,
   existingTracking?: XAUSetupTracking,
@@ -142,5 +145,19 @@ export function runXAUAutonomousPaperLoop(
     entry: { attempted: false, opened: false, orderId: null, message: reason },
     transition: { from: tr.from, to: state, timestamp: tr.timestamp, reason },
     history: history(setupTracking.setupId), account,
+  };
+}
+
+
+export function runXAUAutonomousPaperLoop(
+  market: MarketSnapshot,
+  orchestration: NINEOrchestration,
+  existingTracking?: XAUSetupTracking,
+): XAUAutonomousPaperLoop {
+  const result = runXAUAutonomousPaperLoopCore(market, orchestration, existingTracking);
+  return {
+    ...result,
+    telemetry: buildPaperTelemetry(result.account),
+    health: paperTelemetryHealth(result.state, result.transition.timestamp),
   };
 }
