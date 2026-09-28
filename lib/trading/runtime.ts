@@ -167,6 +167,7 @@ export function runtimeDiagnostics() {
     },
     atlasConfigured: Boolean(process.env.FINNHUB_API_KEY),
     kronosConfigured: Boolean(process.env.NINE_KRONOS_ENDPOINT),
+    geminiConfigured: Boolean(process.env.GEMINI_API_KEY),
     kronosEndpoint: process.env.NINE_KRONOS_ENDPOINT ? "CONFIGURED" : "UNCONFIGURED",
     brokerConfigured: safety.brokerConfigured,
     paperTradingEnabled: safety.paperTradingEnabled,
