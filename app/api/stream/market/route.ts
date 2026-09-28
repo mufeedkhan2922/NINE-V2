@@ -6,6 +6,7 @@ import { getPaperAccount } from "@/lib/trading/paperTrading";
 import { buildXAUDecisionEngine, createSetupTracking } from "@/lib/trading/xauDecisionEngine";
 import { runXAUAutonomousPaperLoop } from "@/lib/trading/paperLoop";
 import { orchestrateNINE } from "@/lib/trading/orchestrator";
+import { buildV5Intelligence } from "@/lib/trading/v5Intelligence";
 import { getOrders } from "@/lib/trading/orders";
 import {
   marketFeedStatus,
@@ -99,6 +100,9 @@ export async function GET(request: Request) {
                 streamTracking ?? createSetupTracking(orchestration.setup, loopAccount),
               )
             : null;
+          const v5Intelligence = symbol === "XAUUSD" && streamTracking
+            ? buildV5Intelligence(market, orchestration, loopAccount, streamTracking)
+            : null;
 
           controller.enqueue(
             encoder.encode(
@@ -111,6 +115,7 @@ export async function GET(request: Request) {
                 orchestration,
                 decisionEngine,
                 paperLoop,
+                v5: { intelligence: v5Intelligence },
                 account: loopAccount,
                 orders: getOrders(20),
                 chart:
