@@ -18,6 +18,7 @@ import { buildStrategyLabSnapshot } from "@/lib/trading/strategyLab";
 import { db } from "@/lib/trading/db";
 import { reconcilePaperState } from "@/lib/trading/paperReconciliation";
 import { buildV5Intelligence } from "@/lib/trading/v5Intelligence";
+import { getKronosForecast } from "@/lib/trading/kronosForecast";
 import type { MarketSymbol } from "@/lib/trading/types";
 import {
   buildBrainDecision,
@@ -190,8 +191,11 @@ export async function GET(request: Request) {
         )
       : null;
     if (finalTracking) persistXAUSetupTracking(finalTracking, symbol);
+    const kronosForecast = symbol === "XAUUSD"
+      ? await getKronosForecast(market, "5min")
+      : null;
     const v5Intelligence = symbol === "XAUUSD" && finalTracking
-      ? buildV5Intelligence(market, orchestration, loopAccount, finalTracking)
+      ? buildV5Intelligence(market, orchestration, loopAccount, finalTracking, kronosForecast ?? undefined)
       : null;
 
 
@@ -250,6 +254,7 @@ export async function GET(request: Request) {
       paperReconciliation,
       v5: {
         intelligence: v5Intelligence,
+        kronos: kronosForecast,
       },
       v210: {
         decision: decisionExplanation,
