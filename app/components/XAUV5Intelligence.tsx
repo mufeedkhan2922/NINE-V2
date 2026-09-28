@@ -9,6 +9,7 @@ export function XAUV5Intelligence({ intelligence }: { intelligence?: any }) {
   const learning = v.learning;
   const regime = v.regimeEngine;
   const kronos = v.kronos;
+  const kronosQuality = v.kronosQuality;
   const color = v.action === "PAPER_READY" ? "ready" : v.action === "BLOCKED" ? "blocked" : "watch";
 
   return (
@@ -17,7 +18,7 @@ export function XAUV5Intelligence({ intelligence }: { intelligence?: any }) {
         <div>
           <div className="xau-v5-kicker"><BrainCircuit size={13} /> V5.6 AUTONOMOUS INTELLIGENCE</div>
           <h2>Decision Fusion</h2>
-          <p>Kronos forecast distribution + regime-aware strategy selection + walk-forward learning + Chartist + Atlas + Sentinel</p>
+          <p>Kronos forecast distribution + forecast quality + regime-aware strategy selection + walk-forward learning + Chartist + Atlas + Sentinel</p>
         </div>
         <div className="xau-v5-action"><span />{v.action}<small>{v.direction} · {v.confidence}% confidence</small></div>
       </div>
@@ -45,6 +46,8 @@ export function XAUV5Intelligence({ intelligence }: { intelligence?: any }) {
           <header><Waves size={13} /> KRONOS FORECAST</header>
           <div className="xau-kronos-status"><b>{kronos?.status ?? "UNAVAILABLE"}</b><span>{kronos?.model ?? "Kronos-small"}</span></div>
           <div className="xau-kronos-grid">
+            <div><span>QUALITY</span><b>{kronosQuality?.score ?? 0}/100</b></div>
+            <div><span>AGREEMENT</span><b>{kronosQuality?.agreement ?? "UNKNOWN"}</b></div>
             <div><span>MEDIAN</span><b>{kronos?.medianFinal?.toFixed?.(2) ?? "—"}</b></div>
             <div><span>5%</span><b>{kronos?.lowFinal?.toFixed?.(2) ?? "—"}</b></div>
             <div><span>95%</span><b>{kronos?.highFinal?.toFixed?.(2) ?? "—"}</b></div>
@@ -77,7 +80,7 @@ export function XAUV5Intelligence({ intelligence }: { intelligence?: any }) {
             <span>{kronos?.horizonCandles ?? 0} candles</span>
             <span>{kronos?.uncertainty ?? "UNKNOWN"} uncertainty</span>
           </div>
-          <small>{kronos?.calibrationState === "CALIBRATED" ? "XAUUSD walk-forward calibrated" : "ZERO-SHOT · NOT CALIBRATED · evidence only"}</small>
+          <small>{kronos?.stale ? `STALE · ${kronos.staleSeconds}s old · refresh in progress` : kronos?.calibrationState === "CALIBRATED" ? "XAUUSD walk-forward calibrated" : "ZERO-SHOT · NOT CALIBRATED · evidence only"}</small>
           {(kronos?.warnings ?? []).slice(0, 2).map((warning: string, index: number) => <p className="xau-kronos-warning" key={index}>{warning}</p>)}
         </div>
 
