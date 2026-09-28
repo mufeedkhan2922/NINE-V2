@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { db } from "@/lib/trading/db";
 import { getStoreSnapshot } from "@/lib/trading/store";
 import { runtimeDiagnostics } from "@/lib/trading/runtime";
@@ -67,7 +68,7 @@ function record(sessionId: string, role: "user" | "assistant", content: string, 
   db.prepare(
     `INSERT INTO assistant_messages (id, session_id, role, content, intent, created_at)
      VALUES (?, ?, ?, ?, ?, ?)`,
-  ).run(`AST-${crypto.randomUUID()}`, sessionId, role, content, intent ?? null, Date.now());
+  ).run(`AST-${randomUUID()}`, sessionId, role, content, intent ?? null, Date.now());
 }
 
 export function answerAssistant(input: string, sessionId = "default"): AssistantResponse {
