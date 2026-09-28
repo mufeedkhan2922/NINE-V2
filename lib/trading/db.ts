@@ -224,6 +224,32 @@ CREATE TABLE IF NOT EXISTS strategy_memory (
 CREATE INDEX IF NOT EXISTS strategy_memory_lookup_idx
 ON strategy_memory(strategy_id, symbol, timeframe, session, regime, updated_at DESC);
 
+CREATE TABLE IF NOT EXISTS kronos_calibration_forecasts (
+  id TEXT PRIMARY KEY,
+  symbol TEXT NOT NULL,
+  timeframe TEXT NOT NULL,
+  model TEXT NOT NULL,
+  horizon_candles INTEGER NOT NULL,
+  origin_candle_time INTEGER NOT NULL,
+  target_candle_time INTEGER NOT NULL,
+  generated_at INTEGER NOT NULL,
+  current_price REAL NOT NULL,
+  median_final REAL NOT NULL,
+  low_final REAL NOT NULL,
+  high_final REAL NOT NULL,
+  forecast_direction TEXT NOT NULL,
+  resolved INTEGER NOT NULL DEFAULT 0,
+  realized_price REAL,
+  realized_at INTEGER,
+  created_at INTEGER NOT NULL
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS kronos_calibration_origin_idx
+ON kronos_calibration_forecasts(symbol, timeframe, model, horizon_candles, origin_candle_time);
+
+CREATE INDEX IF NOT EXISTS kronos_calibration_pending_idx
+ON kronos_calibration_forecasts(symbol, timeframe, model, horizon_candles, resolved, target_candle_time);
+
 CREATE TABLE IF NOT EXISTS xau_setup_tracking (
   setup_id TEXT PRIMARY KEY,
   symbol TEXT NOT NULL,
