@@ -64,3 +64,16 @@ The service is bound to `127.0.0.1` and is XAUUSD-only. NINE consumes the foreca
 NINE treats the output as forecast evidence only. It cannot authorize a trade, bypass validation, or bypass Sentinel. Keep the sidecar bound to localhost and do not place broker credentials in its environment.
 
 The sidecar is zero-shot and uncalibrated. Before any forecast weight is introduced into decision scoring, NINE should run XAUUSD walk-forward evaluation for MAE/RMSE, directional accuracy, interval coverage/width, persistence baseline comparison, timeframe, and regime.
+
+
+## V5.7 forecast-quality layer
+
+NINE now keeps the last completed Kronos forecast while a newer inference is running. The UI marks that forecast as stale instead of replacing it with a blank state.
+
+The NINE adapter also computes a non-predictive **forecast quality score** from:
+- sample count and context length
+- forecast uncertainty/band width
+- recent XAUUSD directional agreement
+- inference latency
+
+This score is an evidence-integrity metric, **not a win-rate or probability-of-profit estimate**. Kronos remains zero-shot/uncalibrated until a separate XAUUSD walk-forward calibration process is completed, and its execution decision weight remains zero.
