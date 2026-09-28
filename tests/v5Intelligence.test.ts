@@ -102,7 +102,7 @@ export function runV5IntelligenceTest(): void {
   const tracking = createSetupTracking(setup, account);
   const result = buildV5Intelligence(market, orchestration, account, tracking);
 
-  assert.equal(result.version, "5.5.0", "V5.5 version");
+  assert.equal(result.version, "5.6.0", "V5.6 version");
   assert.ok(result.regimeEngine !== undefined, "regime engine exists");
   assert.ok(result.recommendedStrategyId !== undefined, "setup ranking exists");
   assert.equal(result.symbol, "XAUUSD", "V5 symbol");
@@ -111,5 +111,7 @@ export function runV5IntelligenceTest(): void {
   assert.equal(result.action, "WATCHING", "no directional setup must remain watching");
   assert.ok(result.strategyConsensus !== undefined, "strategy consensus exists");
   assert.ok(result.learning !== undefined, "learning snapshot exists");
+  assert.ok(result.kronos !== undefined, "Kronos evidence exists");
+  assert.equal(result.kronos.decisionWeight, 0, "Kronos cannot directly weight execution before calibration");
   assert.ok(result.evidence.length >= 5, "evidence chain exists");
 }
