@@ -102,7 +102,7 @@ export function runV5IntelligenceTest(): void {
   const tracking = createSetupTracking(setup, account);
   const result = buildV5Intelligence(market, orchestration, account, tracking);
 
-  assert.equal(result.version, "5.7.0", "V5.7 version");
+  assert.equal(result.version, "5.8.0", "V5.8 version");
   assert.ok(result.regimeEngine !== undefined, "regime engine exists");
   assert.ok(result.recommendedStrategyId !== undefined, "setup ranking exists");
   assert.equal(result.symbol, "XAUUSD", "V5 symbol");
