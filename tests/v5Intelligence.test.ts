@@ -102,7 +102,9 @@ export function runV5IntelligenceTest(): void {
   const tracking = createSetupTracking(setup, account);
   const result = buildV5Intelligence(market, orchestration, account, tracking);
 
-  assert.equal(result.version, "5.0.0", "V5 version");
+  assert.equal(result.version, "5.5.0", "V5.5 version");
+  assert.ok(result.regimeEngine !== undefined, "regime engine exists");
+  assert.ok(result.recommendedStrategyId !== undefined, "setup ranking exists");
   assert.equal(result.symbol, "XAUUSD", "V5 symbol");
   assert.equal(result.executionMode, "PAPER", "V5 execution mode");
   assert.equal(result.executionAuthority, "SENTINEL_ONLY", "Sentinel remains execution authority");
