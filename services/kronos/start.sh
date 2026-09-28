@@ -160,6 +160,13 @@ export KRONOS_REPO_PATH="$KRONOS_DIR"
 export NINE_KRONOS_DEVICE="$DEVICE"
 export NINE_KRONOS_MODEL="${NINE_KRONOS_MODEL:-Kronos-small}"
 
+if [[ ! -f "$KRONOS_DIR/model/kronos.py" ]]; then
+  echo "Kronos model source is missing after checkout: $KRONOS_DIR/model/kronos.py"
+  echo "Top-level checkout contents:"
+  find "$KRONOS_DIR" -maxdepth 2 -type f | head -50
+  exit 1
+fi
+
 echo "Running Kronos dependency smoke test..."
 python - <<'PY'
 import importlib.util
@@ -181,11 +188,6 @@ sys.path.insert(0, kronos_dir)
 from model import Kronos, KronosPredictor, KronosTokenizer
 print("Kronos model imports: OK")
 PY
-
-if [[ ! -f "$KRONOS_DIR/model/kronos.py" ]]; then
-  echo "Kronos model source is missing after setup: $KRONOS_DIR/model/kronos.py"
-  exit 1
-fi
 
 echo "NINE Kronos sidecar starting: model=$NINE_KRONOS_MODEL device=$NINE_KRONOS_DEVICE port=$PORT"
 cd "$ROOT"
