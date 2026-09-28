@@ -112,6 +112,8 @@ export function runV5IntelligenceTest(): void {
   assert.ok(result.strategyConsensus !== undefined, "strategy consensus exists");
   assert.ok(result.learning !== undefined, "learning snapshot exists");
   assert.ok(result.kronos !== undefined, "Kronos evidence exists");
+  assert.ok(result.kronosQuality !== undefined, "Kronos quality layer exists");
+  assert.equal(result.kronosQuality.score, 0, "unavailable Kronos quality remains neutral");
   assert.equal(result.kronos.decisionWeight, 0, "Kronos cannot directly weight execution before calibration");
   assert.ok(result.evidence.length >= 5, "evidence chain exists");
 }
