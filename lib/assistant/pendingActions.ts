@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { db } from "@/lib/trading/db";
+import { db } from "../trading/db";
 
 export type PendingAssistantAction = "OPEN_PAPER" | "CLOSE_ALL";
 export type PendingAssistantStatus = "PENDING" | "EXECUTING" | "EXECUTED" | "FAILED" | "CANCELLED" | "EXPIRED";
