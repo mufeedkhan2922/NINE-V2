@@ -1,4 +1,3 @@
-import type { Candle } from "./types";
 import type { KronosForecast } from "./kronosForecast";
 
 export type KronosCalibrationState = "NOT_CALIBRATED" | "PROVISIONAL" | "CALIBRATED";
