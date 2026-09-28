@@ -17,7 +17,7 @@ export interface V5Evidence {
 }
 
 export interface V5Intelligence {
-  version: "5.6.0";
+  version: "5.7.0";
   symbol: "XAUUSD";
   action: V5Action;
   direction: "LONG" | "SHORT" | "NONE";
@@ -175,7 +175,7 @@ export function buildV5Intelligence(
   );
 
   return {
-    version: "5.6.0",
+    version: "5.7.0",
     symbol: "XAUUSD",
     action,
     direction: action === "WATCHING" ? "NONE" : orchestration.setup.direction,
