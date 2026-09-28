@@ -55,36 +55,56 @@ find_python() {
 find_python
 
 ensure_venv_support() {
-  # Debian/Ubuntu images can have python3.12 but omit ensurepip/venv.
-  # Probe the exact interpreter before attempting to rebuild the real venv.
+  # Debian/Ubuntu Codespaces images may expose Python 3.12 while ensurepip is
+  # omitted. Repair it when possible; otherwise use virtualenv.
   local probe="$SERVICE_DIR/.venv-preflight"
+  local py_minor
+  py_minor="$("$PYTHON_BIN" -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')"
   rm -rf "$probe"
+
   if "$PYTHON_BIN" -m venv --without-pip "$probe" >/dev/null 2>&1; then
     rm -rf "$probe"
     return
   fi
 
-  echo "Python $("$PYTHON_BIN" -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")') lacks venv/ensurepip; installing it..."
+  echo "Python $py_minor venv/ensurepip is missing."
+
   if command -v sudo >/dev/null; then
     sudo apt-get update
-    sudo apt-get install -y "python$("$PYTHON_BIN" -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')-venv" || sudo apt-get install -y python3-venv
+    sudo apt-get install -y "python$py_minor-venv" || sudo apt-get install -y python3-venv || true
   elif [[ "$(id -u)" == "0" ]]; then
     apt-get update
-    apt-get install -y "python$("$PYTHON_BIN" -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')-venv" || apt-get install -y python3-venv
-  else
-    echo "Cannot install the venv package automatically because sudo/root is unavailable."
-    echo "Install python3.12-venv (or python3-venv) and rerun this script."
-    exit 1
+    apt-get install -y "python$py_minor-venv" || apt-get install -y python3-venv || true
   fi
 
   rm -rf "$probe"
-  "$PYTHON_BIN" -m venv --without-pip "$probe" >/dev/null 2>&1 || {
-    echo "Python venv support is still unavailable after package installation."
+  if "$PYTHON_BIN" -m venv --without-pip "$probe" >/dev/null 2>&1; then
+    rm -rf "$probe"
+    echo "Python venv support repaired."
+    return
+  fi
+  rm -rf "$probe"
+
+  if command -v virtualenv >/dev/null 2>&1; then
+    return
+  fi
+
+  if command -v pip3 >/dev/null 2>&1; then
+    echo "Installing virtualenv fallback..."
+    if command -v sudo >/dev/null; then
+      sudo pip3 install --disable-pip-version-check --upgrade virtualenv
+    else
+      pip3 install --disable-pip-version-check --upgrade --user virtualenv
+      export PATH="$HOME/.local/bin:$PATH"
+    fi
+  fi
+
+  command -v virtualenv >/dev/null 2>&1 || {
+    echo "Unable to create a Python virtual environment."
+    echo "Install python$py_minor-venv or virtualenv, then rerun this script."
     exit 1
   }
-  rm -rf "$probe"
 }
-
 ensure_venv_support
 
 "$PYTHON_BIN" - <<'PY'
@@ -149,10 +169,12 @@ if [[ -x "$ENV_DIR/bin/python" ]]; then
   fi
 fi
 
-"$PYTHON_BIN" -m venv "$ENV_DIR" || {
-  echo "venv creation failed; ensure python3.12-venv is installed."
-  exit 1
-}
+if "$PYTHON_BIN" -m venv "$ENV_DIR" >/dev/null 2>&1; then
+  :
+else
+  echo "Using virtualenv fallback for Kronos..."
+  virtualenv -p "$PYTHON_BIN" "$ENV_DIR"
+fi
 source "$ENV_DIR/bin/activate"
 
 python -m pip install --disable-pip-version-check --upgrade pip
