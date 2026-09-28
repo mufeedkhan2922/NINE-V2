@@ -113,18 +113,23 @@ export function buildV5Intelligence(
   tracking: XAUSetupTracking,
   kronos?: KronosForecast,
 ): V5Intelligence {
-  const effectiveKronos = kronos ?? buildUnavailableKronosForecast("5min");
-  const kronosCandles = market.timeframes?.[effectiveKronos.timeframe]?.candles ?? market.candles;
+  const baseKronos = kronos ?? buildUnavailableKronosForecast("5min");
+  const kronosCandles = market.timeframes?.[baseKronos.timeframe]?.candles ?? market.candles;
   const latestKronosCandle = kronosCandles.at(-1);
   if (latestKronosCandle) {
-    resolveKronosForecasts(effectiveKronos.timeframe, kronosCandles, effectiveKronos.model);
-    recordKronosForecast(effectiveKronos, latestKronosCandle.time);
+    resolveKronosForecasts(baseKronos.timeframe, kronosCandles, baseKronos.model);
+    recordKronosForecast(baseKronos, latestKronosCandle.time);
   }
   const kronosCalibration = getKronosCalibrationSnapshot(
-    effectiveKronos.timeframe,
-    effectiveKronos.model,
-    effectiveKronos.horizonCandles,
+    baseKronos.timeframe,
+    baseKronos.model,
+    baseKronos.horizonCandles,
   );
+  const effectiveKronos: KronosForecast = {
+    ...baseKronos,
+    calibrationState: kronosCalibration.report.state === "CALIBRATED" ? "CALIBRATED" : "NOT_CALIBRATED",
+    decisionWeight: 0,
+  };
   const kronosQuality = assessKronosQuality(effectiveKronos, kronosCandles);
   const strategyConsensus = evaluateStrategyBook(market, { useMemory: true });
   const regimeEngine = buildV55RegimeEngine(market, strategyConsensus);
