@@ -1,7 +1,7 @@
 import { MarketFeedStatus } from "./types";
 import { providerHealth, providerName } from "./provider";
 
-export const NINE_VERSION = "5.5.0";
+export const NINE_VERSION = "5.6.0";
 
 export function liveTradingEnabled(): boolean {
   return (
@@ -39,6 +39,10 @@ export function runtimeSafety(): {
     );
 
   const warnings: string[] = [];
+
+  if (!process.env.NINE_KRONOS_ENDPOINT) {
+    warnings.push("NINE_KRONOS_ENDPOINT is not configured; Kronos forecast evidence is unavailable.");
+  }
 
   if (
     !marketProviderConfigured
@@ -162,6 +166,8 @@ export function runtimeDiagnostics() {
       quoteEndpointEnabled: process.env.NINE_MARKET_USE_QUOTE === "true",
     },
     atlasConfigured: Boolean(process.env.FINNHUB_API_KEY),
+    kronosConfigured: Boolean(process.env.NINE_KRONOS_ENDPOINT),
+    kronosEndpoint: process.env.NINE_KRONOS_ENDPOINT ? "CONFIGURED" : "UNCONFIGURED",
     brokerConfigured: safety.brokerConfigured,
     paperTradingEnabled: safety.paperTradingEnabled,
     liveTradingEnabled: safety.liveTradingEnabled,
