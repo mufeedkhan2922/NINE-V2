@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useRef, useState } from "react";
+import "./page.css";
 import { Bot, Mic, MicOff, Send, ShieldCheck, Volume2, VolumeX, Activity } from "lucide-react";
 
 type Message = { id: string; role: "user" | "assistant"; content: string; intent?: string; createdAt?: number };
@@ -37,9 +38,9 @@ export default function NINEAssistantPage() {
     window.speechSynthesis.speak(utterance);
   };
 
-  const send = async (event?: FormEvent) => {
+  const send = async (event?: FormEvent, forcedValue?: string) => {
     event?.preventDefault();
-    const value = input.trim();
+    const value = (forcedValue ?? input).trim();
     if (!value || busy) return;
     setInput("");
     setMessages((current) => [...current, { id: `local-${Date.now()}`, role: "user", content: value }]);
@@ -83,7 +84,7 @@ export default function NINEAssistantPage() {
       const transcript = event.results?.[0]?.[0]?.transcript;
       if (transcript) {
         setInput(transcript);
-        void send();
+        void send(undefined, transcript);
       }
     };
     recognition.onend = () => {
