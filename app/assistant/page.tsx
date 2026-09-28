@@ -6,7 +6,7 @@ import "./page.css";
 declare global { interface Window { SpeechRecognition?: any; webkitSpeechRecognition?: any; } }
 import { Bot, Mic, MicOff, Send, ShieldCheck, Volume2, VolumeX, Activity } from "lucide-react";
 
-type Message = { id: string; role: "user" | "assistant"; content: string; intent?: string; createdAt?: number };
+type Message = { id: string; role: "user" | "assistant"; content: string; intent?: string; createdAt?: number; evidence?: Evidence[]; actionStatus?: string };
 type Evidence = { label: string; value: string };
 type Reply = { message: string; evidence?: Evidence[]; actionStatus?: string };
 
@@ -55,7 +55,7 @@ export default function NINEAssistantPage() {
       });
       const data = await response.json() as Reply & { ok?: boolean; error?: string };
       const content = data.message || data.error || "NINE could not complete the request.";
-      setMessages((current) => [...current, { id: `reply-${Date.now()}`, role: "assistant", content }]);
+      setMessages((current) => [...current, { id: `reply-${Date.now()}`, role: "assistant", content, evidence: data.evidence, actionStatus: data.actionStatus }]);
       if (data.message) speak(data.message);
     } catch {
       setMessages((current) => [...current, { id: `error-${Date.now()}`, role: "assistant", content: "Assistant connection failed. The trading engine remains isolated." }]);
@@ -117,6 +117,7 @@ export default function NINEAssistantPage() {
         <div className="nine-assistant-status">
           <span><Activity size={13} /> NINE CORE ONLINE</span>
           <span>TRADING: PAPER / SAFETY LOCKED</span>
+          <span>AI: GEMINI SERVER-SIDE</span>
           <span>{speaking ? "VOICE OUTPUT ACTIVE" : "VOICE READY"}</span>
         </div>
 
@@ -125,6 +126,7 @@ export default function NINEAssistantPage() {
             <article key={message.id} className={`nine-assistant-message ${message.role}`}>
               <span className="nine-assistant-role">{message.role === "assistant" ? "NINE" : "YOU"}</span>
               <p>{message.content}</p>
+              {message.evidence?.length ? <div className="nine-assistant-evidence">{message.evidence.map((item) => <span key={`${item.label}-${item.value}`}><b>{item.label}</b> {item.value}</span>)}</div> : null}
             </article>
           ))}
           {busy && <article className="nine-assistant-message assistant"><span className="nine-assistant-role">NINE</span><p>Thinking…</p></article>}
