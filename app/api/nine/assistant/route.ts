@@ -44,7 +44,8 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json().catch(() => ({}));
-    const message = typeof body?.message === "string" ? body.message.trim().slice(0, 1000) : "";
+    const directActionId = typeof body?.actionId === "string" ? body.actionId.trim().slice(0, 120) : "";
+    const message = typeof body?.message === "string" ? body.message.trim().slice(0, 1000) : directActionId ? `confirm ${directActionId}` : "";
     if (!message) {
       return NextResponse.json({ ok: false, error: "message is required" }, { status: 400 });
     }
