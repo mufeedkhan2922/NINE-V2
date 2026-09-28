@@ -10,6 +10,8 @@ export function XAUV5Intelligence({ intelligence }: { intelligence?: any }) {
   const regime = v.regimeEngine;
   const kronos = v.kronos;
   const kronosQuality = v.kronosQuality;
+  const calibration = v.kronosCalibration;
+  const calibrationReport = calibration?.report;
   const color = v.action === "PAPER_READY" ? "ready" : v.action === "BLOCKED" ? "blocked" : "watch";
 
   return (
@@ -79,6 +81,14 @@ export function XAUV5Intelligence({ intelligence }: { intelligence?: any }) {
             <span>{kronos?.sampleCount ?? 0} sampled paths</span>
             <span>{kronos?.horizonCandles ?? 0} candles</span>
             <span>{kronos?.uncertainty ?? "UNKNOWN"} uncertainty</span>
+          </div>
+          <div className="xau-kronos-calibration">
+            <div><span>CALIBRATION</span><b>{calibrationReport?.state ?? "NOT_CALIBRATED"}</b></div>
+            <div><span>SAMPLES</span><b>{calibrationReport?.sampleCount ?? 0}</b></div>
+            <div><span>DIR ACC</span><b>{calibrationReport?.directionalAccuracy != null ? calibrationReport.directionalAccuracy.toFixed(1) + "%" : "—"}</b></div>
+            <div><span>INTERVAL</span><b>{calibrationReport?.intervalCoveragePercent != null ? calibrationReport.intervalCoveragePercent.toFixed(1) + "%" : "—"}</b></div>
+            <div><span>MAE</span><b>{calibrationReport?.meanAbsoluteErrorPercent != null ? calibrationReport.meanAbsoluteErrorPercent.toFixed(3) + "%" : "—"}</b></div>
+            <div><span>PENDING</span><b>{calibration?.pendingCount ?? 0}</b></div>
           </div>
           <small>{kronos?.stale ? `STALE · ${kronos.staleSeconds}s old · refresh in progress` : kronos?.calibrationState === "CALIBRATED" ? "XAUUSD walk-forward calibrated" : "ZERO-SHOT · NOT CALIBRATED · evidence only"}</small>
           {(kronos?.warnings ?? []).slice(0, 2).map((warning: string, index: number) => <p className="xau-kronos-warning" key={index}>{warning}</p>)}
