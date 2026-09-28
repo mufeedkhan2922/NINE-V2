@@ -66,7 +66,7 @@ function runXAUAutonomousPaperLoopCore(
   market: MarketSnapshot,
   orchestration: NINEOrchestration,
   existingTracking?: XAUSetupTracking,
-): XAUAutonomousPaperLoop {
+): Omit<XAUAutonomousPaperLoop, "telemetry" | "health"> {
   const account = getPaperAccount(market.price);
   const setup = orchestration.setup;
   const setupTracking = createSetupTracking(setup, account, existingTracking);
