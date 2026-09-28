@@ -18,7 +18,7 @@ export interface V5Evidence {
 }
 
 export interface V5Intelligence {
-  version: "5.7.0";
+  version: "5.8.0";
   symbol: "XAUUSD";
   action: V5Action;
   direction: "LONG" | "SHORT" | "NONE";
