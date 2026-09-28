@@ -148,7 +148,7 @@ export function claimPendingAssistantAction(
      WHERE id = ? AND session_id = ? AND status = 'PENDING' AND expires_at > ?`,
   ).run(record.id, sessionId, now);
 
-  if (Number(result.changes ?? 0) !== 1) return null;
+  if (Number((result as any).changes ?? 0) !== 1) return null;
 
   return { ...record, status: "EXECUTING" };
 }
