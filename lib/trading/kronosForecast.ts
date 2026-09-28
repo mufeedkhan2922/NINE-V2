@@ -28,6 +28,8 @@ export interface KronosForecast {
   calibrationState: "NOT_CALIBRATED" | "CALIBRATED";
   decisionWeight: 0;
   warnings: string[];
+  stale: boolean;
+  staleSeconds: number;
 }
 
 interface KronosServiceResponse {
@@ -49,12 +51,15 @@ interface KronosServiceResponse {
 const globalCache = globalThis as typeof globalThis & {
   __nineKronosForecastCache?: Map<string, { forecast: KronosForecast; expiresAt: number }>;
   __nineKronosForecastInflight?: Map<string, Promise<KronosForecast>>;
+  __nineKronosLastGoodForecast?: Map<string, KronosForecast>;
 };
 
 const cache = globalCache.__nineKronosForecastCache ?? new Map<string, { forecast: KronosForecast; expiresAt: number }>();
 globalCache.__nineKronosForecastCache = cache;
 const inflight = globalCache.__nineKronosForecastInflight ?? new Map<string, Promise<KronosForecast>>();
 globalCache.__nineKronosForecastInflight = inflight;
+const lastGood = globalCache.__nineKronosLastGoodForecast ?? new Map<string, KronosForecast>();
+globalCache.__nineKronosLastGoodForecast = lastGood;
 
 function timeframeForKronos(market: MarketSnapshot, requested: Timeframe): { timeframe: Timeframe; candles: Candle[] } {
   const preferred = market.timeframes?.[requested]?.candles;
@@ -76,7 +81,7 @@ export function buildUnavailableKronosForecast(timeframe: Timeframe, status: Kro
     expectedDirection: "NONE", uncertainty: "UNKNOWN", bandWidthPercent: null,
     timestamps: [], lowPath: [], medianPath: [], highPath: [],
     latencyMs: null, endpoint: process.env.NINE_KRONOS_ENDPOINT ?? null,
-    generatedAt: Date.now(), calibrationState: "NOT_CALIBRATED", decisionWeight: 0, warnings,
+    generatedAt: Date.now(), calibrationState: "NOT_CALIBRATED", decisionWeight: 0, warnings, stale: false, staleSeconds: 0,
   };
 }
 
@@ -123,6 +128,8 @@ function validateResponse(payload: KronosServiceResponse, requestedTimeframe: Ti
     endpoint: process.env.NINE_KRONOS_ENDPOINT ?? null, generatedAt: Date.now(),
     calibrationState: "NOT_CALIBRATED", decisionWeight: 0,
     warnings: Array.isArray(payload.warnings) ? payload.warnings.map(String) : [],
+    stale: false,
+    staleSeconds: 0,
   };
 }
 
@@ -177,6 +184,16 @@ export async function getKronosForecast(market: MarketSnapshot, timeframe: Timef
   const cached = cache.get(key);
   if (cached && cached.expiresAt > Date.now()) return cached.forecast;
   if (inflight.has(key)) {
+    const previous = lastGood.get(key);
+    if (previous) {
+      const ageSeconds = Math.max(0, Math.round((Date.now() - previous.generatedAt) / 1000));
+      return {
+        ...previous,
+        stale: true,
+        staleSeconds: ageSeconds,
+        warnings: [...previous.warnings, "A newer Kronos inference is running; displaying the last completed forecast as stale evidence."],
+      };
+    }
     return buildUnavailableKronosForecast(selected.timeframe, "UNAVAILABLE", [
       "Kronos inference is running in the background; the next NINE refresh will consume the completed forecast.",
     ]);
@@ -186,6 +203,7 @@ export async function getKronosForecast(market: MarketSnapshot, timeframe: Timef
   inflight.set(key, request);
   void request
     .then((forecast) => {
+      if (forecast.status === "LIVE") lastGood.set(key, forecast);
       cache.set(key, {
         forecast,
         expiresAt: Date.now() + Math.max(2_500, Number(process.env.NINE_KRONOS_CACHE_MS ?? 15_000)),
