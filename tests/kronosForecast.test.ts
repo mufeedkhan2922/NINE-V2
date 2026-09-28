@@ -1,5 +1,6 @@
 import { buildUnavailableKronosForecast } from "../lib/trading/kronosForecast";
 import { assessKronosQuality } from "../lib/trading/kronosQuality";
+import { buildKronosCalibrationReport } from "../lib/trading/kronosCalibration";
 import * as assert from "./assert";
 
 export function runKronosForecastTest(): void {
@@ -23,4 +24,21 @@ export function runKronosForecastTest(): void {
   const quality = assessKronosQuality(forecast, candles);
   assert.equal(quality.state, "UNAVAILABLE", "unavailable Kronos quality state");
   assert.equal(quality.score, 0, "unavailable Kronos quality score");
+
+  const observations = Array.from({ length: 100 }, (_, i) => ({
+    generatedAt: 1_700_000_000_000 + i * 300_000,
+    horizonCandles: 12,
+    forecastDirection: "LONG" as const,
+    currentPrice: 2300,
+    medianFinal: 2301,
+    lowFinal: 2298,
+    highFinal: 2304,
+    realizedPrice: 2302,
+  }));
+  const calibration = buildKronosCalibrationReport(observations);
+  assert.equal(calibration.sampleCount, 100, "calibration sample count");
+  assert.equal(calibration.directionalAccuracy, 100, "calibration directional accuracy");
+  assert.equal(calibration.intervalCoveragePercent, 100, "calibration interval coverage");
+  assert.equal(calibration.state, "CALIBRATED", "calibration gate");
+
 }
