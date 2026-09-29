@@ -599,7 +599,6 @@ export function runBacktest(
   let peak = initialBalance;
   let maxDrawdown = 0;
   let lastEntryIndex = -Infinity;
-  let lastSessionKey = "";
   const sessionTradeCounts = new Map<string, number>();
 
   for (let i = WARMUP_CANDLES; i < candles.length - 1; i += 1) {
@@ -646,11 +645,9 @@ export function runBacktest(
 
     const pnl = side === "LONG" ? (exit - entry) * quantity : (entry - exit) * quantity;
     balance += pnl;
-    lastEntryIndex = i;
     peak = Math.max(peak, balance);
     maxDrawdown = Math.max(maxDrawdown, peak > 0 ? ((peak - balance) / peak) * 100 : 0);
     lastEntryIndex = i;
-    lastSessionKey = sessionKey;
     sessionTradeCounts.set(sessionKey, (sessionTradeCounts.get(sessionKey) ?? 0) + 1);
 
     const exitReason =
