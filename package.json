@@ -1,6 +1,6 @@
 {
   "name": "nine-app",
-  "version": "0.5.11.0",
+  "version": "0.5.16.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -8,7 +8,9 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "test": "tsc -p tsconfig.test.json && node .test-dist/tests/testBootstrap.js"
+    "test": "tsc -p tsconfig.test.json && node .test-dist/tests/testBootstrap.js",
+    "research:xauusd:learning": "tsx scripts/run-xauusd-learning.ts",
+    "research:xauusd:walkforward": "tsx scripts/run-xauusd-walkforward.ts"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.8",
