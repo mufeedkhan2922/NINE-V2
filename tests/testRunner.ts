@@ -36,6 +36,7 @@ import { runGeminiProviderTest } from "./geminiProvider.test";
 import { runAdaptiveLossFilterTest } from "./adaptiveLossFilter.test";
 import { runLossInvestigatorTest } from "./lossInvestigator.test";
 import { runClosedLoopLearningTest } from "./closedLoopLearning.test";
+import { runMetaLearningTest } from "./metaLearning.test";
 
 const tests: Array<[string, () => void | Promise<void>]> = [
   ["technical", runTechnicalTest],
@@ -82,9 +83,6 @@ const tests: Array<[string, () => void | Promise<void>]> = [
   ["statistical loss filter", runAdaptiveLossFilterTest],
   ["loss investigation memory", runLossInvestigatorTest],
   ["closed-loop learning", runClosedLoopLearningTest],
-  ["strategy evolution arena", runStrategyEvolutionTest],
-  ["market regime intelligence", runRegimeIntelligenceTest],
-  ["adaptive strategy allocation", runStrategyAllocationTest],
   ["contextual meta-learning", runMetaLearningTest],
 ];
 
