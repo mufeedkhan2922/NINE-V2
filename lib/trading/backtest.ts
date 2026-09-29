@@ -3,6 +3,7 @@ import { analyzeTechnicals } from "./technical";
 import { analyzeSMC } from "./smc";
 import type { AdaptiveLossFilter } from "./adaptiveLossFilter";
 import { getLessonDecision, rememberBacktestLosses } from "./lossInvestigator";
+import { recordCausalOutcomes, evaluateCounterfactualsForTrade, persistCounterfactual } from "./causalLearning";
 import { getClosedLoopDecision } from "./closedLoopGate";
 import { policyForRegime, regimeFromCandles } from "./regimePolicy";
 import type {
@@ -823,6 +824,10 @@ export function runBacktest(
   if (usePersistentLessons) {
     try {
       rememberBacktestLosses(trades, candles, "XAUUSD");
+      recordCausalOutcomes(trades, candles, "XAUUSD");
+      for (const trade of trades) {
+        try { persistCounterfactual("XAUUSD", evaluateCounterfactualsForTrade(trade, candles), trade.side); } catch { /* research telemetry must never break backtests */ }
+      }
     } catch {
       // Persistent research memory must never break a backtest.
     }
