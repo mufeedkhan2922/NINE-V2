@@ -193,7 +193,6 @@ export function runBacktest(
   let peak = initialBalance;
   let maxDrawdown = 0;
   let lastEntryIndex = -Infinity;
-  let lastEntryIndex = -Infinity;
 
   for (let i = WARMUP_CANDLES; i < candles.length - 1; i += 1) {
     if (i - lastEntryIndex < COOLDOWN_CANDLES) continue;
