@@ -1,0 +1,32 @@
+name: NINE XAUUSD Learning Cycle
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "lib/trading/**"
+      - "scripts/run-xauusd-learning.ts"
+      - "package.json"
+      - ".github/workflows/xauusd-learning.yml"
+
+jobs:
+  learning:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx tsx scripts/run-xauusd-learning.ts
+        env:
+          TWELVE_DATA_API_KEY: ${{ secrets.TWELVE_DATA_API_KEY }}
+          NINE_LEARNING_START: "2026-08-01"
+          NINE_LEARNING_END: "2026-09-29"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nine-xauusd-learning-cycle
+          path: artifacts/xauusd-learning-cycle.*
