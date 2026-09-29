@@ -364,6 +364,25 @@ CREATE TABLE IF NOT EXISTS strategy_allocation_memory (
 CREATE INDEX IF NOT EXISTS strategy_allocation_lookup_idx
 ON strategy_allocation_memory(symbol, session, regime, direction, strategy_id, updated_at DESC);
 
+CREATE TABLE IF NOT EXISTS meta_learning_memory (
+  id TEXT PRIMARY KEY,
+  symbol TEXT NOT NULL,
+  session TEXT NOT NULL,
+  regime TEXT NOT NULL,
+  direction TEXT NOT NULL,
+  concept TEXT NOT NULL,
+  observations INTEGER NOT NULL,
+  wins INTEGER NOT NULL,
+  losses INTEGER NOT NULL,
+  weight REAL NOT NULL,
+  uncertainty REAL NOT NULL,
+  source TEXT NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS meta_learning_lookup_idx
+ON meta_learning_memory(symbol, session, regime, direction, concept, updated_at DESC);
+
 CREATE TABLE IF NOT EXISTS counterfactual_results (
   id TEXT PRIMARY KEY,
   symbol TEXT NOT NULL,
