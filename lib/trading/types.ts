@@ -152,6 +152,20 @@ export interface TechnicalAnalysis {
   atr: number;
   emaFast: number;
   emaSlow: number;
+  ema50?: number;
+  ema200?: number;
+  rsi?: number;
+  macd?: number;
+  macdSignal?: number;
+  macdHistogram?: number;
+  bollingerUpper?: number;
+  bollingerMiddle?: number;
+  bollingerLower?: number;
+  bollingerWidth?: number;
+  adx?: number;
+  stochastic?: number;
+  trendScore?: number;
+  momentumScore?: number;
 }
 
 export interface SMCAnalysis {
