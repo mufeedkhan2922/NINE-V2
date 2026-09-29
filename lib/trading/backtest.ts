@@ -1,6 +1,7 @@
 import { Candle } from "./types";
 import { analyzeTechnicals } from "./technical";
 import { analyzeSMC } from "./smc";
+import type { AdaptiveLossFilter } from "./adaptiveLossFilter";
 import type {
   BacktestAnalytics,
   BacktestDistribution,
@@ -592,7 +593,7 @@ export function runBacktest(
     "Sweep-reversal stops are anchored beyond the confirmed sweep wick with a small ATR buffer; other setups use ATR/minimum-distance stops.",
     "When stop and target are both touched inside the same candle, the stop is assumed to trigger first (conservative intrabar ordering).",
     "This backtest models price movement but does not include broker commissions, financing, or spread unless already represented in the candle prices.",
-    "Results are historical simulation outputs and do not establish future trading performance.",
+    "Results are historical simulation outputs and do not establish future trading performance.",\n    adaptiveLossFilter\n      ? `Adaptive loss filter ${adaptiveLossFilter.version} is active: only statistically rejected setup families are blocked; insufficient samples remain neutral.`\n      : "No adaptive loss filter is active; this run is the unfiltered baseline.",
   ];
   const equityCurve: BacktestEquityPoint[] = [{
     trade: 0,
@@ -739,7 +740,7 @@ export function runBacktest(
       maxZoneAgeCandles: MAX_ZONE_AGE_CANDLES,
       zoneProximityAtr: ZONE_PROXIMITY_ATR,
       cooldownCandles: COOLDOWN_CANDLES,
-      dataDriven: true,
+      dataDriven: true,\n      adaptiveLossFilter: adaptiveLossFilter ? "STATISTICAL_PRIOR_LOSS_FILTER" : "OFF",\n      adaptiveLossFilterVersion: adaptiveLossFilter?.version ?? "—",\n      adaptiveMinimumTrades: adaptiveLossFilter?.minimumTrades ?? 0,\n      adaptiveBlockedSetupFamilies: adaptiveLossFilter?.blockedKeys.length ?? 0,
     },
     ...analytics(trades, equityCurve, profitFactor),
     warnings,
