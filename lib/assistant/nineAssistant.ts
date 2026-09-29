@@ -34,6 +34,7 @@ type AssistantActionResult = {
   message: string;
   actionId?: string;
   actionStatus: AssistantActionStatus;
+  actionId?: string;
   evidence: Array<{ label: string; value: string }>;
 };
 
