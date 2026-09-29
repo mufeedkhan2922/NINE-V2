@@ -7,6 +7,7 @@ import { buildRegimeIntelligence } from "./regimeIntelligence";
 import { routeStrategyByRegime } from "./regimeRouter";
 import { getStrategyAllocationAdjustment } from "./strategyAllocation";
 import { arbitrateStrategies, calculateMetaAdjustment, deduplicateEvidence } from "./metaLearning";
+import { getCausalDecision } from "./causalLearning";
 import type { Candle, MarketSnapshot, TradeDirection } from "./types";
 
 export interface StrategyCandidate {
@@ -223,6 +224,13 @@ function scoreStrategy(strategy: StrategyDefinition, market: MarketSnapshot, can
     reasons.push(`Evidence de-duplication: ${matchedConcepts.length - independentConcepts.length} correlated signal(s) discounted.`);
     score -= Math.min(4, matchedConcepts.length - independentConcepts.length);
   }
+  const causal = getCausalDecision(market, strategy.name, direction === "NONE" ? "LONG" : direction, independentConcepts);
+  if (causal.adjustment !== 0) {
+    score += causal.adjustment;
+    reasons.push(`Causal failure memory adjustment ${causal.adjustment.toFixed(2)} across ${causal.observations} historical observations.`);
+  }
+  if (causal.blocked) blockers.push(`Causal failure gate: ${causal.reason}`);
+
   const meta = calculateMetaAdjustment(independentConcepts.map((concept) => ({
     concept,
     observations: memory.sampleTrades,
