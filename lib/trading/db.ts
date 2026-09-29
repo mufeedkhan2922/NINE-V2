@@ -400,6 +400,30 @@ CREATE TABLE IF NOT EXISTS counterfactual_results (
 CREATE INDEX IF NOT EXISTS counterfactual_lookup_idx
 ON counterfactual_results(symbol, entry_time DESC);
 
+CREATE TABLE IF NOT EXISTS causal_failure_memory (
+  id TEXT PRIMARY KEY,
+  symbol TEXT NOT NULL,
+  strategy TEXT NOT NULL,
+  session TEXT NOT NULL,
+  regime TEXT NOT NULL,
+  side TEXT NOT NULL,
+  failure_mode TEXT NOT NULL,
+  observations INTEGER NOT NULL,
+  failures INTEGER NOT NULL,
+  wins INTEGER NOT NULL,
+  failure_rate REAL NOT NULL,
+  failure_rate_lower_95 REAL NOT NULL,
+  expectancy_r REAL NOT NULL,
+  severity REAL NOT NULL,
+  confidence REAL NOT NULL,
+  status TEXT NOT NULL,
+  last_seen INTEGER NOT NULL,
+  source TEXT NOT NULL
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS causal_failure_key_idx
+ON causal_failure_memory(symbol,strategy,session,regime,side,failure_mode);
+
 CREATE TABLE IF NOT EXISTS kronos_calibration_forecasts (
   id TEXT PRIMARY KEY,
   symbol TEXT NOT NULL,
