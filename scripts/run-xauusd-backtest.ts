@@ -5,7 +5,7 @@ import type { BacktestTrade } from "../lib/trading/backtest";
 
 const START = process.env.NINE_BACKTEST_START ?? "2026-09-15";
 const END = process.env.NINE_BACKTEST_END ?? "2026-09-29";
-const TIMEFRAME = "5min" as const;
+const TIMEFRAME = "5min" as const; // NINE XAUUSD research run
 const INITIAL_BALANCE = Number(process.env.NINE_BACKTEST_INITIAL_BALANCE ?? "10000");
 const FIXED_LOT = Number(process.env.NINE_BACKTEST_LOTS ?? "0.01");
 const CONTRACT_SIZE_OZ = Number(process.env.NINE_XAUUSD_CONTRACT_SIZE_OZ ?? "100");
