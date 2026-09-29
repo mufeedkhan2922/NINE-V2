@@ -3,7 +3,6 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import "./page.css";
 
-declare global { interface Window { SpeechRecognition?: any; webkitSpeechRecognition?: any; } }
 import { Bot, Mic, MicOff, Send, ShieldCheck, Volume2, VolumeX, Activity } from "lucide-react";
 
 type Message = { id: string; role: "user" | "assistant"; content: string; intent?: string; createdAt?: number; evidence?: Evidence[]; actionStatus?: string };
@@ -72,7 +71,8 @@ export default function NINEAssistantPage() {
       return;
     }
 
-    const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const browserWindow = window as typeof window & { webkitSpeechRecognition?: any };
+    const Recognition = browserWindow.SpeechRecognition || browserWindow.webkitSpeechRecognition;
     if (!Recognition) {
       setMessages((current) => [...current, { id: `voice-${Date.now()}`, role: "assistant", content: "Voice input is not available in this browser. Text assistant remains available." }]);
       return;
