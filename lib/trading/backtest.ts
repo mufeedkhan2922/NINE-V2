@@ -282,7 +282,7 @@ function setupSignal(candles: Candle[]): { side: "LONG" | "SHORT" | null; reason
     if (candidate.score >= 7) candidates.push(candidate);
   };
 
-  if (pdlSweepLong) {
+  if (pdlSweepLong && htfLong && (smc.structureDirection === "LONG" || momentumBull)) {
     push({
       side: "LONG",
       score: 7 + (previousDayBullish ? 1 : 0) + (smc.structureDirection === "LONG" ? 1 : 0) +
@@ -292,7 +292,7 @@ function setupSignal(candles: Candle[]): { side: "LONG" | "SHORT" | null; reason
       reason: "PDL sweep + close back above PDL + structural/liquidity confirmation",
     });
   }
-  if (pdhSweepShort) {
+  if (pdhSweepShort && htfShort && (smc.structureDirection === "SHORT" || momentumBear)) {
     push({
       side: "SHORT",
       score: 7 + (previousDayBearish ? 1 : 0) + (smc.structureDirection === "SHORT" ? 1 : 0) +
@@ -303,7 +303,7 @@ function setupSignal(candles: Candle[]): { side: "LONG" | "SHORT" | null; reason
     });
   }
 
-  if (asiaSweepLong && session === "LONDON") {
+  if (asiaSweepLong && session === "LONDON" && htfLong && (smc.structureDirection === "LONG" || momentumBull)) {
     push({
       side: "LONG",
       score: 7 + (smc.structureDirection === "LONG" ? 1 : 0) + (htfLong ? 1 : 0) +
@@ -313,7 +313,7 @@ function setupSignal(candles: Candle[]): { side: "LONG" | "SHORT" | null; reason
       reason: "Asia low sweep + London rejection + structure confirmation",
     });
   }
-  if (asiaSweepShort && session === "LONDON") {
+  if (asiaSweepShort && session === "LONDON" && htfShort && (smc.structureDirection === "SHORT" || momentumBear)) {
     push({
       side: "SHORT",
       score: 7 + (smc.structureDirection === "SHORT" ? 1 : 0) + (htfShort ? 1 : 0) +
@@ -343,7 +343,7 @@ function setupSignal(candles: Candle[]): { side: "LONG" | "SHORT" | null; reason
     });
   }
 
-  if (breakoutRetestLong && (trendBull || htfLong) && momentumBull) {
+  if (breakoutRetestLong && htfLong && trendBull && momentumBull && adx >= 22) {
     push({
       side: "LONG",
       score: 8 + (trendBull ? 1 : 0) + (htfLong ? 1 : 0) + (smc.structureDirection === "LONG" ? 1 : 0),
@@ -352,7 +352,7 @@ function setupSignal(candles: Candle[]): { side: "LONG" | "SHORT" | null; reason
       reason: "20-bar breakout + same-level retest + bullish close + HTF alignment",
     });
   }
-  if (breakoutRetestShort && (trendBear || htfShort) && momentumBear) {
+  if (breakoutRetestShort && htfShort && trendBear && momentumBear && adx >= 22) {
     push({
       side: "SHORT",
       score: 8 + (trendBear ? 1 : 0) + (htfShort ? 1 : 0) + (smc.structureDirection === "SHORT" ? 1 : 0),
@@ -362,7 +362,7 @@ function setupSignal(candles: Candle[]): { side: "LONG" | "SHORT" | null; reason
     });
   }
 
-  if (fvgLong && bullishCandle && (trendBull || htfLong)) {
+  if (fvgLong && bullishCandle && htfLong && trendBull && momentumBull) {
     push({
       side: "LONG",
       score: 7 + (trendBull ? 1 : 0) + (momentumBull ? 1 : 0) + (htfLong ? 1 : 0) +
@@ -372,7 +372,7 @@ function setupSignal(candles: Candle[]): { side: "LONG" | "SHORT" | null; reason
       reason: "Bullish FVG retest + displacement close + directional confirmation",
     });
   }
-  if (fvgShort && bearishCandle && (trendBear || htfShort)) {
+  if (fvgShort && bearishCandle && htfShort && trendBear && momentumBear) {
     push({
       side: "SHORT",
       score: 7 + (trendBear ? 1 : 0) + (momentumBear ? 1 : 0) + (htfShort ? 1 : 0) +
@@ -383,7 +383,7 @@ function setupSignal(candles: Candle[]): { side: "LONG" | "SHORT" | null; reason
     });
   }
 
-  if (obLong && (trendBull || htfLong) && (smc.structureDirection === "LONG" || momentumBull)) {
+  if (obLong && htfLong && trendBull && momentumBull && smc.structureDirection === "LONG") {
     push({
       side: "LONG",
       score: 7 + (trendBull ? 1 : 0) + (htfLong ? 1 : 0) + (smc.structureDirection === "LONG" ? 1 : 0),
@@ -392,7 +392,7 @@ function setupSignal(candles: Candle[]): { side: "LONG" | "SHORT" | null; reason
       reason: "Bullish order-block retest + trend/structure confirmation",
     });
   }
-  if (obShort && (trendBear || htfShort) && (smc.structureDirection === "SHORT" || momentumBear)) {
+  if (obShort && htfShort && trendBear && momentumBear && smc.structureDirection === "SHORT") {
     push({
       side: "SHORT",
       score: 7 + (trendBear ? 1 : 0) + (htfShort ? 1 : 0) + (smc.structureDirection === "SHORT" ? 1 : 0),
@@ -586,7 +586,7 @@ export function runBacktest(
   const warnings = [
     "Advanced ensemble setup engine evaluates previous-day liquidity sweeps, Asia-range sweeps, opening-range breakouts, breakout-retests, FVG/OB retests, volatility expansion, EMA pullbacks, breakouts, and mean-reversion.",
     "Technical confluence includes EMA 9/21/50/200, RSI(14), MACD(12/26/9), ADX(14), Bollinger Bands(20,2), Stochastic(14), ATR and SMC.",
-    "Directional continuation setups use causal 15-minute and 1-hour confirmation; reversal setups require explicit liquidity rejection and remain separately gated.",
+    "Directional setups require causal 15-minute and 1-hour agreement plus momentum/structure; liquidity reversals require the sweep to agree with the higher-timeframe direction.",
     "At most two trades are allowed per London or New York session per UTC calendar day, with a six-candle cooldown between completed trades.",
     "A six-candle cooldown is applied after each completed trade to reduce repeated entries from the same market move.",
     "Sweep-reversal stops are anchored beyond the confirmed sweep wick with a small ATR buffer; other setups use ATR/minimum-distance stops.",
