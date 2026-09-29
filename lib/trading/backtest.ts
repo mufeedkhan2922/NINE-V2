@@ -2,6 +2,7 @@ import { Candle } from "./types";
 import { analyzeTechnicals } from "./technical";
 import { analyzeSMC } from "./smc";
 import type { AdaptiveLossFilter } from "./adaptiveLossFilter";
+import { getLessonDecision, rememberBacktestLosses } from "./lossInvestigator";
 import type {
   BacktestAnalytics,
   BacktestDistribution,
@@ -79,6 +80,14 @@ function higherTimeframeAgreement(candles: Candle[], side: "LONG" | "SHORT"): bo
   const bullish60 = a60.trend === "BULLISH" && (a60.momentum === "BULLISH" || (a60.macdHistogram ?? 0) > 0);
   const bearish60 = a60.trend === "BEARISH" && (a60.momentum === "BEARISH" || (a60.macdHistogram ?? 0) < 0);
   return side === "LONG" ? (bullish15 && bullish60) : (bearish15 && bearish60);
+}
+
+function currentSetupSession(candle: Candle): "ASIA" | "LONDON" | "NEW_YORK" | "OFF" {
+  const hour = new Date(candle.time).getUTCHours();
+  if (hour < 7) return "ASIA";
+  if (hour < 12) return "LONDON";
+  if (hour < 21) return "NEW_YORK";
+  return "OFF";
 }
 
 function isTradingDay(timestamp: number): boolean {
@@ -501,6 +510,8 @@ function analytics(
   equityCurve: BacktestEquityPoint[],
   profitFactor: number,
 ): BacktestAnalytics {
+  try { rememberBacktestLosses(trades, candles, "XAUUSD"); } catch { /* persistent research memory must never break the run */ }
+
   const wins = trades.filter((t) => t.pnl > 0);
   const losses = trades.filter((t) => t.pnl < 0);
   const averageWin = wins.length ? wins.reduce((s, t) => s + t.pnl, 0) / wins.length : 0;
@@ -615,7 +626,14 @@ export function runBacktest(
     const side = signalResult.side;
     if (!side) continue;
 
+    const adaptiveDecision = adaptiveLossFilter?.isBlocked(signalResult.reason);
+    if (adaptiveDecision?.blocked) continue;
+
     const currentSetup = setupCandles.at(-1)!;
+    const persistentParts = signalResult.reason.split(";");
+    const persistentStrategy = persistentParts[1]?.trim().replace(/^(LONG|SHORT)\s+/i, "").trim() || "UNKNOWN_SETUP";
+    const persistentLesson = getLessonDecision("XAUUSD", persistentStrategy, currentSetupSession(currentSetup), side);
+    if (persistentLesson.blocked) continue;
     const currentChartist = analyzeSMC(setupCandles).chartist;
     const currentSession = currentChartist?.session;
     if (currentSession !== "LONDON" && currentSession !== "NEW_YORK") continue;
