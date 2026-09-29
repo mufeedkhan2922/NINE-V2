@@ -36,6 +36,7 @@ export interface BacktestResult extends BacktestAnalytics {
   maxDrawdown: number;
   trades: BacktestTrade[];
   config: Record<string, number | string | boolean>;
+  warnings: string[];
 }
 
 function signal(candles: Candle[]): { side: "LONG" | "SHORT" | null; reason: string } {
@@ -134,7 +135,27 @@ export function runBacktest(
   initialBalance = 10000,
   riskPercent = 0.5,
 ): BacktestResult {
+  if (!Number.isFinite(initialBalance) || initialBalance <= 0) {
+    throw new Error("Backtest initialBalance must be greater than zero.");
+  }
+  if (!Number.isFinite(riskPercent) || riskPercent <= 0 || riskPercent > 2) {
+    throw new Error("Backtest riskPercent must be greater than zero and no more than 2.");
+  }
+  if (candles.length < 61) {
+    throw new Error("Backtest requires at least 61 candles.");
+  }
+  for (let i = 1; i < candles.length; i += 1) {
+    if (!(candles[i].time > candles[i - 1].time)) {
+      throw new Error("Backtest candles must be strictly chronological.");
+    }
+  }
+
   const trades: BacktestTrade[] = [];
+  const warnings = [
+    "When stop and target are both touched inside the same candle, the stop is assumed to trigger first (conservative intrabar ordering).",
+    "This backtest models price movement but does not include broker commissions, financing, or spread unless already represented in the candle prices.",
+    "Results are historical simulation outputs and do not establish future trading performance.",
+  ];
   const equityCurve: BacktestEquityPoint[] = [{
     trade: 0,
     timestamp: candles[0]?.time ?? Date.now(),
@@ -170,7 +191,9 @@ export function runBacktest(
       const stopHit = side === "LONG" ? bar.low <= stop : bar.high >= stop;
       const targetHit = side === "LONG" ? bar.high >= target : bar.low <= target;
       if (stopHit || targetHit) {
-        reason = stopHit && targetHit ? "STOP" : stopHit ? "STOP" : "TARGET";
+        // OHLC candles do not reveal the intrabar order of stop/target touches.
+        // Use the conservative assumption when both are touched.
+        reason = stopHit ? "STOP" : "TARGET";
         exit = stopHit ? stop : target;
         exitIndex = j;
         break;
@@ -244,5 +267,6 @@ export function runBacktest(
       dataDriven: true,
     },
     ...analytics(trades, equityCurve, profitFactor),
+    warnings,
   };
 }
