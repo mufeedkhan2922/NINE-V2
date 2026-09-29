@@ -257,6 +257,8 @@ CREATE TABLE IF NOT EXISTS learned_rules (
   failures INTEGER NOT NULL,
   failure_rate REAL NOT NULL,
   mean_severity REAL NOT NULL,
+  expectancy_r REAL NOT NULL DEFAULT 0,
+  failure_rate_lower_95 REAL NOT NULL DEFAULT 0,
   status TEXT NOT NULL,
   reason TEXT NOT NULL,
   source TEXT NOT NULL,
@@ -350,6 +352,8 @@ ON research_runs(symbol, timeframe, created_at DESC);
 
 ensureColumn("positions", "order_id", "TEXT");
 ensureColumn("execution_ledger", "order_id", "TEXT");
+ensureColumn("learned_rules", "expectancy_r", "REAL NOT NULL DEFAULT 0");
+ensureColumn("learned_rules", "failure_rate_lower_95", "REAL NOT NULL DEFAULT 0");
 
 function importLegacyState(): void {
   const accountExists = db
