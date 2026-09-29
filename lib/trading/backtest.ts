@@ -179,6 +179,7 @@ export function runBacktest(
     "A six-candle cooldown is applied after each completed trade to reduce repeated entries from the same market move.",
     "When stop and target are both touched inside the same candle, the stop is assumed to trigger first (conservative intrabar ordering).",
     "Setup filter requires London/New York session, aligned trend and momentum, a directional sweep or MSS/CHoCH trigger, and a decisive setup candle; fresh FVG/OB and premium/discount are recorded as confirmations.",
+    "At most one trade is allowed per London or New York session per UTC calendar day to reduce repeated entries from the same directional move.",
     "A six-candle cooldown is applied after each completed trade to reduce repeated entries from the same market move.",
     "This backtest models price movement but does not include broker commissions, financing, or spread unless already represented in the candle prices.",
     "Results are historical simulation outputs and do not establish future trading performance.",
@@ -193,6 +194,7 @@ export function runBacktest(
   let peak = initialBalance;
   let maxDrawdown = 0;
   let lastEntryIndex = -Infinity;
+  let lastSessionKey = "";
 
   for (let i = WARMUP_CANDLES; i < candles.length - 1; i += 1) {
     if (i - lastEntryIndex < COOLDOWN_CANDLES) continue;
@@ -201,6 +203,11 @@ export function runBacktest(
     const signalResult = setupSignal(setupCandles);
     const side = signalResult.side;
     if (!side) continue;
+
+    const currentSetup = setupCandles.at(-1)!;
+    const currentSession = analyzeSMC(setupCandles).chartist.session;
+    const sessionKey = `${new Date(currentSetup.time).toISOString().slice(0, 10)}-${currentSession}`;
+    if (sessionKey === lastSessionKey) continue;
 
     const tech = analyzeTechnicals(setupCandles);
     if (!tech.atr || !Number.isFinite(tech.atr)) continue;
@@ -236,6 +243,7 @@ export function runBacktest(
     peak = Math.max(peak, balance);
     maxDrawdown = Math.max(maxDrawdown, peak > 0 ? ((peak - balance) / peak) * 100 : 0);
     lastEntryIndex = i;
+    lastSessionKey = sessionKey;
 
     const exitReason =
       reason === "TARGET"
@@ -295,10 +303,10 @@ export function runBacktest(
       stopAtrMultiplier: STOP_ATR_MULTIPLIER,
       minimumStopPercent: MIN_STOP_PERCENT,
       sessionFilter: "LONDON_NEW_YORK",
-      requireLiquiditySweep: true,
-      requireMarketStructureShift: true,
-      requireFreshFvgOrOrderBlock: true,
-      requirePremiumDiscountAlignment: true,
+      requireLiquiditySweep: false,
+      requireMarketStructureShift: false,
+      requireFreshFvgOrOrderBlock: false,
+      requirePremiumDiscountAlignment: false,
       requireMomentumAlignment: true,
       minimumSetupBodyAtr: MIN_SETUP_BODY_ATR,
       maxZoneAgeCandles: MAX_ZONE_AGE_CANDLES,
