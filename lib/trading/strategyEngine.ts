@@ -8,6 +8,7 @@ import { routeStrategyByRegime } from "./regimeRouter";
 import { getStrategyAllocationAdjustment } from "./strategyAllocation";
 import { arbitrateStrategies, calculateMetaAdjustment, deduplicateEvidence } from "./metaLearning";
 import { getCausalDecision } from "./causalLearning";
+import { getCalibrationDecision } from "./adaptiveCalibration";
 import type { Candle, MarketSnapshot, TradeDirection } from "./types";
 
 export interface StrategyCandidate {
@@ -249,7 +250,15 @@ function scoreStrategy(strategy: StrategyDefinition, market: MarketSnapshot, can
   }
 
   score = Math.max(0, Math.min(100, Math.round(score)));
-  const confidence = Math.max(0, Math.min(99, Math.round(score * 0.92 + (blockers.length ? -8 : 0))));
+  const rawConfidence = Math.max(0, Math.min(99, Math.round(score * 0.92 + (blockers.length ? -8 : 0))));
+  const calibration = getCalibrationDecision(market, strategy.id, rawConfidence / 100);
+  if (calibration.scoreAdjustment !== 0) {
+    score = Math.max(0, Math.min(100, Math.round(score + calibration.scoreAdjustment)));
+    reasons.push(`Adaptive calibration score adjustment ${calibration.scoreAdjustment >= 0 ? "+" : ""}${calibration.scoreAdjustment.toFixed(2)}.`);
+  }
+  if (calibration.status === "DRIFT") reasons.push(`Concept drift detected (${calibration.driftScore.toFixed(2)}); confidence is being discounted.`);
+  if (calibration.status === "QUARANTINE") blockers.push(`Strategy quarantine: ${calibration.reason}`);
+  const confidence = Math.max(0, Math.min(99, Math.round(calibration.calibratedConfidence * 100)));
   return { strategyId: strategy.id, strategyName: strategy.name, family: strategy.family, direction, score, confidence, matchedConcepts: [...new Set(matchedConcepts)], reasons, blockers };
 }
 
