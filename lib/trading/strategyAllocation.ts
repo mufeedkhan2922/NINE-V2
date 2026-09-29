@@ -44,8 +44,8 @@ function loadPeerRows(
      WHERE symbol = ?
        AND (session = ? OR session = 'ALL')
        AND (regime = ? OR regime = 'ALL')
-     ORDER BY updated_at DESC`,
-  ).all(market.symbol, session, regime) as MemoryRow[];
+     ORDER BY CASE WHEN session = ? AND regime = ? THEN 0 WHEN session = ? THEN 1 WHEN regime = ? THEN 2 ELSE 3 END, updated_at DESC`,
+  ).all(market.symbol, session, regime, session, regime, session, regime) as MemoryRow[];
 
   const latest = new Map<string, MemoryRow>();
   for (const row of rows) {
