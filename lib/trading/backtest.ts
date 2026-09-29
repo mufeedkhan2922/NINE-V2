@@ -85,6 +85,78 @@ function isTradingDay(timestamp: number): boolean {
   return day !== 0 && day !== 6;
 }
 
+type StrategyCandidate = {
+  side: "LONG" | "SHORT";
+  score: number;
+  rewardRisk: number;
+  strategy: string;
+  reason: string;
+};
+
+function utcDayKey(timestamp: number): string {
+  return new Date(timestamp).toISOString().slice(0, 10);
+}
+
+function previousDayLevels(candles: Candle[]): { high: number | null; low: number | null; open: number | null; close: number | null } {
+  const current = candles.at(-1);
+  if (!current) return { high: null, low: null, open: null, close: null };
+  const currentDay = utcDayKey(current.time);
+  const days = new Map<string, Candle[]>();
+  for (const candle of candles) {
+    const key = utcDayKey(candle.time);
+    if (key >= currentDay) continue;
+    const bucket = days.get(key) ?? [];
+    bucket.push(candle);
+    days.set(key, bucket);
+  }
+  const priorDay = [...days.keys()].sort().at(-1);
+  const prior = priorDay ? days.get(priorDay) ?? [] : [];
+  if (!prior.length) return { high: null, low: null, open: null, close: null };
+  return {
+    high: Math.max(...prior.map((c) => c.high)),
+    low: Math.min(...prior.map((c) => c.low)),
+    open: prior[0]!.open,
+    close: prior.at(-1)!.close,
+  };
+}
+
+function sessionOpeningRange(
+  candles: Candle[],
+  session: "LONDON" | "NEW_YORK",
+  minutes = 30,
+): { high: number | null; low: number | null; complete: boolean } {
+  const current = candles.at(-1);
+  if (!current) return { high: null, low: null, complete: false };
+  const day = utcDayKey(current.time);
+  const startHour = session === "LONDON" ? 7 : 12;
+  const start = new Date(day + "T00:00:00Z").getTime() + startHour * 60 * 60 * 1000;
+  const end = start + minutes * 60 * 1000;
+  const eligible = candles.filter((c) => c.time >= start && c.time < end);
+  if (!eligible.length) return { high: null, low: null, complete: current.time >= end };
+  return {
+    high: Math.max(...eligible.map((c) => c.high)),
+    low: Math.min(...eligible.map((c) => c.low)),
+    complete: current.time >= end,
+  };
+}
+
+function asiaRange(candles: Candle[]): { high: number | null; low: number | null } {
+  const current = candles.at(-1);
+  if (!current) return { high: null, low: null };
+  const day = utcDayKey(current.time);
+  const start = new Date(day + "T00:00:00Z").getTime();
+  const end = start + 7 * 60 * 60 * 1000;
+  const eligible = candles.filter((c) => c.time >= start && c.time < end);
+  if (!eligible.length) return { high: null, low: null };
+  return { high: Math.max(...eligible.map((c) => c.high)), low: Math.min(...eligible.map((c) => c.low)) };
+}
+
+function averageRange(candles: Candle[], lookback: number): number {
+  const sample = candles.slice(-lookback);
+  if (!sample.length) return 0;
+  return sample.reduce((sum, candle) => sum + (candle.high - candle.low), 0) / sample.length;
+}
+
 function setupSignal(candles: Candle[]): { side: "LONG" | "SHORT" | null; reason: string; rewardRisk: number } {
   const tech = analyzeTechnicals(candles);
   const smc = analyzeSMC(candles);
@@ -103,17 +175,32 @@ function setupSignal(candles: Candle[]): { side: "LONG" | "SHORT" | null; reason
   }
 
   const body = Math.abs(current.close - current.open);
-  const bodyAtr = tech.atr > 0 ? body / tech.atr : 0;
-  if (bodyAtr < MIN_SETUP_BODY_ATR) {
-    return { side: null, reason: "Setup candle body too small", rewardRisk: REWARD_RISK };
+  const range = Math.max(0.000001, current.high - current.low);
+  const bodyAtr = body / tech.atr;
+  const closeLocation = (current.close - current.low) / range;
+  const avgRange20 = averageRange(candles.slice(0, -1), 20);
+  const expansion = avgRange20 > 0 ? range / avgRange20 : 1;
+  if (bodyAtr < MIN_SETUP_BODY_ATR && expansion < 1.15) {
+    return { side: null, reason: "Setup candle lacks displacement", rewardRisk: REWARD_RISK };
   }
 
-  const closes = candles.map(c => c.close);
+  const closes = candles.map((c) => c.close);
   const recent = candles.slice(-21, -1);
-  const recentHigh = recent.length ? Math.max(...recent.map(c => c.high)) : current.high;
-  const recentLow = recent.length ? Math.min(...recent.map(c => c.low)) : current.low;
+  const recentHigh = recent.length ? Math.max(...recent.map((c) => c.high)) : current.high;
+  const recentLow = recent.length ? Math.min(...recent.map((c) => c.low)) : current.low;
   const breakoutLong = current.close > recentHigh && bodyAtr >= 0.55;
   const breakoutShort = current.close < recentLow && bodyAtr >= 0.55;
+
+  const prior = candles.at(-2);
+  const prior20 = candles.slice(-22, -2);
+  const prior20High = prior20.length ? Math.max(...prior20.map((c) => c.high)) : recentHigh;
+  const prior20Low = prior20.length ? Math.min(...prior20.map((c) => c.low)) : recentLow;
+  const breakoutRetestLong = Boolean(
+    prior && prior.close > prior20High && current.low <= prior20High && current.close > prior20High && closeLocation >= 0.55,
+  );
+  const breakoutRetestShort = Boolean(
+    prior && prior.close < prior20Low && current.high >= prior20Low && current.close < prior20Low && closeLocation <= 0.45,
+  );
 
   const rsi = tech.rsi ?? 50;
   const adx = tech.adx ?? 0;
@@ -128,57 +215,281 @@ function setupSignal(candles: Candle[]): { side: "LONG" | "SHORT" | null; reason
   const bearishCandle = current.close < current.open;
   const pullbackLong = trendBull && current.close >= (tech.emaFast ?? current.close) - tech.atr * 0.4;
   const pullbackShort = trendBear && current.close <= (tech.emaFast ?? current.close) + tech.atr * 0.4;
-  const meanReversionLong = adx < 18 && rsi < 35 && current.close <= (tech.bollingerLower ?? current.close) && smc.sweepDirection === "LONG";
-  const meanReversionShort = adx < 18 && rsi > 65 && current.close >= (tech.bollingerUpper ?? current.close) && smc.sweepDirection === "SHORT";
 
-  const longScore =
-    (trendBull ? 2 : 0) +
-    (momentumBull ? 2 : 0) +
-    (macdBull ? 1 : 0) +
-    (rsi >= 52 && rsi <= 72 ? 1 : 0) +
-    (strongTrend ? 1 : 0) +
-    (breakoutLong ? 2 : 0) +
-    (pullbackLong ? 1 : 0) +
-    (smc.sweepDirection === "LONG" ? 2 : 0) +
-    (smc.structureDirection === "LONG" ? 2 : 0) +
-    (smc.premiumDiscount === "DISCOUNT" ? 1 : 0);
+  const previousDay = previousDayLevels(candles);
+  const pdhSweepShort = previousDay.high !== null && current.high > previousDay.high && current.close < previousDay.high;
+  const pdlSweepLong = previousDay.low !== null && current.low < previousDay.low && current.close > previousDay.low;
+  const previousDayBearish = previousDay.open !== null && previousDay.close !== null && previousDay.close < previousDay.open;
+  const previousDayBullish = previousDay.open !== null && previousDay.close !== null && previousDay.close > previousDay.open;
 
-  const shortScore =
-    (trendBear ? 2 : 0) +
-    (momentumBear ? 2 : 0) +
-    (macdBear ? 1 : 0) +
-    (rsi >= 28 && rsi <= 48 ? 1 : 0) +
-    (strongTrend ? 1 : 0) +
-    (breakoutShort ? 2 : 0) +
-    (pullbackShort ? 1 : 0) +
-    (smc.sweepDirection === "SHORT" ? 2 : 0) +
-    (smc.structureDirection === "SHORT" ? 2 : 0) +
-    (smc.premiumDiscount === "PREMIUM" ? 1 : 0);
+  const asia = asiaRange(candles);
+  const asiaSweepShort = asia.high !== null && current.high > asia.high && current.close < asia.high;
+  const asiaSweepLong = asia.low !== null && current.low < asia.low && current.close > asia.low;
 
-  const longTrendSetup = bullishCandle && longScore >= 7 && (trendBull || breakoutLong || smc.structureDirection === "LONG");
-  const shortTrendSetup = bearishCandle && shortScore >= 7 && (trendBear || breakoutShort || smc.structureDirection === "SHORT");
+  const opening = sessionOpeningRange(candles, session, 30);
+  const orbLong = opening.complete && opening.high !== null && current.close > opening.high && bodyAtr >= 0.55;
+  const orbShort = opening.complete && opening.low !== null && current.close < opening.low && bodyAtr >= 0.55;
 
-  if ((longTrendSetup && higherTimeframeAgreement(candles, "LONG")) || meanReversionLong) {
-    const strategy = meanReversionLong ? "mean-reversion sweep" : breakoutLong ? "breakout continuation" : pullbackLong ? "EMA pullback continuation" : "multi-factor trend continuation";
-    const rr = meanReversionLong ? 1.7 : breakoutLong && strongTrend ? 2.5 : 2.2;
-    return {
+  const latestFvg = smc.chartist.fairValueGaps.at(-1);
+  const fvgLong = Boolean(
+    latestFvg?.direction === "LONG" &&
+    current.low <= latestFvg.high &&
+    current.close > latestFvg.high &&
+    current.close > current.open,
+  );
+  const fvgShort = Boolean(
+    latestFvg?.direction === "SHORT" &&
+    current.high >= latestFvg.low &&
+    current.close < latestFvg.low &&
+    current.close < current.open,
+  );
+
+  const latestOb = smc.chartist.orderBlocks.at(-1);
+  const obLong = Boolean(
+    latestOb?.direction === "LONG" &&
+    current.low <= latestOb.high &&
+    current.close >= latestOb.low &&
+    current.close > current.open,
+  );
+  const obShort = Boolean(
+    latestOb?.direction === "SHORT" &&
+    current.high >= latestOb.low &&
+    current.close <= latestOb.high &&
+    current.close < current.open,
+  );
+
+  const meanReversionLong =
+    adx < 18 &&
+    rsi < 35 &&
+    current.close <= (tech.bollingerLower ?? current.close) &&
+    (smc.sweepDirection === "LONG" || pdlSweepLong || asiaSweepLong);
+  const meanReversionShort =
+    adx < 18 &&
+    rsi > 65 &&
+    current.close >= (tech.bollingerUpper ?? current.close) &&
+    (smc.sweepDirection === "SHORT" || pdhSweepShort || asiaSweepShort);
+
+  const htfLong = higherTimeframeAgreement(candles, "LONG");
+  const htfShort = higherTimeframeAgreement(candles, "SHORT");
+
+  const candidates: StrategyCandidate[] = [];
+
+  const push = (candidate: StrategyCandidate) => {
+    if (candidate.score >= 7) candidates.push(candidate);
+  };
+
+  if (pdlSweepLong) {
+    push({
       side: "LONG",
-      rewardRisk: rr,
-      reason: `London/NY; LONG ${strategy}; score ${longScore}; EMA9/21/50/200 + RSI + MACD + ADX + BB + Stochastic + SMC confluence`,
-    };
+      score: 7 + (previousDayBullish ? 1 : 0) + (smc.structureDirection === "LONG" ? 1 : 0) +
+        (smc.premiumDiscount === "DISCOUNT" ? 1 : 0) + (htfLong ? 1 : 0),
+      rewardRisk: 1.8,
+      strategy: "previous-day-low sweep reversal",
+      reason: "PDL sweep + close back above PDL + structural/liquidity confirmation",
+    });
   }
-
-  if ((shortTrendSetup && higherTimeframeAgreement(candles, "SHORT")) || meanReversionShort) {
-    const strategy = meanReversionShort ? "mean-reversion sweep" : breakoutShort ? "breakout continuation" : pullbackShort ? "EMA pullback continuation" : "multi-factor trend continuation";
-    const rr = meanReversionShort ? 1.7 : breakoutShort && strongTrend ? 2.5 : 2.2;
-    return {
+  if (pdhSweepShort) {
+    push({
       side: "SHORT",
-      rewardRisk: rr,
-      reason: `London/NY; SHORT ${strategy}; score ${shortScore}; EMA9/21/50/200 + RSI + MACD + ADX + BB + Stochastic + SMC confluence`,
-    };
+      score: 7 + (previousDayBearish ? 1 : 0) + (smc.structureDirection === "SHORT" ? 1 : 0) +
+        (smc.premiumDiscount === "PREMIUM" ? 1 : 0) + (htfShort ? 1 : 0),
+      rewardRisk: 1.8,
+      strategy: "previous-day-high sweep reversal",
+      reason: "PDH sweep + close back below PDH + structural/liquidity confirmation",
+    });
   }
 
-  return { side: null, reason: "No multi-strategy confluence threshold", rewardRisk: REWARD_RISK };
+  if (asiaSweepLong && session === "LONDON") {
+    push({
+      side: "LONG",
+      score: 7 + (smc.structureDirection === "LONG" ? 1 : 0) + (htfLong ? 1 : 0) +
+        (smc.premiumDiscount === "DISCOUNT" ? 1 : 0),
+      rewardRisk: 1.9,
+      strategy: "Asia-range sweep reversal",
+      reason: "Asia low sweep + London rejection + structure confirmation",
+    });
+  }
+  if (asiaSweepShort && session === "LONDON") {
+    push({
+      side: "SHORT",
+      score: 7 + (smc.structureDirection === "SHORT" ? 1 : 0) + (htfShort ? 1 : 0) +
+        (smc.premiumDiscount === "PREMIUM" ? 1 : 0),
+      rewardRisk: 1.9,
+      strategy: "Asia-range sweep reversal",
+      reason: "Asia high sweep + London rejection + structure confirmation",
+    });
+  }
+
+  if (orbLong && bullishCandle && (trendBull || htfLong)) {
+    push({
+      side: "LONG",
+      score: 7 + (trendBull ? 1 : 0) + (momentumBull ? 1 : 0) + (macdBull ? 1 : 0) + (htfLong ? 1 : 0),
+      rewardRisk: 2.1,
+      strategy: "opening-range breakout",
+      reason: `${session} 30m opening-range breakout + trend/momentum confirmation`,
+    });
+  }
+  if (orbShort && bearishCandle && (trendBear || htfShort)) {
+    push({
+      side: "SHORT",
+      score: 7 + (trendBear ? 1 : 0) + (momentumBear ? 1 : 0) + (macdBear ? 1 : 0) + (htfShort ? 1 : 0),
+      rewardRisk: 2.1,
+      strategy: "opening-range breakout",
+      reason: `${session} 30m opening-range breakdown + trend/momentum confirmation`,
+    });
+  }
+
+  if (breakoutRetestLong && (trendBull || htfLong) && momentumBull) {
+    push({
+      side: "LONG",
+      score: 8 + (trendBull ? 1 : 0) + (htfLong ? 1 : 0) + (smc.structureDirection === "LONG" ? 1 : 0),
+      rewardRisk: 2.4,
+      strategy: "breakout-retest continuation",
+      reason: "20-bar breakout + same-level retest + bullish close + HTF alignment",
+    });
+  }
+  if (breakoutRetestShort && (trendBear || htfShort) && momentumBear) {
+    push({
+      side: "SHORT",
+      score: 8 + (trendBear ? 1 : 0) + (htfShort ? 1 : 0) + (smc.structureDirection === "SHORT" ? 1 : 0),
+      rewardRisk: 2.4,
+      strategy: "breakout-retest continuation",
+      reason: "20-bar breakdown + same-level retest + bearish close + HTF alignment",
+    });
+  }
+
+  if (fvgLong && bullishCandle && (trendBull || htfLong)) {
+    push({
+      side: "LONG",
+      score: 7 + (trendBull ? 1 : 0) + (momentumBull ? 1 : 0) + (htfLong ? 1 : 0) +
+        (smc.sweepDirection === "LONG" ? 1 : 0),
+      rewardRisk: 2.2,
+      strategy: "FVG continuation",
+      reason: "Bullish FVG retest + displacement close + directional confirmation",
+    });
+  }
+  if (fvgShort && bearishCandle && (trendBear || htfShort)) {
+    push({
+      side: "SHORT",
+      score: 7 + (trendBear ? 1 : 0) + (momentumBear ? 1 : 0) + (htfShort ? 1 : 0) +
+        (smc.sweepDirection === "SHORT" ? 1 : 0),
+      rewardRisk: 2.2,
+      strategy: "FVG continuation",
+      reason: "Bearish FVG retest + displacement close + directional confirmation",
+    });
+  }
+
+  if (obLong && (trendBull || htfLong) && (smc.structureDirection === "LONG" || momentumBull)) {
+    push({
+      side: "LONG",
+      score: 7 + (trendBull ? 1 : 0) + (htfLong ? 1 : 0) + (smc.structureDirection === "LONG" ? 1 : 0),
+      rewardRisk: 2.1,
+      strategy: "order-block retest",
+      reason: "Bullish order-block retest + trend/structure confirmation",
+    });
+  }
+  if (obShort && (trendBear || htfShort) && (smc.structureDirection === "SHORT" || momentumBear)) {
+    push({
+      side: "SHORT",
+      score: 7 + (trendBear ? 1 : 0) + (htfShort ? 1 : 0) + (smc.structureDirection === "SHORT" ? 1 : 0),
+      rewardRisk: 2.1,
+      strategy: "order-block retest",
+      reason: "Bearish order-block retest + trend/structure confirmation",
+    });
+  }
+
+  if (bodyAtr >= 0.9 && expansion >= 1.25 && trendBull && momentumBull && htfLong && bullishCandle) {
+    push({
+      side: "LONG",
+      score: 9 + (macdBull ? 1 : 0) + (smc.structureDirection === "LONG" ? 1 : 0),
+      rewardRisk: 2.5,
+      strategy: "volatility expansion momentum",
+      reason: "ATR-normalized expansion + EMA trend + momentum + 15m/1h alignment",
+    });
+  }
+  if (bodyAtr >= 0.9 && expansion >= 1.25 && trendBear && momentumBear && htfShort && bearishCandle) {
+    push({
+      side: "SHORT",
+      score: 9 + (macdBear ? 1 : 0) + (smc.structureDirection === "SHORT" ? 1 : 0),
+      rewardRisk: 2.5,
+      strategy: "volatility expansion momentum",
+      reason: "ATR-normalized expansion + EMA trend + momentum + 15m/1h alignment",
+    });
+  }
+
+  if (bullishCandle && trendBull && (momentumBull || macdBull) && (pullbackLong || obLong || fvgLong) && htfLong) {
+    push({
+      side: "LONG",
+      score: 8 + (strongTrend ? 1 : 0) + (smc.premiumDiscount === "DISCOUNT" ? 1 : 0),
+      rewardRisk: strongTrend ? 2.3 : 2.1,
+      strategy: "EMA pullback continuation",
+      reason: "EMA9/21/50/200 trend + momentum + pullback zone + HTF alignment",
+    });
+  }
+  if (bearishCandle && trendBear && (momentumBear || macdBear) && (pullbackShort || obShort || fvgShort) && htfShort) {
+    push({
+      side: "SHORT",
+      score: 8 + (strongTrend ? 1 : 0) + (smc.premiumDiscount === "PREMIUM" ? 1 : 0),
+      rewardRisk: strongTrend ? 2.3 : 2.1,
+      strategy: "EMA pullback continuation",
+      reason: "EMA9/21/50/200 trend + momentum + pullback zone + HTF alignment",
+    });
+  }
+
+  if (meanReversionLong) {
+    push({
+      side: "LONG",
+      score: 8 + (pdlSweepLong ? 1 : 0) + (asiaSweepLong ? 1 : 0),
+      rewardRisk: 1.6,
+      strategy: "mean-reversion sweep",
+      reason: "Low-ADX Bollinger exhaustion + liquidity sweep + reversal confirmation",
+    });
+  }
+  if (meanReversionShort) {
+    push({
+      side: "SHORT",
+      score: 8 + (pdhSweepShort ? 1 : 0) + (asiaSweepShort ? 1 : 0),
+      rewardRisk: 1.6,
+      strategy: "mean-reversion sweep",
+      reason: "Low-ADX Bollinger exhaustion + liquidity sweep + reversal confirmation",
+    });
+  }
+
+  if (breakoutLong && bullishCandle && trendBull && momentumBull && htfLong) {
+    push({
+      side: "LONG",
+      score: 8 + (strongTrend ? 1 : 0) + (macdBull ? 1 : 0),
+      rewardRisk: strongTrend ? 2.5 : 2.2,
+      strategy: "breakout continuation",
+      reason: "20-bar breakout + trend/momentum + 15m/1h confirmation",
+    });
+  }
+  if (breakoutShort && bearishCandle && trendBear && momentumBear && htfShort) {
+    push({
+      side: "SHORT",
+      score: 8 + (strongTrend ? 1 : 0) + (macdBear ? 1 : 0),
+      rewardRisk: strongTrend ? 2.5 : 2.2,
+      strategy: "breakout continuation",
+      reason: "20-bar breakdown + trend/momentum + 15m/1h confirmation",
+    });
+  }
+
+  if (!candidates.length) {
+    return { side: null, reason: "No advanced multi-strategy confluence threshold", rewardRisk: REWARD_RISK };
+  }
+
+  candidates.sort((a, b) => {
+    if (b.score !== a.score) return b.score - a.score;
+    if (b.rewardRisk !== a.rewardRisk) return b.rewardRisk - a.rewardRisk;
+    return a.strategy.localeCompare(b.strategy);
+  });
+
+  const best = candidates[0]!;
+  return {
+    side: best.side,
+    rewardRisk: best.rewardRisk,
+    reason: `${session}; ${best.side} ${best.strategy}; quality score ${best.score}; ${best.reason}; technicals EMA9/21/50/200 + RSI + MACD + ADX + BB + Stochastic + ATR + SMC + 15m/1h`,
+  };
 }
 function analytics(
   trades: BacktestTrade[],
@@ -269,10 +580,10 @@ export function runBacktest(
 
   const trades: BacktestTrade[] = [];
   const warnings = [
-    "Multi-strategy setup engine combines trend continuation, EMA pullback, breakout continuation, SMC sweep/MSS, and mean-reversion sweep logic.",
+    "Advanced ensemble setup engine evaluates previous-day liquidity sweeps, Asia-range sweeps, opening-range breakouts, breakout-retests, FVG/OB retests, volatility expansion, EMA pullbacks, breakouts, and mean-reversion.",
     "Technical confluence includes EMA 9/21/50/200, RSI(14), MACD(12/26/9), ADX(14), Bollinger Bands(20,2), Stochastic(14), ATR and SMC.",
-    "Trend, pullback and breakout entries must agree with both aggregated 15-minute and 1-hour technical bias; mean-reversion setups remain separately gated by low ADX and SMC sweep.",
-    "At most two trades are allowed per London or New York session per UTC calendar day to reduce repeated entries from the same directional move.",
+    "Directional continuation setups use causal 15-minute and 1-hour confirmation; reversal setups require explicit liquidity rejection and remain separately gated.",
+    "At most two trades are allowed per London or New York session per UTC calendar day, with a six-candle cooldown between completed trades.",
     "A six-candle cooldown is applied after each completed trade to reduce repeated entries from the same market move.",
     "When stop and target are both touched inside the same candle, the stop is assumed to trigger first (conservative intrabar ordering).",
     "This backtest models price movement but does not include broker commissions, financing, or spread unless already represented in the candle prices.",
@@ -302,7 +613,6 @@ export function runBacktest(
     const currentSetup = setupCandles.at(-1)!;
     const currentSession = analyzeSMC(setupCandles).chartist.session;
     const sessionKey = `${new Date(currentSetup.time).toISOString().slice(0, 10)}-${currentSession}`;
-    if (sessionKey === lastSessionKey) continue;
     if ((sessionTradeCounts.get(sessionKey) ?? 0) >= MAX_TRADES_PER_SESSION_DAY) continue;
 
     const tech = analyzeTechnicals(setupCandles);
@@ -396,7 +706,7 @@ export function runBacktest(
     trades,
     config: {
       riskPercent,
-      rewardRisk: REWARD_RISK,
+      rewardRisk: "DYNAMIC_BY_STRATEGY",
       maxTradesPerSessionDay: MAX_TRADES_PER_SESSION_DAY,
       minimumWarmupCandles: WARMUP_CANDLES,
       stopAtrMultiplier: STOP_ATR_MULTIPLIER,
@@ -407,6 +717,8 @@ export function runBacktest(
       requireFreshFvgOrOrderBlock: false,
       requirePremiumDiscountAlignment: false,
       requireMomentumAlignment: true,
+      strategyEnsemble: "LIQUIDITY_SWEEP_ASIA_SWEEP_ORB_BREAKOUT_RETEST_FVG_OB_EXPANSION_PULLBACK_BREAKOUT_MEAN_REVERSION",
+      higherTimeframes: "15m+1h",
       minimumSetupBodyAtr: MIN_SETUP_BODY_ATR,
       maxZoneAgeCandles: MAX_ZONE_AGE_CANDLES,
       zoneProximityAtr: ZONE_PROXIMITY_ATR,
