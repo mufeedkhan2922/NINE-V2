@@ -84,9 +84,7 @@ function setupSignal(candles: Candle[]): { side: "LONG" | "SHORT" | null; reason
     tech.trend === "BULLISH" &&
     tech.momentum === "BULLISH" &&
     bullishBody &&
-    smc.liquiditySweep &&
-    smc.sweepDirection === "LONG" &&
-    smc.structureDirection === "LONG" &&
+    (smc.sweepDirection === "LONG" || smc.structureDirection === "LONG") &&
     smc.premiumDiscount === "DISCOUNT" &&
     nearZone("LONG");
 
@@ -101,9 +99,7 @@ function setupSignal(candles: Candle[]): { side: "LONG" | "SHORT" | null; reason
     tech.trend === "BEARISH" &&
     tech.momentum === "BEARISH" &&
     bearishBody &&
-    smc.liquiditySweep &&
-    smc.sweepDirection === "SHORT" &&
-    smc.structureDirection === "SHORT" &&
+    (smc.sweepDirection === "SHORT" || smc.structureDirection === "SHORT") &&
     smc.premiumDiscount === "PREMIUM" &&
     nearZone("SHORT");
 
@@ -206,7 +202,7 @@ export function runBacktest(
 
   const trades: BacktestTrade[] = [];
   const warnings = [
-    "Setup filter requires London/New York session, aligned trend and momentum, liquidity sweep, MSS, premium/discount alignment, and a fresh nearby FVG/OB zone.",
+    "Setup filter requires London/New York session, aligned trend and momentum, a directional sweep or MSS trigger, premium/discount alignment, and a fresh nearby FVG/OB zone.",
     "A six-candle cooldown is applied after each completed trade to reduce repeated entries from the same market move.",
     "When stop and target are both touched inside the same candle, the stop is assumed to trigger first (conservative intrabar ordering).",
     "This backtest models price movement but does not include broker commissions, financing, or spread unless already represented in the candle prices.",
@@ -323,8 +319,9 @@ export function runBacktest(
       stopAtrMultiplier: STOP_ATR_MULTIPLIER,
       minimumStopPercent: MIN_STOP_PERCENT,
       sessionFilter: "LONDON_NEW_YORK",
-      requireLiquiditySweep: true,
-      requireMarketStructureShift: true,
+      requireDirectionalSweepOrMss: true,
+      requireLiquiditySweep: false,
+      requireMarketStructureShift: false,
       requireFreshFvgOrOrderBlock: true,
       requirePremiumDiscountAlignment: true,
       requireMomentumAlignment: true,
