@@ -1,6 +1,6 @@
 {
   "name": "nine-app",
-  "version": "0.5.23",
+  "version": "0.5.24",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -17,7 +17,8 @@
     "research:xauusd:allocation": "npx tsx@4.20.5 scripts/run-xauusd-allocation.ts",
     "research:xauusd:meta": "npx tsx@4.20.5 scripts/run-xauusd-meta.ts",
     "research:xauusd:causal": "npx tsx@4.20.5 scripts/run-xauusd-causal.ts",
-    "research:xauusd:calibration": "npx tsx@4.20.5 scripts/run-xauusd-calibration.ts"
+    "research:xauusd:calibration": "npx tsx@4.20.5 scripts/run-xauusd-calibration.ts",
+    "research:xauusd:policy": "npx tsx@4.20.5 scripts/run-xauusd-policy-governance.ts"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.8",
