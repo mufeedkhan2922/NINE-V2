@@ -42,6 +42,7 @@ export interface AssistantResponse {
   intent: AssistantIntent;
   message: string;
   actionStatus: AssistantActionStatus;
+  actionId?: string;
   evidence: Array<{ label: string; value: string }>;
   timestamp: number;
 }
