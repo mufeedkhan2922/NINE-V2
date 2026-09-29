@@ -1,4 +1,8 @@
 name: NINE XAUUSD Walk-Forward Validation
+concurrency:
+  group: nine-xauusd-provider-validation
+  cancel-in-progress: false
+
 
 on:
   workflow_dispatch:
