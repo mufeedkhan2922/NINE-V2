@@ -7,6 +7,7 @@ on:
     paths:
       - "scripts/run-xauusd-walkforward.ts"
       - "lib/trading/backtest.ts"
+      - "lib/trading/adaptiveLossFilter.ts"
       - "lib/trading/technical.ts"
       - "lib/trading/smc.ts"
       - "lib/trading/types.ts"
