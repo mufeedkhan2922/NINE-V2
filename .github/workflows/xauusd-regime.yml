@@ -1,8 +1,8 @@
 name: NINE XAUUSD Regime Intelligence
 
 concurrency:
-  group: nine-xauusd-regime
-  cancel-in-progress: true
+  group: nine-xauusd-provider-research
+  cancel-in-progress: false
 
 on:
   workflow_dispatch:
