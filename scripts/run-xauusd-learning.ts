@@ -49,7 +49,7 @@ async function main(){
     timeframe:"5min",
     period:{start:START,end:END},
     architecture:["0.5.11 persistent loss memory","0.5.12 root-cause learning","0.5.13 counterfactual analysis","0.5.14 rule validation","0.5.15 regime policy","0.5.16 autonomous research cycle"],
-    baseline:{trades:baseline.totalTrades,wins:baseline.wins,losses:baseline.losses,winRate:baseline.winRate,netPnl:baseline.netPnl,profitFactor:baseline.config?undefined:undefined},
+    baseline:{trades:baseline.totalTrades,wins:baseline.wins,losses:baseline.losses,winRate:baseline.winRate,netPnl:baseline.netPnl,profitFactor:baseline.wins && baseline.losses ? Number((baseline.wins / Math.max(1,baseline.losses)).toFixed(2)) : 0},
     research:cycle,
     counterfactualSummary:{
       evaluated:counterfactuals.length,
