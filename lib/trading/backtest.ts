@@ -615,7 +615,9 @@ export function runBacktest(
     if (!side) continue;
 
     const currentSetup = setupCandles.at(-1)!;
-    const currentSession = analyzeSMC(setupCandles).chartist.session;
+    const currentChartist = analyzeSMC(setupCandles).chartist;
+    const currentSession = currentChartist?.session;
+    if (currentSession !== "LONDON" && currentSession !== "NEW_YORK") continue;
     const sessionKey = `${new Date(currentSetup.time).toISOString().slice(0, 10)}-${currentSession}`;
     if ((sessionTradeCounts.get(sessionKey) ?? 0) >= MAX_TRADES_PER_SESSION_DAY) continue;
 
