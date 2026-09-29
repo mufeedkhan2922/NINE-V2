@@ -51,7 +51,7 @@ export function detectConceptDrift(recent:CalibrationObservation[],baseline:Cali
 }
 export function rollingPerformance(outcomes:Array<0|1>):Record<20|50|100|200,number>{
   const result={} as Record<20|50|100|200,number>;
-  for(const n of [20,50,100,200] as const){const rows=outcomes.slice(-n);result[n]=rows.length?rows.reduce((s,x)=>s+Number(x),0)/rows.length:0;}
+  for(const n of [20,50,100,200] as const){const rows=outcomes.slice(-n);result[n]=rows.length?rows.reduce<number>((s,x)=>s+Number(x),0)/rows.length:0;}
   return result;
 }
 export function proposeSelfCorrection(train:CalibrationObservation[],oos:CalibrationObservation[],currentThreshold:number):CorrectionProposal{
