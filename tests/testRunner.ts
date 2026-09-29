@@ -38,6 +38,7 @@ import { runLossInvestigatorTest } from "./lossInvestigator.test";
 import { runClosedLoopLearningTest } from "./closedLoopLearning.test";
 import { runMetaLearningTest } from "./metaLearning.test";
 import { runCausalLearningTest } from "./causalLearning.test";
+import { runAdaptiveCalibrationTest } from "./adaptiveCalibration.test";
 
 const tests: Array<[string, () => void | Promise<void>]> = [
   ["technical", runTechnicalTest],
@@ -86,6 +87,7 @@ const tests: Array<[string, () => void | Promise<void>]> = [
   ["closed-loop learning", runClosedLoopLearningTest],
   ["contextual meta-learning", runMetaLearningTest],
   ["causal loss learning", runCausalLearningTest],
+  ["adaptive calibration", runAdaptiveCalibrationTest],
 ];
 
 async function main(): Promise<void> {
