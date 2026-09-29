@@ -268,6 +268,38 @@ CREATE TABLE IF NOT EXISTS learned_rules (
 CREATE INDEX IF NOT EXISTS learned_rules_lookup_idx
 ON learned_rules(symbol, strategy, session, side, updated_at DESC);
 
+CREATE TABLE IF NOT EXISTS closed_loop_rules (
+  id TEXT PRIMARY KEY,
+  symbol TEXT NOT NULL,
+  context_key TEXT NOT NULL,
+  strategy TEXT NOT NULL,
+  session TEXT NOT NULL,
+  side TEXT NOT NULL,
+  regime TEXT NOT NULL,
+  cause TEXT NOT NULL,
+  status TEXT NOT NULL,
+  train_observations INTEGER NOT NULL,
+  train_failures INTEGER NOT NULL,
+  train_failure_rate REAL NOT NULL,
+  oos_observations INTEGER NOT NULL,
+  oos_failures INTEGER NOT NULL,
+  oos_wins INTEGER NOT NULL,
+  oos_failure_rate REAL NOT NULL,
+  oos_failure_rate_lower_95 REAL NOT NULL,
+  oos_expectancy_r REAL NOT NULL,
+  counter_evidence INTEGER NOT NULL DEFAULT 0,
+  recent_failure_rate REAL,
+  reason TEXT NOT NULL,
+  updated_at INTEGER NOT NULL,
+  expires_at INTEGER NOT NULL
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS closed_loop_rules_context_idx
+ON closed_loop_rules(symbol, context_key);
+
+CREATE INDEX IF NOT EXISTS closed_loop_rules_active_idx
+ON closed_loop_rules(symbol, status, expires_at);
+
 CREATE TABLE IF NOT EXISTS counterfactual_results (
   id TEXT PRIMARY KEY,
   symbol TEXT NOT NULL,
