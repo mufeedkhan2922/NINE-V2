@@ -343,6 +343,27 @@ CREATE TABLE IF NOT EXISTS regime_memory (
 CREATE INDEX IF NOT EXISTS regime_memory_lookup_idx
 ON regime_memory(symbol, regime, session, updated_at DESC);
 
+CREATE TABLE IF NOT EXISTS strategy_allocation_memory (
+  id TEXT PRIMARY KEY,
+  symbol TEXT NOT NULL,
+  session TEXT NOT NULL,
+  regime TEXT NOT NULL,
+  direction TEXT NOT NULL,
+  strategy_id TEXT NOT NULL,
+  family TEXT NOT NULL,
+  trades INTEGER NOT NULL,
+  expectancy_r REAL NOT NULL,
+  win_rate REAL NOT NULL,
+  win_rate_lower_95 REAL NOT NULL,
+  allocation_weight REAL NOT NULL,
+  adjustment REAL NOT NULL,
+  source TEXT NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS strategy_allocation_lookup_idx
+ON strategy_allocation_memory(symbol, session, regime, direction, strategy_id, updated_at DESC);
+
 CREATE TABLE IF NOT EXISTS counterfactual_results (
   id TEXT PRIMARY KEY,
   symbol TEXT NOT NULL,
