@@ -245,6 +245,44 @@ CREATE TABLE IF NOT EXISTS trade_lessons (
 CREATE UNIQUE INDEX IF NOT EXISTS trade_lessons_key_idx
 ON trade_lessons(symbol, strategy, session, side, cause);
 
+CREATE TABLE IF NOT EXISTS learned_rules (
+  id TEXT PRIMARY KEY,
+  symbol TEXT NOT NULL,
+  strategy TEXT NOT NULL,
+  session TEXT NOT NULL,
+  side TEXT NOT NULL,
+  condition TEXT NOT NULL,
+  cause TEXT NOT NULL,
+  observations INTEGER NOT NULL,
+  failures INTEGER NOT NULL,
+  failure_rate REAL NOT NULL,
+  mean_severity REAL NOT NULL,
+  status TEXT NOT NULL,
+  reason TEXT NOT NULL,
+  source TEXT NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS learned_rules_lookup_idx
+ON learned_rules(symbol, strategy, session, side, updated_at DESC);
+
+CREATE TABLE IF NOT EXISTS counterfactual_results (
+  id TEXT PRIMARY KEY,
+  symbol TEXT NOT NULL,
+  entry_time INTEGER NOT NULL,
+  side TEXT NOT NULL,
+  outcome TEXT NOT NULL,
+  hypothetical_pnl REAL NOT NULL,
+  max_favorable_r REAL NOT NULL,
+  max_adverse_r REAL NOT NULL,
+  horizon_candles INTEGER NOT NULL,
+  source TEXT NOT NULL,
+  created_at INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS counterfactual_lookup_idx
+ON counterfactual_results(symbol, entry_time DESC);
+
 CREATE TABLE IF NOT EXISTS kronos_calibration_forecasts (
   id TEXT PRIMARY KEY,
   symbol TEXT NOT NULL,
