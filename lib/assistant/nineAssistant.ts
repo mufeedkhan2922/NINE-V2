@@ -32,7 +32,6 @@ export type AssistantActionStatus = "NONE" | "CONFIRM_REQUIRED" | "BLOCKED";
 type AssistantActionResult = {
   ok: boolean;
   message: string;
-  actionId?: string;
   actionStatus: AssistantActionStatus;
   actionId?: string;
   evidence: Array<{ label: string; value: string }>;
