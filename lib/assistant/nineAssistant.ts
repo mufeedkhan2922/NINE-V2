@@ -216,6 +216,17 @@ async function executeConfirmedAssistantAction(
   }
 }
 
+function cancelLatestAssistantAction(sessionId: string): AssistantResponse {
+  const pending = getLatestPendingAssistantAction(sessionId);
+  if (!pending) {
+    const message = "There is no pending trade action to cancel.";
+    return { ok: true, intent: "TRADE_ACTION", message, actionStatus: "NONE", evidence: [{ label: "ACTION", value: "NONE" }], timestamp: Date.now() };
+  }
+  resolvePendingAssistantAction(pending.id, "CANCELLED", "Cancelled by user.");
+  const message = `Cancelled action ${pending.id}. Nothing was executed.`;
+  record(sessionId, "assistant", message, "TRADE_ACTION");
+  return { ok: true, intent: "TRADE_ACTION", message, actionId: pending.id, actionStatus: "NONE", evidence: [{ label: "ACTION", value: pending.action }, { label: "EXECUTION", value: "NOT EXECUTED" }], timestamp: Date.now() };
+}
 function requestAssistantAction(
   sessionId: string,
   text: string,
@@ -305,6 +316,8 @@ export async function answerAssistant(input: string, sessionId = "default"): Pro
   record(sessionId, "user", text, intent);
 
   if (intent === "TRADING_STATUS") return answerXAUStatus(sessionId);
+
+  if (intent === "TRADE_ACTION" && /^(cancel|cancel action|abort)$/i.test(text)) return cancelLatestAssistantAction(sessionId);
 
   const store = getStoreSnapshot();
   const account = store.account;
