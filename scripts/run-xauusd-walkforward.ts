@@ -278,7 +278,8 @@ async function main() {
     "|---:|:---|:---|---:|---:|---:|---:|",
     ...folds.map((fold) => {
       const oos = fold.oos as Record<string, number | null>;
-      return `| ${fold.fold} | ${fold.trainStart} → ${fold.trainEnd} | ${fold.testStart} → ${fold.testEnd} | ${oos.trades ?? 0} | ${oos.winRate ?? 0}% | ${Number(oos.netPnl ?? 0).toFixed(2)} | ${oos.profitFactor ?? "—"} |`;
+      const baseline = fold.baselineOos as Record<string, number | null>;
+      return `| ${fold.fold} | ${fold.trainStart} → ${fold.trainEnd} | ${fold.testStart} → ${fold.testEnd} | ${Number(baseline.netPnl ?? 0).toFixed(2)} | ${Number(oos.netPnl ?? 0).toFixed(2)} | ${baseline.profitFactor ?? "—"} | ${oos.profitFactor ?? "—"} |`;
     }),
     "",
     "## Methodology Warnings",
