@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import { fetchProviderHistoricalCandles } from "../lib/trading/provider";
 import { runBacktest } from "../lib/trading/backtest";
+import { buildAdaptiveLossFilter } from "../lib/trading/adaptiveLossFilter";
 import type { BacktestTrade } from "../lib/trading/backtest";
 import type { Candle } from "../lib/trading/types";
 
@@ -97,12 +98,22 @@ function runWalkForward(candles: Candle[]) {
       testEndIndex,
     );
 
-    const result = runBacktest(oosCandles, INITIAL_BALANCE, 0.5);
-    const oosTrades = result.trades.filter(
+    const trainStartIndex = Math.max(0, testStartIndex - WARMUP_CANDLES - Math.ceil(TRAIN_DAYS * 24 * 12));
+    const trainCandles = candles.slice(trainStartIndex, testStartIndex);
+    const trainResult = runBacktest(trainCandles, INITIAL_BALANCE, 0.5);
+    const adaptiveFilter = buildAdaptiveLossFilter(trainResult.trades, {
+      minimumTrades: 20,
+      confidenceZ: 1.96,
+      requireNegativeExpectancy: true,
+    });
+
+    const baselineResult = runBacktest(oosCandles, INITIAL_BALANCE, 0.5);
+    const adaptiveResult = runBacktest(oosCandles, INITIAL_BALANCE, 0.5, adaptiveFilter);
+    const baselineTrades = baselineResult.trades.filter(
       (trade) => trade.entryTime >= testStartMs && trade.entryTime < testEndMs,
     );
-    const trainSlice = candles.filter(
-      (c) => c.time >= trainStart.getTime() && c.time < testStartMs,
+    const oosTrades = adaptiveResult.trades.filter(
+      (trade) => trade.entryTime >= testStartMs && trade.entryTime < testEndMs,
     );
 
     folds.push({
@@ -111,9 +122,22 @@ function runWalkForward(candles: Candle[]) {
       trainEnd: iso(testStart),
       testStart: iso(testStart),
       testEnd: iso(testEnd),
-      trainCandles: trainSlice.length,
+      trainCandles: trainCandles.length,
+      trainTrades: trainResult.trades.length,
       testCandles: Math.max(0, testEndIndex - testStartIndex),
+      baselineOos: stats(baselineTrades),
       oos: stats(oosTrades),
+      adaptiveBlockedSetupFamilies: adaptiveFilter.blockedKeys,
+      adaptiveGroups: adaptiveFilter.groups,
+      baselineTrades: baselineTrades.map((trade) => ({
+        id: trade.id,
+        side: trade.side,
+        entryTime: new Date(trade.entryTime).toISOString(),
+        exitTime: new Date(trade.exitTime).toISOString(),
+        pnl: Number(pnlForTrade(trade).toFixed(2)),
+        entryReason: trade.entryReason,
+        exitReason: trade.exitReason,
+      })),
       oosTrades: oosTrades.map((trade) => ({
         id: trade.id,
         side: trade.side,
@@ -141,11 +165,36 @@ async function main() {
 
   const candles = await fetchHistory(START, END);
   const folds = runWalkForward(candles);
+  const allBaselineTrades = folds.flatMap((fold) => {
+    const items = Array.isArray(fold.baselineTrades) ? fold.baselineTrades : [];
+    return items as Array<{ pnl: number }>;
+  });
   const allOosTrades = folds.flatMap((fold) => {
     const items = Array.isArray(fold.oosTrades) ? fold.oosTrades : [];
     return items as Array<{ pnl: number }>;
   });
-  const aggregate = stats(
+  const aggregateBaseline = stats(
+    allBaselineTrades.map((trade, index) => ({
+      id: `WF-${index}`,
+      index,
+      side: "LONG",
+      entryTime: 0,
+      exitTime: 0,
+      entryPrice: 0,
+      exitPrice: trade.pnl / EXPOSURE_OZ,
+      stopLoss: 0,
+      takeProfit: 0,
+      quantity: EXPOSURE_OZ,
+      pnl: trade.pnl,
+      outcome: trade.pnl > 0 ? "WIN" : "LOSS",
+      reason: "END",
+      entryReason: "",
+      exitReason: "",
+    } as BacktestTrade)),
+  );
+
+
+  const aggregateAdaptive = stats(
     allOosTrades.map((trade, index) => ({
       id: `WF-${index}`,
       index,
@@ -166,6 +215,7 @@ async function main() {
   );
 
   const positiveFolds = folds.filter((fold) => Number((fold.oos as Record<string, unknown>).netPnl ?? 0) > 0).length;
+  const baselinePositiveFolds = folds.filter((fold) => Number((fold.baselineOos as Record<string, unknown>).netPnl ?? 0) > 0).length;
   const profitableFoldRate = folds.length ? Number(((positiveFolds / folds.length) * 100).toFixed(2)) : 0;
 
   const result = {
@@ -183,12 +233,16 @@ async function main() {
     },
     dataPoints: candles.length,
     folds,
-    aggregateOos: aggregate,
+    aggregateBaselineOos: aggregateBaseline,
+    aggregateAdaptiveOos: aggregateAdaptive,
     profitableFoldRate,
+    baselineProfitableFoldRate: folds.length ? Number(((baselinePositiveFolds / folds.length) * 100).toFixed(2)) : 0,
     warnings: [
       "This walk-forward report does not tune parameters on the OOS windows.",
       "Each OOS fold receives only the immediately preceding 60 candles as indicator warmup.",
-      "The strategy has no parameter-learning step yet; train windows are retained for auditability and future adaptive calibration.",
+      "Adaptive loss filtering is trained only on each fold's prior training window and applied to the later OOS window.",
+      "A setup is blocked only when its historical sample is large enough and its 95% Wilson upper win-rate bound remains below its break-even win rate with negative expectancy.",
+      "Insufficient samples remain neutral; NINE does not delete setups merely because of a small losing sample.",
       "No spread, commission, financing or slippage is included unless represented by source prices.",
       "Historical simulation is not predictive of future performance.",
     ],
@@ -208,15 +262,19 @@ async function main() {
     "",
     `- Folds: ${folds.length}`,
     `- Profitable folds: ${positiveFolds}/${folds.length} (${profitableFoldRate}%)`,
-    `- OOS trades: ${aggregate.trades}`,
-    `- OOS win rate: ${aggregate.winRate}%`,
-    `- OOS net P&L: $${aggregate.netPnl.toFixed(2)}`,
-    `- OOS profit factor: ${aggregate.profitFactor ?? "—"}`,
-    `- OOS expectancy/trade: $${aggregate.expectancy.toFixed(2)}`,
+    `- Baseline OOS trades: ${aggregateBaseline.trades}`,
+    `- Baseline OOS win rate: ${aggregateBaseline.winRate}%`,
+    `- Baseline OOS net P&L: ${aggregateBaseline.netPnl.toFixed(2)}`,
+    `- Baseline OOS profit factor: ${aggregateBaseline.profitFactor ?? "—"}`,
+    `- Adaptive OOS trades: ${aggregateAdaptive.trades}`,
+    `- Adaptive OOS win rate: ${aggregateAdaptive.winRate}%`,
+    `- Adaptive OOS net P&L: ${aggregateAdaptive.netPnl.toFixed(2)}`,
+    `- Adaptive OOS profit factor: ${aggregateAdaptive.profitFactor ?? "—"}`,
+    `- Adaptive OOS expectancy/trade: ${aggregateAdaptive.expectancy.toFixed(2)}`,
     "",
     "## Fold Results",
     "",
-    "| Fold | Train | OOS | Trades | WR | P&L | PF |",
+    "| Fold | Train | OOS | Baseline P&L | Adaptive P&L | Baseline PF | Adaptive PF |",
     "|---:|:---|:---|---:|---:|---:|---:|",
     ...folds.map((fold) => {
       const oos = fold.oos as Record<string, number | null>;
