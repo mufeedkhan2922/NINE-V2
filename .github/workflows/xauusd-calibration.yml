@@ -1,0 +1,27 @@
+name: NINE XAUUSD Adaptive Calibration
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  calibration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run research:xauusd:calibration
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nine-xauusd-adaptive-calibration
+          path: artifacts/xauusd-adaptive-calibration.json
