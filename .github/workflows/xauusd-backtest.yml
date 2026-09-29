@@ -6,6 +6,7 @@ on:
     paths:
       - "scripts/run-xauusd-backtest.ts"
       - "lib/trading/backtest.ts"
+      - "lib/trading/adaptiveLossFilter.ts"
       - "lib/trading/technical.ts"
       - "lib/trading/smc.ts"
       - ".github/workflows/xauusd-backtest.yml"
