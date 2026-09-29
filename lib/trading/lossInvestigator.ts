@@ -154,9 +154,27 @@ export function rememberBacktestLosses(trades: BacktestTrade[], candles: Candle[
   const lessons: TradeLesson[] = [];
   for (const trade of trades) {
     const lesson = investigateTradeLoss(trade, candles, symbol);
-    if (!lesson) continue;
-    lessons.push(lesson);
-    rememberTradeLesson(lesson);
+    const strategy = strategyFromReason(trade.entryReason);
+    const session = sessionFromTime(trade.entryTime);
+    const risk = riskDistance(trade);
+    const r = trade.pnl / (risk * Math.max(0.000001, trade.quantity));
+    const record = lesson ?? {
+      id: createHash("sha256").update([symbol, strategy, session, trade.side, "UNKNOWN"].join("|")).digest("hex").slice(0, 24),
+      symbol,
+      strategy,
+      session,
+      side: trade.side,
+      cause: "UNKNOWN" as const,
+      occurrences: 1,
+      losses: 0,
+      wins: 1,
+      totalR: r,
+      lesson: "Successful outcome recorded as counter-evidence; do not block the setup without considering this evidence.",
+      source: "XAUUSD_BACKTEST",
+      updatedAt: Date.now(),
+    };
+    if (lesson) lessons.push(lesson);
+    rememberTradeLesson(record);
   }
   return lessons;
 }
@@ -173,19 +191,34 @@ export function getLessonDecision(
   strategy: string,
   session: string,
   side: "LONG" | "SHORT",
-  minimumOccurrences = 8,
+  minimumOccurrences = 20,
 ): { blocked: boolean; lessons: TradeLesson[]; reason: string } {
   const lessons = getTradeLessons(symbol).filter(
     (lesson) => lesson.strategy.toUpperCase() === strategy.toUpperCase()
       && lesson.session === session
       && lesson.side === side,
   );
-  const blocked = lessons.some((lesson) => lesson.occurrences >= minimumOccurrences && lesson.totalR / lesson.occurrences < -0.25);
+  const observations = lessons.reduce((sum, lesson) => sum + lesson.occurrences, 0);
+  const losses = lessons.reduce((sum, lesson) => sum + lesson.losses, 0);
+  const totalR = lessons.reduce((sum, lesson) => sum + lesson.totalR, 0);
+  const expectancyR = observations ? totalR / observations : 0;
+  const winRate = observations ? ((observations - losses) / observations) : 0;
+  const z = 1.96;
+  const denominator = 1 + (z * z) / Math.max(1, observations);
+  const centre = winRate + (z * z) / (2 * Math.max(1, observations));
+  const spread = z * Math.sqrt((winRate * (1 - winRate) + (z * z) / (4 * Math.max(1, observations))) / Math.max(1, observations));
+  const wilsonUpperWinRate = (centre + spread) / denominator;
+  const breakEvenWinRate = 1 / 3;
+  const blocked = observations >= minimumOccurrences
+    && expectancyR < -0.05
+    && wilsonUpperWinRate < breakEvenWinRate;
   return {
     blocked,
     lessons,
     reason: blocked
       ? "NINE remembered a statistically repeated negative lesson for this setup context and will not repeat it until new evidence changes the record."
-      : "No persistent lesson currently justifies blocking this setup context.",
+      : observations < minimumOccurrences
+        ? "Not enough remembered outcomes; NINE keeps the setup neutral rather than guessing."
+        : "Remembered outcomes do not yet justify blocking this setup context.",
   };
 }
