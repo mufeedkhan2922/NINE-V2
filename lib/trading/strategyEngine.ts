@@ -258,6 +258,11 @@ function scoreStrategy(strategy: StrategyDefinition, market: MarketSnapshot, can
   }
   if (calibration.status === "DRIFT") reasons.push(`Concept drift detected (${calibration.driftScore.toFixed(2)}); confidence is being discounted.`);
   if (calibration.status === "QUARANTINE") blockers.push(`Strategy quarantine: ${calibration.reason}`);
+  const adaptiveMinimum = 50 + Math.round(calibration.thresholdAdjustment * 100);
+  if (calibration.thresholdAdjustment > 0 && score < adaptiveMinimum) {
+    blockers.push(`Adaptive confidence threshold raised to ${adaptiveMinimum}/100 by validated calibration.`);
+  }
+  if (calibration.riskAdjustment < 0) reasons.push(`Risk calibration suggests a ${Math.abs(calibration.riskAdjustment * 100).toFixed(1)}% risk reduction under current uncertainty.`);
   const confidence = Math.max(0, Math.min(99, Math.round(calibration.calibratedConfidence * 100)));
   return { strategyId: strategy.id, strategyName: strategy.name, family: strategy.family, direction, score, confidence, matchedConcepts: [...new Set(matchedConcepts)], reasons, blockers };
 }
