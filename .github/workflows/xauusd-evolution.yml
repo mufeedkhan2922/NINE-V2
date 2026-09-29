@@ -1,8 +1,8 @@
 name: NINE Strategy Evolution
 
 concurrency:
-  group: nine-strategy-evolution
-  cancel-in-progress: true
+  group: nine-xauusd-provider-research
+  cancel-in-progress: false
 
 on:
   workflow_dispatch:
