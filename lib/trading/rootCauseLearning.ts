@@ -173,7 +173,7 @@ export function investigateRootCause(trade: BacktestTrade, candles: Candle[]): R
     evidence.push("The stop was reached before the target.");
   }
 
-  const lesson: Record<RootCause, string> = {
+  const lessonByCause: Record<RootCause, string> = {
     IMMEDIATE_ADVERSE_MOVE: "Require stronger immediate confirmation before repeating this context.",
     NO_FOLLOW_THROUGH: "Require measurable post-entry displacement before repeating this context.",
     NEAR_TARGET_REVERSAL: "Review target geometry and continuation confirmation.",
@@ -183,7 +183,8 @@ export function investigateRootCause(trade: BacktestTrade, candles: Candle[]): R
     WEAK_MOMENTUM: "Require stronger momentum/displacement confirmation.",
     LATE_ENTRY: "Avoid entries after useful displacement has already occurred.",
     UNKNOWN: "Insufficient evidence; do not create a hard rule.",
-  }[cause];
+  };
+  const lesson = lessonByCause[cause];
 
   const riskDollars = Math.max(1, Math.abs(trade.entryPrice - trade.stopLoss) * trade.quantity);
   const severity = cause === "UNKNOWN" ? 0 : Math.min(1, 0.5 + Math.abs(trade.pnl) / riskDollars);
