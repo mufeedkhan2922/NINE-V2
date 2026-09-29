@@ -325,6 +325,24 @@ CREATE TABLE IF NOT EXISTS strategy_evolution (
 CREATE INDEX IF NOT EXISTS strategy_evolution_lookup_idx
 ON strategy_evolution(symbol, base_strategy_id, session, regime, status, updated_at DESC);
 
+CREATE TABLE IF NOT EXISTS regime_memory (
+  id TEXT PRIMARY KEY,
+  symbol TEXT NOT NULL,
+  session TEXT NOT NULL,
+  regime TEXT NOT NULL,
+  confidence REAL NOT NULL,
+  volatility_ratio REAL NOT NULL,
+  momentum_score REAL NOT NULL,
+  directional_efficiency REAL NOT NULL,
+  transition INTEGER NOT NULL DEFAULT 0,
+  previous_regime TEXT,
+  routes_json TEXT NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS regime_memory_lookup_idx
+ON regime_memory(symbol, regime, session, updated_at DESC);
+
 CREATE TABLE IF NOT EXISTS counterfactual_results (
   id TEXT PRIMARY KEY,
   symbol TEXT NOT NULL,
