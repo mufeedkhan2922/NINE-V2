@@ -9,8 +9,8 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "test": "tsc -p tsconfig.test.json && node .test-dist/tests/testBootstrap.js",
-    "research:xauusd:learning": "tsx scripts/run-xauusd-learning.ts",
-    "research:xauusd:walkforward": "tsx scripts/run-xauusd-walkforward.ts"
+    "research:xauusd:learning": "npx tsx@4.20.5 scripts/run-xauusd-learning.ts",
+    "research:xauusd:walkforward": "npx tsx@4.20.5 scripts/run-xauusd-walkforward.ts"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.8",
