@@ -1,7 +1,7 @@
 name: NINE XAUUSD Learning Cycle
 concurrency:
   group: nine-xauusd-provider-validation
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 
 on:
