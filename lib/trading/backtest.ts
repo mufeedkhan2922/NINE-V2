@@ -3,6 +3,7 @@ import { analyzeTechnicals } from "./technical";
 import { analyzeSMC } from "./smc";
 import type { AdaptiveLossFilter } from "./adaptiveLossFilter";
 import { getLessonDecision, rememberBacktestLosses } from "./lossInvestigator";
+import { getClosedLoopDecision } from "./closedLoopGate";
 import { policyForRegime, regimeFromCandles } from "./regimePolicy";
 import type {
   BacktestAnalytics,
@@ -708,6 +709,23 @@ export function runBacktest(
     if (regimePolicyMode === "BLOCK" && !regimeAllows) {
       recordRejected("REGIME_POLICY: " + regimePolicy.reason);
       continue;
+    }
+
+    if (options.useClosedLoopLearning) {
+      const closedLoopDecision = getClosedLoopDecision("XAUUSD", {
+        strategy: strategyName,
+        session: currentSetupSession(currentSetup),
+        side,
+        regime,
+        htfAgreement: true,
+        volatilityRatio: 1,
+        momentumProxy: 1,
+        entryTimingScore: 1,
+      });
+      if (closedLoopDecision.blocked) {
+        recordRejected("CLOSED_LOOP_LEARNING: " + closedLoopDecision.reason);
+        continue;
+      }
     }
 
     const adaptiveDecision = adaptiveLossFilter?.isBlocked(signalResult.reason);
