@@ -579,6 +579,7 @@ export function runBacktest(
   initialBalance = 10000,
   riskPercent = 0.5,
   adaptiveLossFilter?: AdaptiveLossFilter,
+  usePersistentLessons = true,
 ): BacktestResult {
   if (!Number.isFinite(initialBalance) || initialBalance <= 0) {
     throw new Error("Backtest initialBalance must be greater than zero.");
@@ -633,8 +634,7 @@ export function runBacktest(
     const currentSetup = setupCandles.at(-1)!;
     const persistentParts = signalResult.reason.split(";");
     const persistentStrategy = persistentParts[1]?.trim().replace(/^(LONG|SHORT)\s+/i, "").trim() || "UNKNOWN_SETUP";
-    const persistentLesson = getLessonDecision("XAUUSD", persistentStrategy, currentSetupSession(currentSetup), side);
-    if (persistentLesson.blocked) continue;
+    if (usePersistentLessons) {\n      const persistentLesson = getLessonDecision("XAUUSD", persistentStrategy, currentSetupSession(currentSetup), side);\n      if (persistentLesson.blocked) continue;\n    }
     const currentChartist = analyzeSMC(setupCandles).chartist;
     const currentSession = currentChartist?.session;
     if (currentSession !== "LONDON" && currentSession !== "NEW_YORK") continue;
