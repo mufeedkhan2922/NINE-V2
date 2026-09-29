@@ -6,6 +6,7 @@ import { getStrategyEvolutionAdjustment } from "./strategyEvolution";
 import { buildRegimeIntelligence } from "./regimeIntelligence";
 import { routeStrategyByRegime } from "./regimeRouter";
 import { getStrategyAllocationAdjustment } from "./strategyAllocation";
+import { arbitrateStrategies, calculateMetaAdjustment, deduplicateEvidence } from "./metaLearning";
 import type { Candle, MarketSnapshot, TradeDirection } from "./types";
 
 export interface StrategyCandidate {
@@ -217,6 +218,23 @@ function scoreStrategy(strategy: StrategyDefinition, market: MarketSnapshot, can
     reasons.push(`Regime routing ${regimeIntel.features.regime}: family weight ${route.weight.toFixed(2)}.`);
   }
 
+  const independentConcepts = deduplicateEvidence(matchedConcepts);
+  if (independentConcepts.length < matchedConcepts.length) {
+    reasons.push(`Evidence de-duplication: ${matchedConcepts.length - independentConcepts.length} correlated signal(s) discounted.`);
+    score -= Math.min(4, matchedConcepts.length - independentConcepts.length);
+  }
+  const meta = calculateMetaAdjustment(independentConcepts.map((concept) => ({
+    concept,
+    observations: memory.sampleTrades,
+    wins: Math.round(memory.sampleTrades * memory.winRate / 100),
+    losses: Math.max(0, memory.sampleTrades - Math.round(memory.sampleTrades * memory.winRate / 100)),
+  })));
+  if (meta.adjustment !== 0) {
+    score += meta.adjustment;
+    reasons.push(`Meta-learning adjustment ${meta.adjustment >= 0 ? "+" : ""}${meta.adjustment.toFixed(2)} across independent evidence.`);
+  }
+  if (meta.abstain && memory.sampleTrades > 0) blockers.push("Meta-learning uncertainty is too high for confident selection.");
+
   if (regimeIntel.features.transition) {
     score -= 3;
     reasons.push(`Regime transition detected from ${regimeIntel.features.previousRegime ?? "UNKNOWN"} to ${regimeIntel.features.regime}; selection confidence reduced.`);
@@ -233,11 +251,19 @@ export function evaluateStrategyBook(market: MarketSnapshot, options: { useMemor
   const active = candidates.filter((candidate) => candidate.score >= 50 && candidate.direction !== "NONE");
   const long = active.filter((candidate) => candidate.direction === "LONG");
   const short = active.filter((candidate) => candidate.direction === "SHORT");
-  const direction: TradeDirection = long.length > short.length ? "LONG" : short.length > long.length ? "SHORT" : "NONE";
-  const aligned = Math.max(long.length, short.length);
+  const arbitrated = arbitrateStrategies(candidates.map((candidate) => ({
+    strategyId: candidate.strategyId,
+    family: candidate.family,
+    direction: candidate.direction,
+    score: candidate.score,
+    confidence: candidate.confidence,
+    blockers: candidate.blockers,
+  })));
+  const direction: TradeDirection = arbitrated.abstain ? "NONE" : arbitrated.direction;
+  const aligned = direction === "LONG" ? long.length : direction === "SHORT" ? short.length : 0;
   const top = candidates.slice(0, 5);
-  const score = top.length ? Math.round(top.reduce((sum, candidate) => sum + candidate.score, 0) / top.length) : 0;
-  const confidence = Math.max(0, Math.min(99, Math.round(score * 0.75 + Math.min(20, aligned * 5))));
+  const score = arbitrated.abstain ? 0 : (top.length ? Math.round(top.reduce((sum, candidate) => sum + candidate.score, 0) / top.length) : 0);
+  const confidence = arbitrated.abstain ? 0 : arbitrated.confidence;
   const regime = evaluateRegime(market.candles, analyzeTechnicals(market.candles).trend);
   return { direction, score, confidence, candidates: top, activeStrategies: active.length, alignedStrategies: aligned, regime, generatedAt: Date.now() };
 }
