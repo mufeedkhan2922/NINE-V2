@@ -300,6 +300,31 @@ ON closed_loop_rules(symbol, context_key);
 CREATE INDEX IF NOT EXISTS closed_loop_rules_active_idx
 ON closed_loop_rules(symbol, status, expires_at);
 
+CREATE TABLE IF NOT EXISTS strategy_evolution (
+  variant_id TEXT PRIMARY KEY,
+  base_strategy_id TEXT NOT NULL,
+  symbol TEXT NOT NULL,
+  session TEXT NOT NULL,
+  regime TEXT NOT NULL,
+  status TEXT NOT NULL,
+  windows_json TEXT NOT NULL,
+  trades INTEGER NOT NULL,
+  wins INTEGER NOT NULL,
+  losses INTEGER NOT NULL,
+  win_rate REAL NOT NULL,
+  win_rate_lower_95 REAL NOT NULL,
+  expectancy_r REAL NOT NULL,
+  profit_factor REAL NOT NULL,
+  robustness_score REAL NOT NULL,
+  consecutive_bad_windows INTEGER NOT NULL DEFAULT 0,
+  mutation_json TEXT NOT NULL,
+  reason TEXT NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS strategy_evolution_lookup_idx
+ON strategy_evolution(symbol, base_strategy_id, session, regime, status, updated_at DESC);
+
 CREATE TABLE IF NOT EXISTS counterfactual_results (
   id TEXT PRIMARY KEY,
   symbol TEXT NOT NULL,
