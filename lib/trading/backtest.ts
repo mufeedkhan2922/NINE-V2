@@ -3,6 +3,7 @@ import { analyzeTechnicals } from "./technical";
 import { analyzeSMC } from "./smc";
 import type { AdaptiveLossFilter } from "./adaptiveLossFilter";
 import { getLessonDecision, rememberBacktestLosses } from "./lossInvestigator";
+import { policyForRegime, regimeFromCandles } from "./regimePolicy";
 import type {
   BacktestAnalytics,
   BacktestDistribution,
@@ -121,6 +122,7 @@ export interface BacktestResearch {
 
 export interface BacktestOptions {
   research?: BacktestResearch;
+  regimePolicyMode?: "OFF" | "SHADOW" | "BLOCK";
 }
 
 function utcDayKey(timestamp: number): string {
@@ -618,6 +620,7 @@ export function runBacktest(
 
   const trades: BacktestTrade[] = [];
   const research = options.research;
+  const regimePolicyMode = options.regimePolicyMode ?? "OFF";
   const warnings = [
     "Advanced ensemble setup engine evaluates previous-day liquidity sweeps, Asia-range sweeps, opening-range breakouts, breakout-retests, FVG/OB retests, volatility expansion, EMA pullbacks, breakouts, and mean-reversion.",
     "Technical confluence includes EMA 9/21/50/200, RSI(14), MACD(12/26/9), ADX(14), Bollinger Bands(20,2), Stochastic(14), ATR and SMC.",
@@ -628,7 +631,12 @@ export function runBacktest(
     "When stop and target are both touched inside the same candle, the stop is assumed to trigger first (conservative intrabar ordering).",
     "This backtest models price movement but does not include broker commissions, financing, or spread unless already represented in the candle prices.",
     "Results are historical simulation outputs and do not establish future trading performance.",
-    adaptiveLossFilter\n      ? `Adaptive loss filter ${adaptiveLossFilter.version} is active: only statistically rejected setup families are blocked; insufficient samples remain neutral.`\n      : "No adaptive loss filter is active; this run is the unfiltered baseline.",
+    regimePolicyMode !== "OFF"
+      ? "Regime policy " + regimePolicyMode + " is active; policy decisions remain separate from the validated baseline strategy."
+      : "Regime policy is OFF; baseline strategy selection is unchanged.",
+    adaptiveLossFilter
+      ? `Adaptive loss filter ${adaptiveLossFilter.version} is active: only statistically rejected setup families are blocked; insufficient samples remain neutral.`
+      : "No adaptive loss filter is active; this run is the unfiltered baseline.",
   ];
   const equityCurve: BacktestEquityPoint[] = [{
     trade: 0,
@@ -685,6 +693,22 @@ export function runBacktest(
         rejectionReason,
       });
     };
+
+    const regime = regimeFromCandles(setupCandles);
+    const regimePolicy = policyForRegime(regime);
+    const strategyName = signalResult.reason
+      .split(";")[1]
+      ?.trim()
+      .replace(/^(LONG|SHORT)\s+/i, "")
+      .split(";")[0]
+      ?.trim() ?? "UNKNOWN_SETUP";
+    const scoreMatch = signalResult.reason.match(/quality score (\d+)/i);
+    const setupScore = scoreMatch ? Number(scoreMatch[1]) : 0;
+    const regimeAllows = regimePolicy.allowedFamilies.includes(strategyName) && setupScore >= regimePolicy.minimumScore;
+    if (regimePolicyMode === "BLOCK" && !regimeAllows) {
+      recordRejected("REGIME_POLICY: " + regimePolicy.reason);
+      continue;
+    }
 
     const adaptiveDecision = adaptiveLossFilter?.isBlocked(signalResult.reason);
     if (adaptiveDecision?.blocked) {
@@ -817,6 +841,7 @@ export function runBacktest(
       cooldownCandles: COOLDOWN_CANDLES,
       dataDriven: true,
       adaptiveLossFilter: adaptiveLossFilter ? "STATISTICAL_PRIOR_LOSS_FILTER" : "OFF",\n      adaptiveLossFilterVersion: adaptiveLossFilter?.version ?? "—",\n      adaptiveMinimumTrades: adaptiveLossFilter?.minimumTrades ?? 0,\n      adaptiveBlockedSetupFamilies: adaptiveLossFilter?.blockedKeys.length ?? 0,
+      regimePolicyMode,
     },
     ...analytics(trades, equityCurve, profitFactor),
     warnings,
