@@ -49,6 +49,37 @@ const ZONE_PROXIMITY_ATR = 0.2;
 const COOLDOWN_CANDLES = 6;
 const MAX_TRADES_PER_SESSION_DAY = 2;
 
+function aggregateCandles(candles: Candle[], bucketMinutes: number): Candle[] {
+  const buckets = new Map<number, Candle>();
+  const bucketMs = bucketMinutes * 60 * 1000;
+  for (const candle of candles) {
+    const bucket = Math.floor(candle.time / bucketMs) * bucketMs;
+    const existing = buckets.get(bucket);
+    if (!existing) {
+      buckets.set(bucket, { time: bucket, open: candle.open, high: candle.high, low: candle.low, close: candle.close, volume: candle.volume });
+    } else {
+      existing.high = Math.max(existing.high, candle.high);
+      existing.low = Math.min(existing.low, candle.low);
+      existing.close = candle.close;
+      if (candle.volume !== undefined) existing.volume = (existing.volume ?? 0) + candle.volume;
+    }
+  }
+  return [...buckets.values()].sort((a, b) => a.time - b.time);
+}
+
+function higherTimeframeAgreement(candles: Candle[], side: "LONG" | "SHORT"): boolean {
+  const tf15 = aggregateCandles(candles, 15);
+  const tf60 = aggregateCandles(candles, 60);
+  if (tf15.length < 60 || tf60.length < 60) return false;
+  const a15 = analyzeTechnicals(tf15);
+  const a60 = analyzeTechnicals(tf60);
+  const bullish15 = a15.trend === "BULLISH" && (a15.momentum === "BULLISH" || (a15.macdHistogram ?? 0) > 0);
+  const bearish15 = a15.trend === "BEARISH" && (a15.momentum === "BEARISH" || (a15.macdHistogram ?? 0) < 0);
+  const bullish60 = a60.trend === "BULLISH" && (a60.momentum === "BULLISH" || (a60.macdHistogram ?? 0) > 0);
+  const bearish60 = a60.trend === "BEARISH" && (a60.momentum === "BEARISH" || (a60.macdHistogram ?? 0) < 0);
+  return side === "LONG" ? (bullish15 && bullish60) : (bearish15 && bearish60);
+}
+
 function isTradingDay(timestamp: number): boolean {
   const day = new Date(timestamp).getUTCDay();
   return day !== 0 && day !== 6;
@@ -127,7 +158,7 @@ function setupSignal(candles: Candle[]): { side: "LONG" | "SHORT" | null; reason
   const longTrendSetup = bullishCandle && longScore >= 7 && (trendBull || breakoutLong || smc.structureDirection === "LONG");
   const shortTrendSetup = bearishCandle && shortScore >= 7 && (trendBear || breakoutShort || smc.structureDirection === "SHORT");
 
-  if (longTrendSetup || meanReversionLong) {
+  if ((longTrendSetup && higherTimeframeAgreement(candles, "LONG")) || meanReversionLong) {
     const strategy = meanReversionLong ? "mean-reversion sweep" : breakoutLong ? "breakout continuation" : pullbackLong ? "EMA pullback continuation" : "multi-factor trend continuation";
     const rr = meanReversionLong ? 1.7 : breakoutLong && strongTrend ? 2.5 : 2.2;
     return {
@@ -137,7 +168,7 @@ function setupSignal(candles: Candle[]): { side: "LONG" | "SHORT" | null; reason
     };
   }
 
-  if (shortTrendSetup || meanReversionShort) {
+  if ((shortTrendSetup && higherTimeframeAgreement(candles, "SHORT")) || meanReversionShort) {
     const strategy = meanReversionShort ? "mean-reversion sweep" : breakoutShort ? "breakout continuation" : pullbackShort ? "EMA pullback continuation" : "multi-factor trend continuation";
     const rr = meanReversionShort ? 1.7 : breakoutShort && strongTrend ? 2.5 : 2.2;
     return {
@@ -240,6 +271,7 @@ export function runBacktest(
   const warnings = [
     "Multi-strategy setup engine combines trend continuation, EMA pullback, breakout continuation, SMC sweep/MSS, and mean-reversion sweep logic.",
     "Technical confluence includes EMA 9/21/50/200, RSI(14), MACD(12/26/9), ADX(14), Bollinger Bands(20,2), Stochastic(14), ATR and SMC.",
+    "Trend, pullback and breakout entries must agree with both aggregated 15-minute and 1-hour technical bias; mean-reversion setups remain separately gated by low ADX and SMC sweep.",
     "At most two trades are allowed per London or New York session per UTC calendar day to reduce repeated entries from the same directional move.",
     "A six-candle cooldown is applied after each completed trade to reduce repeated entries from the same market move.",
     "When stop and target are both touched inside the same candle, the stop is assumed to trigger first (conservative intrabar ordering).",
