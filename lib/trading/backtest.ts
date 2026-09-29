@@ -578,6 +578,7 @@ export function runBacktest(
   candles: Candle[],
   initialBalance = 10000,
   riskPercent = 0.5,
+  adaptiveLossFilter?: AdaptiveLossFilter,
 ): BacktestResult {
   if (!Number.isFinite(initialBalance) || initialBalance <= 0) {
     throw new Error("Backtest initialBalance must be greater than zero.");
