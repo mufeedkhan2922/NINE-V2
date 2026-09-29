@@ -35,6 +35,7 @@ import { runNineAssistantTest } from "./nineAssistant.test";
 import { runGeminiProviderTest } from "./geminiProvider.test";
 import { runAdaptiveLossFilterTest } from "./adaptiveLossFilter.test";
 import { runLossInvestigatorTest } from "./lossInvestigator.test";
+import { runClosedLoopLearningTest } from "./closedLoopLearning.test";
 
 const tests: Array<[string, () => void | Promise<void>]> = [
   ["technical", runTechnicalTest],
@@ -80,6 +81,7 @@ const tests: Array<[string, () => void | Promise<void>]> = [
   ["Gemini assistant provider", runGeminiProviderTest],
   ["statistical loss filter", runAdaptiveLossFilterTest],
   ["loss investigation memory", runLossInvestigatorTest],
+  ["closed-loop learning", runClosedLoopLearningTest],
 ];
 
 async function main(): Promise<void> {
