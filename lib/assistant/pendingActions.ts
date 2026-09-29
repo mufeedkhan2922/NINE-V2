@@ -74,6 +74,12 @@ export function createPendingAssistantAction(
   };
 
   db.prepare(
+    `UPDATE assistant_pending_actions
+     SET status = 'CANCELLED', resolved_at = ?, result_message = ?
+     WHERE session_id = ? AND status = 'PENDING'`
+  ).run(now, 'Superseded by a newer trade action.', sessionId);
+
+  db.prepare(
     `INSERT INTO assistant_pending_actions
       (id, session_id, action, symbol, request_text, status, created_at, expires_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
