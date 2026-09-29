@@ -49,12 +49,21 @@ const ZONE_PROXIMITY_ATR = 0.2;
 const COOLDOWN_CANDLES = 6;
 const MAX_TRADES_PER_SESSION_DAY = 2;
 
+function isTradingDay(timestamp: number): boolean {
+  const day = new Date(timestamp).getUTCDay();
+  return day !== 0 && day !== 6;
+}
+
 function setupSignal(candles: Candle[]): { side: "LONG" | "SHORT" | null; reason: string; rewardRisk: number } {
   const tech = analyzeTechnicals(candles);
   const smc = analyzeSMC(candles);
   const current = candles.at(-1);
   if (!current || !tech.atr || !Number.isFinite(tech.atr)) {
     return { side: null, reason: "Insufficient setup data", rewardRisk: REWARD_RISK };
+  }
+
+  if (!isTradingDay(current.time)) {
+    return { side: null, reason: "Weekend candle excluded", rewardRisk: REWARD_RISK };
   }
 
   const session = smc.chartist.session;
@@ -304,7 +313,7 @@ export function runBacktest(
 
     const exitReason =
       reason === "TARGET"
-        ? `Take-profit target reached at ${REWARD_RISK}R.`
+        ? `Take-profit target reached at ${rewardRisk}R.`
         : reason === "STOP"
           ? "Stop-loss level reached before target."
           : "Historical data ended before target or stop was reached.";
