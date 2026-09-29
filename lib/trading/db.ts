@@ -424,6 +424,51 @@ CREATE TABLE IF NOT EXISTS causal_failure_memory (
 CREATE UNIQUE INDEX IF NOT EXISTS causal_failure_key_idx
 ON causal_failure_memory(symbol,strategy,session,regime,side,failure_mode);
 
+CREATE TABLE IF NOT EXISTS adaptive_calibration_memory (
+  id TEXT PRIMARY KEY,
+  symbol TEXT NOT NULL,
+  strategy_id TEXT NOT NULL,
+  session TEXT NOT NULL,
+  regime TEXT NOT NULL,
+  window_size INTEGER NOT NULL,
+  observations INTEGER NOT NULL,
+  wins INTEGER NOT NULL,
+  mean_predicted REAL NOT NULL,
+  actual_rate REAL NOT NULL,
+  brier_score REAL NOT NULL,
+  calibration_error REAL NOT NULL,
+  drift_score REAL NOT NULL,
+  confidence_adjustment REAL NOT NULL,
+  threshold_adjustment REAL NOT NULL,
+  risk_adjustment REAL NOT NULL,
+  status TEXT NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS adaptive_calibration_lookup_idx
+ON adaptive_calibration_memory(symbol,strategy_id,session,regime,window_size,updated_at DESC);
+
+CREATE TABLE IF NOT EXISTS calibration_corrections (
+  id TEXT PRIMARY KEY,
+  symbol TEXT NOT NULL,
+  strategy_id TEXT NOT NULL,
+  session TEXT NOT NULL,
+  regime TEXT NOT NULL,
+  parameter TEXT NOT NULL,
+  old_value REAL NOT NULL,
+  proposed_value REAL NOT NULL,
+  train_observations INTEGER NOT NULL,
+  oos_observations INTEGER NOT NULL,
+  oos_improvement REAL NOT NULL,
+  status TEXT NOT NULL,
+  reason TEXT NOT NULL,
+  created_at INTEGER NOT NULL,
+  activated_at INTEGER
+);
+
+CREATE INDEX IF NOT EXISTS calibration_corrections_lookup_idx
+ON calibration_corrections(symbol,strategy_id,status,created_at DESC);
+
 CREATE TABLE IF NOT EXISTS kronos_calibration_forecasts (
   id TEXT PRIMARY KEY,
   symbol TEXT NOT NULL,
