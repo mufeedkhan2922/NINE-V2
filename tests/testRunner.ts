@@ -82,6 +82,7 @@ const tests: Array<[string, () => void | Promise<void>]> = [
   ["statistical loss filter", runAdaptiveLossFilterTest],
   ["loss investigation memory", runLossInvestigatorTest],
   ["closed-loop learning", runClosedLoopLearningTest],
+  ["strategy evolution arena", runStrategyEvolutionTest],
 ];
 
 async function main(): Promise<void> {
