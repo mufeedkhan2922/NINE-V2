@@ -22,7 +22,7 @@ export function evaluateRejectedTrade(entryTime: number, side: "LONG"|"SHORT", e
     mfe=Math.max(mfe,fav); mae=Math.max(mae,adv);
     const stopHit=side==="LONG"?c.low<=stop:c.high>=stop;
     const targetHit=side==="LONG"?c.high>=target:c.low<=target;
-    if(stopHit||targetHit) return {tradeId:String(entryTime),rejected:true,hypotheticalOutcome:targetHit&&!stopHit?"WOULD_HAVE_WON":"WOULD_HAVE_LOST",hypotheticalPnl:targetHit&&!stopHit?Math.abs(target-entry): -risk,maxFavorableR:mfe,maxAdverseR:mae,horizonCandles:index};
+    if(stopHit||targetHit) return {tradeId:String(entryTime),rejected:true,hypotheticalOutcome:targetHit&&!stopHit?"WOULD_HAVE_WON":"WOULD_HAVE_LOST",hypotheticalPnl:targetHit&&!stopHit?Math.abs(target-entry): -risk,maxFavorableR:mfe,maxAdverseR:mae,horizonCandles:Math.max(1, Math.min(horizon, candles.length - index))};
   }
   return {tradeId:String(entryTime),rejected:true,hypotheticalOutcome:"UNRESOLVED",hypotheticalPnl:0,maxFavorableR:mfe,maxAdverseR:mae,horizonCandles:Math.min(horizon,candles.length-index)};
 }
