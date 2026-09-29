@@ -5,6 +5,7 @@ import { getStrategyMemoryWeight } from "./strategyMemory";
 import { getStrategyEvolutionAdjustment } from "./strategyEvolution";
 import { buildRegimeIntelligence } from "./regimeIntelligence";
 import { routeStrategyByRegime } from "./regimeRouter";
+import { getStrategyAllocationAdjustment } from "./strategyAllocation";
 import type { Candle, MarketSnapshot, TradeDirection } from "./types";
 
 export interface StrategyCandidate {
@@ -106,6 +107,7 @@ function scoreStrategy(strategy: StrategyDefinition, market: MarketSnapshot, can
   const route = routeStrategyByRegime(market, strategy, regimeIntel.features.regime);
   const memory = useMemory ? getStrategyMemoryWeight(market, strategy.id, session(last), regime) : { adjustment: 0, sampleTrades: 0, expectancyR: 0, winRate: 0, source: null };
   const evolution = getStrategyEvolutionAdjustment(market, strategy.id, session(last), regime);
+  const allocation = getStrategyAllocationAdjustment(market, strategy.id, strategy.family, session(last), regime);
   let direction: TradeDirection = trendDirection;
   let score = 0;
   const matchedConcepts: string[] = [];
@@ -200,6 +202,11 @@ function scoreStrategy(strategy: StrategyDefinition, market: MarketSnapshot, can
     score += evolution.scoreBias;
     reasons.push(`Evolution ${evolution.status.toLowerCase()} adjustment ${evolution.scoreBias >= 0 ? "+" : ""}${evolution.scoreBias.toFixed(1)} (${evolution.variantId ?? "—"}).`);
     if (evolution.status === "RETIRED") blockers.push("Evolution engine retired this strategy pending re-validation.");
+  }
+
+  if (allocation.trades >= 10 && allocation.adjustment !== 0) {
+    score += allocation.adjustment;
+    reasons.push(`Adaptive allocation ${allocation.allocationWeight.toFixed(2)}x; conservative context edge from ${allocation.trades} trades.`);
   }
 
   if (route.blocked) {
