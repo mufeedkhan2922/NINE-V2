@@ -1,0 +1,39 @@
+name: NINE Strategy Evolution
+
+concurrency:
+  group: nine-strategy-evolution
+  cancel-in-progress: true
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "lib/trading/**"
+      - "scripts/run-xauusd-evolution.ts"
+      - "tests/**"
+      - "package.json"
+      - ".github/workflows/xauusd-evolution.yml"
+
+jobs:
+  evolution:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run research:xauusd:evolution
+        env:
+          TWELVE_DATA_API_KEY: ${{ secrets.TWELVE_DATA_API_KEY }}
+          NINE_EVOLUTION_START: "2026-08-01"
+          NINE_EVOLUTION_END: "2026-09-29"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nine-xauusd-strategy-evolution
+          path: artifacts/xauusd-strategy-evolution.json
