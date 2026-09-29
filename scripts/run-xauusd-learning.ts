@@ -38,7 +38,7 @@ async function fetchHistory(): Promise<Candle[]> {
 function persistRules(rules: ReturnType<typeof runResearchCycle>["rules"]) {
   transaction(() => {
     const stmt = db.prepare(
-      "INSERT OR REPLACE INTO learned_rules (id,symbol,strategy,session,side,condition,cause,observations,failures,failure_rate,mean_severity,status,reason,source,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+      "INSERT OR REPLACE INTO learned_rules (id,symbol,strategy,session,side,condition,cause,observations,failures,failure_rate,mean_severity,expectancy_r,failure_rate_lower_95,status,reason,source,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
     );
     for (const rule of rules) {
       stmt.run(
@@ -53,6 +53,8 @@ function persistRules(rules: ReturnType<typeof runResearchCycle>["rules"]) {
         rule.failures,
         rule.failureRate,
         rule.meanSeverity,
+        rule.expectancyR,
+        rule.failureRateLower95,
         rule.status,
         rule.reason,
         "XAUUSD_RESEARCH",
