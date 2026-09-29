@@ -85,6 +85,7 @@ const tests: Array<[string, () => void | Promise<void>]> = [
   ["strategy evolution arena", runStrategyEvolutionTest],
   ["market regime intelligence", runRegimeIntelligenceTest],
   ["adaptive strategy allocation", runStrategyAllocationTest],
+  ["contextual meta-learning", runMetaLearningTest],
 ];
 
 async function main(): Promise<void> {
