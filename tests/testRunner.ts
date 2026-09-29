@@ -39,6 +39,7 @@ import { runClosedLoopLearningTest } from "./closedLoopLearning.test";
 import { runMetaLearningTest } from "./metaLearning.test";
 import { runCausalLearningTest } from "./causalLearning.test";
 import { runAdaptiveCalibrationTest } from "./adaptiveCalibration.test";
+import { runPolicyGovernanceTest } from "./policyGovernance.test";
 
 const tests: Array<[string, () => void | Promise<void>]> = [
   ["technical", runTechnicalTest],
@@ -88,6 +89,7 @@ const tests: Array<[string, () => void | Promise<void>]> = [
   ["contextual meta-learning", runMetaLearningTest],
   ["causal loss learning", runCausalLearningTest],
   ["adaptive calibration", runAdaptiveCalibrationTest],
+  ["policy governance", runPolicyGovernanceTest],
 ];
 
 async function main(): Promise<void> {
