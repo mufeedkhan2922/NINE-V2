@@ -16,6 +16,6 @@ export function runResearchCycle(trades: BacktestTrade[], candles: Candle[]): Re
   const startedAt=Date.now();
   const findings=investigateLosses(trades,candles);
   const rules=mineRules(findings, trades, candles, 20);
-  const blocked=rules.filter(r=>r.status==="BLOCKED").length;
-  return {startedAt,trades:trades.length,losses:trades.filter(t=>t.pnl<0).length,findings,rules,nextAction:blocked?"VALIDATE_RULES":findings.length?"COLLECT_MORE_DATA":"NO_ACTION"};
+  const validated=rules.filter(r=>r.status==="VALIDATED").length;
+  return {startedAt,trades:trades.length,losses:trades.filter(t=>t.pnl<0).length,findings,rules,nextAction:validated?"VALIDATE_RULES":findings.length?"COLLECT_MORE_DATA":"NO_ACTION"};
 }
