@@ -9,6 +9,7 @@ import { getStrategyAllocationAdjustment } from "./strategyAllocation";
 import { arbitrateStrategies, calculateMetaAdjustment, deduplicateEvidence } from "./metaLearning";
 import { getCausalDecision } from "./causalLearning";
 import { getCalibrationDecision } from "./adaptiveCalibration";
+import { buildDecisionTrace } from "./policyGovernance";
 import type { Candle, MarketSnapshot, TradeDirection } from "./types";
 
 export interface StrategyCandidate {
@@ -264,6 +265,29 @@ function scoreStrategy(strategy: StrategyDefinition, market: MarketSnapshot, can
   }
   if (calibration.riskAdjustment < 0) reasons.push(`Risk calibration suggests a ${Math.abs(calibration.riskAdjustment * 100).toFixed(1)}% risk reduction under current uncertainty.`);
   const confidence = Math.max(0, Math.min(99, Math.round(calibration.calibratedConfidence * 100)));
+  try {
+    buildDecisionTrace(
+      market.symbol,
+      strategy.id,
+      session(last),
+      regimeIntel.features.regime,
+      direction,
+      rawConfidence,
+      score,
+      confidence / 100,
+      calibration.status === "INSUFFICIENT" ? 1 : calibration.driftScore,
+      independentConcepts.map((concept) => ({
+        concept,
+        contribution: 0,
+        independent: true,
+        source: "STRATEGY_ENGINE",
+      })),
+      blockers,
+      1,
+    );
+  } catch {
+    // Decision observability must never interrupt strategy evaluation.
+  }
   return { strategyId: strategy.id, strategyName: strategy.name, family: strategy.family, direction, score, confidence, matchedConcepts: [...new Set(matchedConcepts)], reasons, blockers };
 }
 
