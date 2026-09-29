@@ -224,6 +224,27 @@ CREATE TABLE IF NOT EXISTS strategy_memory (
 CREATE INDEX IF NOT EXISTS strategy_memory_lookup_idx
 ON strategy_memory(strategy_id, symbol, timeframe, session, regime, updated_at DESC);
 
+CREATE TABLE IF NOT EXISTS trade_lessons (
+  id TEXT PRIMARY KEY,
+  symbol TEXT NOT NULL,
+  strategy TEXT NOT NULL,
+  session TEXT NOT NULL,
+  side TEXT NOT NULL,
+  cause TEXT NOT NULL,
+  occurrences INTEGER NOT NULL,
+  losses INTEGER NOT NULL,
+  wins INTEGER NOT NULL,
+  total_r REAL NOT NULL,
+  first_seen INTEGER NOT NULL,
+  last_seen INTEGER NOT NULL,
+  lesson TEXT NOT NULL,
+  source TEXT NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS trade_lessons_key_idx
+ON trade_lessons(symbol, strategy, session, side, cause);
+
 CREATE TABLE IF NOT EXISTS kronos_calibration_forecasts (
   id TEXT PRIMARY KEY,
   symbol TEXT NOT NULL,
