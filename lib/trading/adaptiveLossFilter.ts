@@ -39,7 +39,7 @@ function parseEntryReason(entryReason: string): {
   side: "LONG" | "SHORT";
   strategy: string;
 } | null {
-  const match = entryReason.match(/^([^;]+);\\s*(LONG|SHORT)\\s+([^;]+);/i);
+  const match = entryReason.match(/^([^;]+);\s*(LONG|SHORT)\s+([^;]+);/i);
   if (!match) return null;
   return {
     session: match[1]!.trim(),
