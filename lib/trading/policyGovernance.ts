@@ -33,8 +33,8 @@ export function sequentialPolicyEvaluation(
 ):PolicyEvaluation{
   const n=Math.min(baseline.length,candidate.length);
   if(n<minObservations)return {baselineScore:0,candidateScore:0,delta:0,observations:n,confidence:0,status:"INSUFFICIENT"};
-  const b=baseline.slice(-n).reduce((s,x)=>s+x,0)/n;
-  const c=candidate.slice(-n).reduce((s,x)=>s+x,0)/n;
+  const b=baseline.slice(-n).reduce<number>((s,x)=>s+x,0)/n;
+  const c=candidate.slice(-n).reduce<number>((s,x)=>s+x,0)/n;
   const delta=c-b;
   const confidence=clamp(Math.min(1,n/200)*(0.5+Math.abs(delta)*4),0,0.99);
   const status=delta>=0.03&&confidence>=0.7?"PROMOTE":delta<=-0.03&&confidence>=0.7?"REJECT":"NEUTRAL";
