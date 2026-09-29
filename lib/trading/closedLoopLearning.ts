@@ -94,6 +94,38 @@ function splitIndex(candles: Candle[], fraction: number): number {
   return Math.max(1, Math.min(candles.length - 1, Math.floor(candles.length * fraction)));
 }
 
+export interface ClosedLoopGateEvaluation {
+  blocked: boolean;
+  status: ClosedLoopStatus | "NONE";
+  ruleId: string | null;
+  reason: string;
+}
+
+export function evaluateClosedLoopGate(
+  context: TradeContext,
+  rules: ClosedLoopRule[],
+): ClosedLoopGateEvaluation {
+  const key = contextKey(context);
+  const rule = rules.find((item) => item.contextKey === key);
+  if (!rule) {
+    return {
+      blocked: false,
+      status: "NONE",
+      ruleId: null,
+      reason: "No validated closed-loop rule matches the context.",
+    };
+  }
+  const blocked = rule.status === "ACTIVE_BLOCK";
+  return {
+    blocked,
+    status: rule.status,
+    ruleId: rule.id,
+    reason: blocked
+      ? `Closed-loop ACTIVE_BLOCK: ${rule.cause}; OOS lower95=${rule.oosFailureRateLower95}; expectancyR=${rule.oosExpectancyR}.`
+      : rule.reason,
+  };
+}
+
 export function validateClosedLoopRules(
   trades: BacktestTrade[],
   candles: Candle[],
