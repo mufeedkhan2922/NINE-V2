@@ -100,15 +100,15 @@ function runWalkForward(candles: Candle[]) {
 
     const trainStartIndex = Math.max(0, testStartIndex - WARMUP_CANDLES - Math.ceil(TRAIN_DAYS * 24 * 12));
     const trainCandles = candles.slice(trainStartIndex, testStartIndex);
-    const trainResult = runBacktest(trainCandles, INITIAL_BALANCE, 0.5);
+    const trainResult = runBacktest(trainCandles, INITIAL_BALANCE, 0.5, undefined, false);
     const adaptiveFilter = buildAdaptiveLossFilter(trainResult.trades, {
       minimumTrades: 20,
       confidenceZ: 1.96,
       requireNegativeExpectancy: true,
     });
 
-    const baselineResult = runBacktest(oosCandles, INITIAL_BALANCE, 0.5);
-    const adaptiveResult = runBacktest(oosCandles, INITIAL_BALANCE, 0.5, adaptiveFilter);
+    const baselineResult = runBacktest(oosCandles, INITIAL_BALANCE, 0.5, undefined, false);
+    const adaptiveResult = runBacktest(oosCandles, INITIAL_BALANCE, 0.5, adaptiveFilter, false);
     const baselineTrades = baselineResult.trades.filter(
       (trade) => trade.entryTime >= testStartMs && trade.entryTime < testEndMs,
     );
