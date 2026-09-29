@@ -44,6 +44,13 @@ function persistClosedLoopRules(
   const expiresAt = now + RULE_TTL_DAYS * 24 * 60 * 60 * 1000;
 
   transaction(() => {
+    // A fresh validation cycle supersedes old active blocks. Rules reproduced below
+    // are reinserted with fresh evidence; unreproduced blocks move to SHADOW so the
+    // engine never carries an unverified block indefinitely.
+    db.prepare(
+      "UPDATE closed_loop_rules SET status='SHADOW', reason='Not reproduced by the latest independent validation cycle; awaiting fresh evidence.', updated_at=?, expires_at=? WHERE symbol=? AND status='ACTIVE_BLOCK'",
+    ).run(now, now + 7 * 24 * 60 * 60 * 1000, "XAUUSD");
+
     const stmt = db.prepare(
       `INSERT OR REPLACE INTO closed_loop_rules (
         id,symbol,context_key,strategy,session,side,regime,cause,status,
