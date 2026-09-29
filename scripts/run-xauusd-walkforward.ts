@@ -220,7 +220,7 @@ async function main() {
     "|---:|:---|:---|---:|---:|---:|---:|",
     ...folds.map((fold) => {
       const oos = fold.oos as Record<string, number | null>;
-      return `| ${fold.fold} | ${fold.trainStart} → ${fold.trainEnd} | ${fold.testStart} → ${fold.testEnd} | ${oos.trades} | ${oos.winRate}% | $${oos.netPnl.toFixed(2)} | ${oos.profitFactor ?? "—"} |`;
+      return `| ${fold.fold} | ${fold.trainStart} → ${fold.trainEnd} | ${fold.testStart} → ${fold.testEnd} | ${oos.trades ?? 0} | ${oos.winRate ?? 0}% | ${Number(oos.netPnl ?? 0).toFixed(2)} | ${oos.profitFactor ?? "—"} |`;
     }),
     "",
     "## Methodology Warnings",
