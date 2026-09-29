@@ -39,28 +39,82 @@ export interface BacktestResult extends BacktestAnalytics {
   warnings: string[];
 }
 
-function signal(candles: Candle[]): { side: "LONG" | "SHORT" | null; reason: string } {
+const WARMUP_CANDLES = 60;
+const REWARD_RISK = 2;
+const STOP_ATR_MULTIPLIER = 1.2;
+const MIN_STOP_PERCENT = 0.12;
+const MIN_SETUP_BODY_ATR = 0.35;
+const MAX_ZONE_AGE_CANDLES = 12;
+const ZONE_PROXIMITY_ATR = 0.2;
+const COOLDOWN_CANDLES = 6;
+
+function setupSignal(candles: Candle[]): { side: "LONG" | "SHORT" | null; reason: string } {
   const tech = analyzeTechnicals(candles);
   const smc = analyzeSMC(candles);
-  if (tech.trend === "BULLISH" && (smc.structureDirection === "LONG" || smc.sweepDirection === "LONG")) {
-    const reasons = [
-      "Technical trend bullish",
-      smc.structureDirection === "LONG" ? "Market structure supports LONG" : "Liquidity sweep supports LONG",
-    ];
-    if (smc.fairValueGap) reasons.push("Fair value gap present");
-    if (smc.orderBlock) reasons.push("Order block present");
-    return { side: "LONG", reason: reasons.join("; ") };
+  const current = candles.at(-1);
+  if (!current || !tech.atr || !Number.isFinite(tech.atr)) {
+    return { side: null, reason: "Insufficient setup data" };
   }
-  if (tech.trend === "BEARISH" && (smc.structureDirection === "SHORT" || smc.sweepDirection === "SHORT")) {
-    const reasons = [
-      "Technical trend bearish",
-      smc.structureDirection === "SHORT" ? "Market structure supports SHORT" : "Liquidity sweep supports SHORT",
-    ];
-    if (smc.fairValueGap) reasons.push("Fair value gap present");
-    if (smc.orderBlock) reasons.push("Order block present");
-    return { side: "SHORT", reason: reasons.join("; ") };
+
+  const session = smc.chartist.session;
+  if (session !== "LONDON" && session !== "NEW_YORK") {
+    return { side: null, reason: "Outside London/New York trading session" };
   }
-  return { side: null, reason: "No aligned technical and SMC direction" };
+
+  const body = Math.abs(current.close - current.open);
+  if (body < tech.atr * MIN_SETUP_BODY_ATR) {
+    return { side: null, reason: "Setup candle body too small" };
+  }
+
+  const recentCutoff = current.time - MAX_ZONE_AGE_CANDLES * 5 * 60 * 1000;
+  const nearZone = (side: "LONG" | "SHORT") => {
+    const zones = [...smc.chartist.fairValueGaps, ...smc.chartist.orderBlocks]
+      .filter((zone) => zone.direction === side && zone.createdAt >= recentCutoff);
+    return zones.some((zone) => {
+      const inside = current.close >= zone.low && current.close <= zone.high;
+      const distance = current.close < zone.low ? zone.low - current.close : current.close > zone.high ? current.close - zone.high : 0;
+      return inside || distance <= tech.atr * ZONE_PROXIMITY_ATR;
+    });
+  };
+
+  const bullishBody = current.close > current.open;
+  const bearishBody = current.close < current.open;
+
+  const longConfirmed =
+    tech.trend === "BULLISH" &&
+    tech.momentum === "BULLISH" &&
+    bullishBody &&
+    smc.liquiditySweep &&
+    smc.sweepDirection === "LONG" &&
+    smc.structureDirection === "LONG" &&
+    smc.premiumDiscount === "DISCOUNT" &&
+    nearZone("LONG");
+
+  if (longConfirmed) {
+    return {
+      side: "LONG",
+      reason: "London/NY session; bullish trend + momentum; sell-side liquidity sweep; bullish MSS; discount; fresh FVG/OB retest",
+    };
+  }
+
+  const shortConfirmed =
+    tech.trend === "BEARISH" &&
+    tech.momentum === "BEARISH" &&
+    bearishBody &&
+    smc.liquiditySweep &&
+    smc.sweepDirection === "SHORT" &&
+    smc.structureDirection === "SHORT" &&
+    smc.premiumDiscount === "PREMIUM" &&
+    nearZone("SHORT");
+
+  if (shortConfirmed) {
+    return {
+      side: "SHORT",
+      reason: "London/NY session; bearish trend + momentum; buy-side liquidity sweep; bearish MSS; premium; fresh FVG/OB retest",
+    };
+  }
+
+  return { side: null, reason: "No fully confirmed sweep + MSS + zone + session setup" };
 }
 
 function analytics(
@@ -141,8 +195,8 @@ export function runBacktest(
   if (!Number.isFinite(riskPercent) || riskPercent <= 0 || riskPercent > 2) {
     throw new Error("Backtest riskPercent must be greater than zero and no more than 2.");
   }
-  if (candles.length < 61) {
-    throw new Error("Backtest requires at least 61 candles.");
+  if (candles.length < WARMUP_CANDLES + 1) {
+    throw new Error(`Backtest requires at least ${WARMUP_CANDLES + 1} candles.`);
   }
   for (let i = 1; i < candles.length; i += 1) {
     if (!(candles[i].time > candles[i - 1].time)) {
@@ -152,6 +206,8 @@ export function runBacktest(
 
   const trades: BacktestTrade[] = [];
   const warnings = [
+    "Setup filter requires London/New York session, aligned trend and momentum, liquidity sweep, MSS, premium/discount alignment, and a fresh nearby FVG/OB zone.",
+    "A six-candle cooldown is applied after each completed trade to reduce repeated entries from the same market move.",
     "When stop and target are both touched inside the same candle, the stop is assumed to trigger first (conservative intrabar ordering).",
     "This backtest models price movement but does not include broker commissions, financing, or spread unless already represented in the candle prices.",
     "Results are historical simulation outputs and do not establish future trading performance.",
@@ -165,10 +221,13 @@ export function runBacktest(
   let balance = initialBalance;
   let peak = initialBalance;
   let maxDrawdown = 0;
+  let lastEntryIndex = -Infinity;
 
-  for (let i = 60; i < candles.length - 1; i += 1) {
+  for (let i = WARMUP_CANDLES; i < candles.length - 1; i += 1) {
+    if (i - lastEntryIndex < COOLDOWN_CANDLES) continue;
+
     const setupCandles = candles.slice(0, i + 1);
-    const signalResult = signal(setupCandles);
+    const signalResult = setupSignal(setupCandles);
     const side = signalResult.side;
     if (!side) continue;
 
@@ -176,9 +235,9 @@ export function runBacktest(
     if (!tech.atr || !Number.isFinite(tech.atr)) continue;
 
     const entry = candles[i + 1].open;
-    const stopDistance = Math.max(tech.atr * 1.2, entry * 0.0012);
+    const stopDistance = Math.max(tech.atr * STOP_ATR_MULTIPLIER, entry * (MIN_STOP_PERCENT / 100));
     const stop = side === "LONG" ? entry - stopDistance : entry + stopDistance;
-    const target = side === "LONG" ? entry + stopDistance * 2 : entry - stopDistance * 2;
+    const target = side === "LONG" ? entry + stopDistance * REWARD_RISK : entry - stopDistance * REWARD_RISK;
     const riskDollars = balance * (riskPercent / 100);
     const quantity = Number((riskDollars / stopDistance).toFixed(4));
     if (!(quantity > 0)) continue;
@@ -191,8 +250,6 @@ export function runBacktest(
       const stopHit = side === "LONG" ? bar.low <= stop : bar.high >= stop;
       const targetHit = side === "LONG" ? bar.high >= target : bar.low <= target;
       if (stopHit || targetHit) {
-        // OHLC candles do not reveal the intrabar order of stop/target touches.
-        // Use the conservative assumption when both are touched.
         reason = stopHit ? "STOP" : "TARGET";
         exit = stopHit ? stop : target;
         exitIndex = j;
@@ -206,10 +263,11 @@ export function runBacktest(
     balance += pnl;
     peak = Math.max(peak, balance);
     maxDrawdown = Math.max(maxDrawdown, peak > 0 ? ((peak - balance) / peak) * 100 : 0);
+    lastEntryIndex = i;
 
     const exitReason =
       reason === "TARGET"
-        ? "Take-profit target reached at 2R."
+        ? `Take-profit target reached at ${REWARD_RISK}R.`
         : reason === "STOP"
           ? "Stop-loss level reached before target."
           : "Historical data ended before target or stop was reached.";
@@ -260,10 +318,20 @@ export function runBacktest(
     trades,
     config: {
       riskPercent,
-      rewardRisk: 2,
-      minimumWarmupCandles: 60,
-      stopAtrMultiplier: 1.2,
-      minimumStopPercent: 0.12,
+      rewardRisk: REWARD_RISK,
+      minimumWarmupCandles: WARMUP_CANDLES,
+      stopAtrMultiplier: STOP_ATR_MULTIPLIER,
+      minimumStopPercent: MIN_STOP_PERCENT,
+      sessionFilter: "LONDON_NEW_YORK",
+      requireLiquiditySweep: true,
+      requireMarketStructureShift: true,
+      requireFreshFvgOrOrderBlock: true,
+      requirePremiumDiscountAlignment: true,
+      requireMomentumAlignment: true,
+      minimumSetupBodyAtr: MIN_SETUP_BODY_ATR,
+      maxZoneAgeCandles: MAX_ZONE_AGE_CANDLES,
+      zoneProximityAtr: ZONE_PROXIMITY_ATR,
+      cooldownCandles: COOLDOWN_CANDLES,
       dataDriven: true,
     },
     ...analytics(trades, equityCurve, profitFactor),
