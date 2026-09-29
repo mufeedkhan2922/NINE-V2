@@ -585,6 +585,7 @@ export function runBacktest(
     "Directional continuation setups use causal 15-minute and 1-hour confirmation; reversal setups require explicit liquidity rejection and remain separately gated.",
     "At most two trades are allowed per London or New York session per UTC calendar day, with a six-candle cooldown between completed trades.",
     "A six-candle cooldown is applied after each completed trade to reduce repeated entries from the same market move.",
+    "Sweep-reversal stops are anchored beyond the confirmed sweep wick with a small ATR buffer; other setups use ATR/minimum-distance stops.",
     "When stop and target are both touched inside the same candle, the stop is assumed to trigger first (conservative intrabar ordering).",
     "This backtest models price movement but does not include broker commissions, financing, or spread unless already represented in the candle prices.",
     "Results are historical simulation outputs and do not establish future trading performance.",
@@ -618,7 +619,16 @@ export function runBacktest(
     if (!tech.atr || !Number.isFinite(tech.atr)) continue;
 
     const entry = candles[i + 1].open;
-    const stopDistance = Math.max(tech.atr * STOP_ATR_MULTIPLIER, entry * (MIN_STOP_PERCENT / 100));
+    const setupCandle = setupCandles.at(-1)!;
+    const sweepSetup = /sweep reversal/i.test(signalResult.reason);
+    const structuralStop = sweepSetup
+      ? side === "LONG"
+        ? setupCandle.low - tech.atr * 0.1
+        : setupCandle.high + tech.atr * 0.1
+      : null;
+    const atrStopDistance = Math.max(tech.atr * STOP_ATR_MULTIPLIER, entry * (MIN_STOP_PERCENT / 100));
+    const structuralStopDistance = structuralStop === null ? 0 : Math.abs(entry - structuralStop);
+    const stopDistance = Math.max(atrStopDistance, structuralStopDistance);
     const stop = side === "LONG" ? entry - stopDistance : entry + stopDistance;
     const rewardRisk = signalResult.rewardRisk;
     const target = side === "LONG" ? entry + stopDistance * rewardRisk : entry - stopDistance * rewardRisk;
