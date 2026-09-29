@@ -224,7 +224,7 @@ function scoreStrategy(strategy: StrategyDefinition, market: MarketSnapshot, can
     reasons.push(`Evidence de-duplication: ${matchedConcepts.length - independentConcepts.length} correlated signal(s) discounted.`);
     score -= Math.min(4, matchedConcepts.length - independentConcepts.length);
   }
-  const causal = getCausalDecision(market, strategy.name, direction === "NONE" ? "LONG" : direction, independentConcepts);
+  const causal = direction === "NONE" ? { blocked: false, adjustment: 0, confidence: 0, observations: 0, reason: "No directional side available for causal gating.", failureModes: [] } : getCausalDecision(market, strategy.name, direction, independentConcepts);
   if (causal.adjustment !== 0) {
     score += causal.adjustment;
     reasons.push(`Causal failure memory adjustment ${causal.adjustment.toFixed(2)} across ${causal.observations} historical observations.`);
