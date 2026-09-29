@@ -59,7 +59,7 @@ export function evaluatePolicyGovernance(policyName:string):DecisionGovernance{
 export function registerPolicyVersion(policyName:string,version:number,config:Record<string,unknown>,status:PolicyStatus="SHADOW",parentId:string|null=null){
   const id=createHash("sha256").update([policyName,version,JSON.stringify(config)].join("|")).digest("hex").slice(0,24);
   db.prepare("INSERT OR REPLACE INTO decision_policy_versions (id,policy_name,version,status,config_json,parent_id,train_observations,oos_observations,oos_delta,confidence,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)")
-    .run(id,policyName,version,JSON.stringify(config),parentId??null,0,0,0,0,Date.now());
+    .run(id,policyName,version,status,JSON.stringify(config),parentId??null,0,0,0,0,Date.now());
   return id;
 }
 export function promotePolicy(
