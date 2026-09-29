@@ -1,0 +1,35 @@
+name: NINE XAUUSD 0.01-Lot Backtest
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "scripts/run-xauusd-backtest.ts"
+      - ".github/workflows/xauusd-backtest.yml"
+  workflow_dispatch:
+
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      TWELVE_DATA_API_KEY: ${{ secrets.TWELVE_DATA_API_KEY }}
+      NINE_BACKTEST_START: "2026-09-15"
+      NINE_BACKTEST_END: "2026-09-29"
+      NINE_BACKTEST_INITIAL_BALANCE: "10000"
+      NINE_BACKTEST_LOTS: "0.01"
+      NINE_XAUUSD_CONTRACT_SIZE_OZ: "100"
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Run NINE backtest
+        run: npx --yes tsx@4.20.5 scripts/run-xauusd-backtest.ts
+      - name: Upload backtest results
+        uses: actions/upload-artifact@v4
+        with:
+          name: nine-xauusd-backtest-0.01lot
+          path: artifacts/
