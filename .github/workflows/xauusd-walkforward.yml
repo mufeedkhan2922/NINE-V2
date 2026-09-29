@@ -1,0 +1,57 @@
+name: NINE XAUUSD Walk-Forward Validation
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "scripts/run-xauusd-walkforward.ts"
+      - "lib/trading/backtest.ts"
+      - "lib/trading/technical.ts"
+      - "lib/trading/smc.ts"
+      - "lib/trading/types.ts"
+      - "lib/trading/provider.ts"
+      - ".github/workflows/xauusd-walkforward.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  walkforward:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      TWELVE_DATA_API_KEY: ${{ secrets.TWELVE_DATA_API_KEY }}
+      NINE_WF_START: "2026-08-01"
+      NINE_WF_END: "2026-09-29"
+      NINE_WF_TRAIN_DAYS: "14"
+      NINE_WF_TEST_DAYS: "7"
+      NINE_WF_STEP_DAYS: "7"
+      NINE_BACKTEST_INITIAL_BALANCE: "10000"
+      NINE_BACKTEST_LOTS: "0.01"
+      NINE_XAUUSD_CONTRACT_SIZE_OZ: "100"
+      NINE_BACKTEST_CHUNK_DAYS: "10"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run XAUUSD walk-forward validation
+        run: npx --yes tsx@4.20.5 scripts/run-xauusd-walkforward.ts
+
+      - name: Upload walk-forward artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: xauusd-walkforward
+          path: |
+            artifacts/xauusd-walkforward.json
+            artifacts/xauusd-walkforward.md
