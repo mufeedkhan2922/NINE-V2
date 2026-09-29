@@ -717,6 +717,7 @@ export function runBacktest(
       maxTradesPerSessionDay: MAX_TRADES_PER_SESSION_DAY,
       minimumWarmupCandles: WARMUP_CANDLES,
       stopAtrMultiplier: STOP_ATR_MULTIPLIER,
+      sweepStopMode: "SWEEP_WICK_PLUS_0.1_ATR",
       minimumStopPercent: MIN_STOP_PERCENT,
       sessionFilter: "LONDON_NEW_YORK",
       requireLiquiditySweep: false,
