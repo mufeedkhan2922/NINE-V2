@@ -323,7 +323,8 @@ export function getStrategyEvolutionAdjustment(
        WHERE symbol=? AND base_strategy_id=?
          AND (session=? OR session='ALL')
          AND (regime=? OR regime='ALL')
-       ORDER BY updated_at DESC`,
+       ORDER BY CASE status WHEN 'ACTIVE' THEN 0 WHEN 'SHADOW' THEN 1 WHEN 'CANDIDATE' THEN 2 ELSE 3 END,
+                robustness_score DESC, updated_at DESC`,
     ).all(market.symbol, strategyId, session, regime) as Array<{
       variant_id: string; status: EvolutionStatus; robustness_score: number;
       expectancy_r: number; win_rate_lower_95: number; consecutive_bad_windows: number;
@@ -340,7 +341,7 @@ export function getStrategyEvolutionAdjustment(
     const mutation = JSON.parse(selected.mutation_json) as StrategyMutation;
     if (selected.status === "RETIRED") {
       return {
-        scoreBias: -12,
+        scoreBias: -60,
         minimumScoreDelta: 15,
         status: "RETIRED",
         reason: selected.reason,
@@ -349,10 +350,10 @@ export function getStrategyEvolutionAdjustment(
     }
     if (selected.status === "SHADOW") {
       return {
-        scoreBias: Math.min(4, mutation.scoreBias),
-        minimumScoreDelta: Math.max(4, mutation.minimumScoreDelta),
+        scoreBias: 0,
+        minimumScoreDelta: 0,
         status: "SHADOW",
-        reason: selected.reason,
+        reason: "Shadow strategy is observed only; it cannot improve executable selection.",
         variantId: selected.variant_id,
       };
     }
