@@ -1,7 +1,7 @@
 import { calibrateConfidence, detectConceptDrift, proposeSelfCorrection, rollingCalibration, rollingPerformance } from "../lib/trading/adaptiveCalibration";
 
 export function runAdaptiveCalibrationTest(): void {
-  const observations = Array.from({length:100}, (_,i)=>({predictedConfidence:0.7 + (i%5)*0.01, outcome:(i%10)<8?1:0 as 0|1}));
+  const observations = Array.from({length:100}, (_,i)=>({predictedConfidence:0.7 + (i%5)*0.01, outcome:((i%10)<8 ? 1 : 0) as 0|1}));
   const report = rollingCalibration(observations, 100);
   if (report.observations !== 100) throw new Error("rolling calibration sample mismatch");
   if (report.actualRate <= 0.7) throw new Error("calibration actual rate missing");
