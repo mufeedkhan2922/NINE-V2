@@ -642,7 +642,7 @@ export function runBacktest(
     const quantity = Number((riskDollars / stopDistance).toFixed(4));
     if (!(quantity > 0)) continue;
 
-    let exit = candles[i + 1].close;
+    let exit = nextCandle.close;
     let reason: BacktestTrade["reason"] = "END";
     let exitIndex = i + 1;
     for (let j = i + 1; j < candles.length; j += 1) {
