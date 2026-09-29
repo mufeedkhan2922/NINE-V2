@@ -1,6 +1,6 @@
 {
   "name": "nine-app",
-  "version": "0.5.18",
+  "version": "0.5.19",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -12,7 +12,8 @@
     "research:xauusd:learning": "npx tsx@4.20.5 scripts/run-xauusd-learning.ts",
     "research:xauusd:walkforward": "npx tsx@4.20.5 scripts/run-xauusd-walkforward.ts",
     "research:xauusd:closed-loop": "npx tsx@4.20.5 scripts/run-xauusd-closed-loop.ts",
-    "research:xauusd:evolution": "npx tsx@4.20.5 scripts/run-xauusd-evolution.ts"
+    "research:xauusd:evolution": "npx tsx@4.20.5 scripts/run-xauusd-evolution.ts",
+    "research:xauusd:regime": "npx tsx@4.20.5 scripts/run-xauusd-regime.ts"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.8",
