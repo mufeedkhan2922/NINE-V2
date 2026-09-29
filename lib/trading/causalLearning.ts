@@ -133,7 +133,7 @@ export function evaluateCounterfactualsForTrade(trade:BacktestTrade,candles:Cand
 
 export function persistCounterfactual(symbol:string,result:CounterfactualResult,side:"LONG"|"SHORT",source="XAUUSD_CAUSAL"):void {
   db.prepare("INSERT INTO counterfactual_results (id,symbol,entry_time,side,outcome,hypothetical_pnl,max_favorable_r,max_adverse_r,horizon_candles,source,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)")
-    .run(createHash("sha256").update([symbol,result.tradeId,result.outcome,String(Date.now())].join("|")).digest("hex").slice(0,24),symbol,Number(result.tradeId),side,result.hypotheticalOutcome,result.hypotheticalPnl,result.maxFavorableR,result.maxAdverseR,result.horizonCandles,source,Date.now());
+    .run(createHash("sha256").update([symbol,result.tradeId,result.hypotheticalOutcome,String(Date.now())].join("|")).digest("hex").slice(0,24),symbol,Number(result.tradeId),side,result.hypotheticalOutcome,result.hypotheticalPnl,result.maxFavorableR,result.maxAdverseR,result.horizonCandles,source,Date.now());
 }
 
 export function causalResearchSummary(symbol="XAUUSD"){
