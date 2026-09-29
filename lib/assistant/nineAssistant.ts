@@ -78,6 +78,7 @@ function classify(input: string): AssistantIntent {
   const q = input.toLowerCase().trim();
   if (!q) return "GENERAL_CHAT";
   if (/\b(help|what can you do|commands|capabilities)\b/.test(q)) return "HELP";
+  if (/^(cancel|cancel action|abort)$/i.test(q)) return "TRADE_ACTION";
   if (/\b(open position|open trade|positions|position)\b/.test(q)) return "OPEN_POSITIONS";
   if (/\b(performance|p&l|pnl|profit|loss|win rate|winrate|paper performance)\b/.test(q)) return "PAPER_PERFORMANCE";
   if (/\b(risk|drawdown|exposure|risk status|sentinel)\b/.test(q)) return "RISK_STATUS";
