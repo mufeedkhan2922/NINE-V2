@@ -1,7 +1,7 @@
 name: NINE XAUUSD 0.01-Lot Backtest
 concurrency:
   group: nine-xauusd-provider-validation
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 
 on:
