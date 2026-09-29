@@ -175,12 +175,10 @@ export function runBacktest(
 
   const trades: BacktestTrade[] = [];
   const warnings = [
-    "Setup filter requires London/New York session, aligned trend and momentum, liquidity sweep, MSS, premium/discount alignment, and a fresh nearby FVG/OB zone.",
-    "A six-candle cooldown is applied after each completed trade to reduce repeated entries from the same market move.",
-    "When stop and target are both touched inside the same candle, the stop is assumed to trigger first (conservative intrabar ordering).",
-    "Setup filter requires London/New York session, aligned trend and momentum, a directional sweep or MSS/CHoCH trigger, and a decisive setup candle; fresh FVG/OB and premium/discount are recorded as confirmations.",
+    "Setup filter requires London/New York session, aligned trend and momentum, a directional sweep or MSS/CHoCH trigger, and a decisive setup candle; FVG/OB and premium/discount are confirmation telemetry rather than mandatory gates.",
     "At most one trade is allowed per London or New York session per UTC calendar day to reduce repeated entries from the same directional move.",
     "A six-candle cooldown is applied after each completed trade to reduce repeated entries from the same market move.",
+    "When stop and target are both touched inside the same candle, the stop is assumed to trigger first (conservative intrabar ordering).",
     "This backtest models price movement but does not include broker commissions, financing, or spread unless already represented in the candle prices.",
     "Results are historical simulation outputs and do not establish future trading performance.",
   ];
