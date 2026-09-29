@@ -14,11 +14,12 @@ on:
 jobs:
   backtest:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     env:
       TWELVE_DATA_API_KEY: ${{ secrets.TWELVE_DATA_API_KEY }}
-      NINE_BACKTEST_START: "2026-09-15"
+      NINE_BACKTEST_START: "2026-08-01"
       NINE_BACKTEST_END: "2026-09-29"
+      NINE_BACKTEST_CHUNK_DAYS: "10"
       NINE_BACKTEST_INITIAL_BALANCE: "10000"
       NINE_BACKTEST_LOTS: "0.01"
       NINE_XAUUSD_CONTRACT_SIZE_OZ: "100"
