@@ -124,6 +124,7 @@ export interface BacktestResearch {
 export interface BacktestOptions {
   research?: BacktestResearch;
   regimePolicyMode?: "OFF" | "SHADOW" | "BLOCK";
+  useClosedLoopLearning?: boolean;
 }
 
 function utcDayKey(timestamp: number): string {
