@@ -469,6 +469,83 @@ CREATE TABLE IF NOT EXISTS calibration_corrections (
 CREATE INDEX IF NOT EXISTS calibration_corrections_lookup_idx
 ON calibration_corrections(symbol,strategy_id,status,created_at DESC);
 
+CREATE TABLE IF NOT EXISTS decision_policy_versions (
+  id TEXT PRIMARY KEY,
+  policy_name TEXT NOT NULL,
+  version INTEGER NOT NULL,
+  status TEXT NOT NULL,
+  config_json TEXT NOT NULL,
+  parent_id TEXT,
+  train_observations INTEGER NOT NULL,
+  oos_observations INTEGER NOT NULL,
+  oos_delta REAL NOT NULL,
+  confidence REAL NOT NULL,
+  created_at INTEGER NOT NULL,
+  activated_at INTEGER,
+  retired_at INTEGER
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS decision_policy_version_idx
+ON decision_policy_versions(policy_name,version);
+
+CREATE TABLE IF NOT EXISTS decision_experiments (
+  id TEXT PRIMARY KEY,
+  policy_name TEXT NOT NULL,
+  baseline_version INTEGER NOT NULL,
+  candidate_version INTEGER NOT NULL,
+  symbol TEXT NOT NULL,
+  session TEXT NOT NULL,
+  regime TEXT NOT NULL,
+  observations INTEGER NOT NULL,
+  baseline_score REAL NOT NULL,
+  candidate_score REAL NOT NULL,
+  delta REAL NOT NULL,
+  confidence REAL NOT NULL,
+  status TEXT NOT NULL,
+  started_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS decision_experiments_lookup_idx
+ON decision_experiments(policy_name,symbol,session,regime,status,updated_at DESC);
+
+CREATE TABLE IF NOT EXISTS decision_trace (
+  id TEXT PRIMARY KEY,
+  symbol TEXT NOT NULL,
+  strategy_id TEXT NOT NULL,
+  session TEXT NOT NULL,
+  regime TEXT NOT NULL,
+  direction TEXT NOT NULL,
+  policy_version INTEGER NOT NULL,
+  raw_score REAL NOT NULL,
+  calibrated_score REAL NOT NULL,
+  confidence REAL NOT NULL,
+  uncertainty REAL NOT NULL,
+  evidence_json TEXT NOT NULL,
+  blockers_json TEXT NOT NULL,
+  sentinel_required INTEGER NOT NULL DEFAULT 1,
+  sentinel_approved INTEGER NOT NULL DEFAULT 0,
+  outcome TEXT,
+  created_at INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS decision_trace_lookup_idx
+ON decision_trace(symbol,strategy_id,session,regime,created_at DESC);
+
+CREATE TABLE IF NOT EXISTS policy_promotions (
+  id TEXT PRIMARY KEY,
+  policy_name TEXT NOT NULL,
+  from_version INTEGER NOT NULL,
+  to_version INTEGER NOT NULL,
+  train_observations INTEGER NOT NULL,
+  oos_observations INTEGER NOT NULL,
+  oos_delta REAL NOT NULL,
+  confidence REAL NOT NULL,
+  reason TEXT NOT NULL,
+  status TEXT NOT NULL,
+  created_at INTEGER NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS kronos_calibration_forecasts (
   id TEXT PRIMARY KEY,
   symbol TEXT NOT NULL,
