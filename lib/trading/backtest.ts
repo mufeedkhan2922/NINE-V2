@@ -160,7 +160,11 @@ function averageRange(candles: Candle[], lookback: number): number {
 function setupSignal(candles: Candle[]): { side: "LONG" | "SHORT" | null; reason: string; rewardRisk: number } {
   const tech = analyzeTechnicals(candles);
   const smc = analyzeSMC(candles);
+  const chartist = smc.chartist;
   const current = candles.at(-1);
+  if (!chartist) {
+    return { side: null, reason: "Chartist analysis unavailable", rewardRisk: REWARD_RISK };
+  }
   if (!current || !tech.atr || !Number.isFinite(tech.atr)) {
     return { side: null, reason: "Insufficient setup data", rewardRisk: REWARD_RISK };
   }
@@ -169,7 +173,7 @@ function setupSignal(candles: Candle[]): { side: "LONG" | "SHORT" | null; reason
     return { side: null, reason: "Weekend candle excluded", rewardRisk: REWARD_RISK };
   }
 
-  const session = smc.chartist.session;
+  const session = chartist.session;
   if (session !== "LONDON" && session !== "NEW_YORK") {
     return { side: null, reason: "Outside London/New York trading session", rewardRisk: REWARD_RISK };
   }
@@ -230,7 +234,7 @@ function setupSignal(candles: Candle[]): { side: "LONG" | "SHORT" | null; reason
   const orbLong = opening.complete && opening.high !== null && current.close > opening.high && bodyAtr >= 0.55;
   const orbShort = opening.complete && opening.low !== null && current.close < opening.low && bodyAtr >= 0.55;
 
-  const latestFvg = smc.chartist.fairValueGaps.at(-1);
+  const latestFvg = chartist.fairValueGaps.at(-1);
   const fvgLong = Boolean(
     latestFvg?.direction === "LONG" &&
     current.low <= latestFvg.high &&
@@ -244,7 +248,7 @@ function setupSignal(candles: Candle[]): { side: "LONG" | "SHORT" | null; reason
     current.close < current.open,
   );
 
-  const latestOb = smc.chartist.orderBlocks.at(-1);
+  const latestOb = chartist.orderBlocks.at(-1);
   const obLong = Boolean(
     latestOb?.direction === "LONG" &&
     current.low <= latestOb.high &&
@@ -618,7 +622,9 @@ export function runBacktest(
     const tech = analyzeTechnicals(setupCandles);
     if (!tech.atr || !Number.isFinite(tech.atr)) continue;
 
-    const entry = candles[i + 1].open;
+    const nextCandle = candles[i + 1];
+    if (!nextCandle) continue;
+    const entry = nextCandle.open;
     const setupCandle = setupCandles.at(-1)!;
     const sweepSetup = /sweep reversal/i.test(signalResult.reason);
     const structuralStop = sweepSetup
@@ -671,7 +677,7 @@ export function runBacktest(
       id: `BT-${i}-${exitIndex}`,
       index: i,
       side,
-      entryTime: candles[i + 1].time,
+      entryTime: nextCandle.time,
       exitTime: candles[exitIndex].time,
       entryPrice: entry,
       exitPrice: exit,
