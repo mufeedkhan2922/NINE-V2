@@ -103,6 +103,26 @@ type StrategyCandidate = {
   reason: string;
 };
 
+export interface RejectedSignal {
+  index: number;
+  entryTime: number;
+  side: "LONG" | "SHORT";
+  entryPrice: number;
+  stopLoss: number;
+  takeProfit: number;
+  rewardRisk: number;
+  entryReason: string;
+  rejectionReason: string;
+}
+
+export interface BacktestResearch {
+  rejectedSignals: RejectedSignal[];
+}
+
+export interface BacktestOptions {
+  research?: BacktestResearch;
+}
+
 function utcDayKey(timestamp: number): string {
   return new Date(timestamp).toISOString().slice(0, 10);
 }
@@ -510,7 +530,6 @@ function analytics(
   equityCurve: BacktestEquityPoint[],
   profitFactor: number,
 ): BacktestAnalytics {
-  try { rememberBacktestLosses(trades, candles, "XAUUSD"); } catch { /* persistent research memory must never break the run */ }
 
   const wins = trades.filter((t) => t.pnl > 0);
   const losses = trades.filter((t) => t.pnl < 0);
@@ -580,6 +599,7 @@ export function runBacktest(
   riskPercent = 0.5,
   adaptiveLossFilter?: AdaptiveLossFilter,
   usePersistentLessons = true,
+  options: BacktestOptions = {},
 ): BacktestResult {
   if (!Number.isFinite(initialBalance) || initialBalance <= 0) {
     throw new Error("Backtest initialBalance must be greater than zero.");
@@ -597,6 +617,7 @@ export function runBacktest(
   }
 
   const trades: BacktestTrade[] = [];
+  const research = options.research;
   const warnings = [
     "Advanced ensemble setup engine evaluates previous-day liquidity sweeps, Asia-range sweeps, opening-range breakouts, breakout-retests, FVG/OB retests, volatility expansion, EMA pullbacks, breakouts, and mean-reversion.",
     "Technical confluence includes EMA 9/21/50/200, RSI(14), MACD(12/26/9), ADX(14), Bollinger Bands(20,2), Stochastic(14), ATR and SMC.",
@@ -606,7 +627,8 @@ export function runBacktest(
     "Sweep-reversal stops are anchored beyond the confirmed sweep wick with a small ATR buffer; other setups use ATR/minimum-distance stops.",
     "When stop and target are both touched inside the same candle, the stop is assumed to trigger first (conservative intrabar ordering).",
     "This backtest models price movement but does not include broker commissions, financing, or spread unless already represented in the candle prices.",
-    "Results are historical simulation outputs and do not establish future trading performance.",\n    adaptiveLossFilter\n      ? `Adaptive loss filter ${adaptiveLossFilter.version} is active: only statistically rejected setup families are blocked; insufficient samples remain neutral.`\n      : "No adaptive loss filter is active; this run is the unfiltered baseline.",
+    "Results are historical simulation outputs and do not establish future trading performance.",
+    adaptiveLossFilter\n      ? `Adaptive loss filter ${adaptiveLossFilter.version} is active: only statistically rejected setup families are blocked; insufficient samples remain neutral.`\n      : "No adaptive loss filter is active; this run is the unfiltered baseline.",
   ];
   const equityCurve: BacktestEquityPoint[] = [{
     trade: 0,
@@ -628,38 +650,64 @@ export function runBacktest(
     const side = signalResult.side;
     if (!side) continue;
 
-    const adaptiveDecision = adaptiveLossFilter?.isBlocked(signalResult.reason);
-    if (adaptiveDecision?.blocked) continue;
-
     const currentSetup = setupCandles.at(-1)!;
+    const nextCandle = candles[i + 1];
+    if (!nextCandle) continue;
+
+    const tech = analyzeTechnicals(setupCandles);
+    if (!tech.atr || !Number.isFinite(tech.atr)) continue;
+
+    const entry = nextCandle.open;
+    const sweepSetup = /sweep reversal/i.test(signalResult.reason);
+    const structuralStop = sweepSetup
+      ? side === "LONG"
+        ? currentSetup.low - tech.atr * 0.1
+        : currentSetup.high + tech.atr * 0.1
+      : null;
+    const atrStopDistance = Math.max(tech.atr * STOP_ATR_MULTIPLIER, entry * (MIN_STOP_PERCENT / 100));
+    const structuralStopDistance = structuralStop === null ? 0 : Math.abs(entry - structuralStop);
+    const stopDistance = Math.max(atrStopDistance, structuralStopDistance);
+    const stop = side === "LONG" ? entry - stopDistance : entry + stopDistance;
+    const target = side === "LONG"
+      ? entry + stopDistance * signalResult.rewardRisk
+      : entry - stopDistance * signalResult.rewardRisk;
+
+    const recordRejected = (rejectionReason: string) => {
+      research?.rejectedSignals.push({
+        index: i,
+        entryTime: nextCandle.time,
+        side,
+        entryPrice: entry,
+        stopLoss: stop,
+        takeProfit: target,
+        rewardRisk: signalResult.rewardRisk,
+        entryReason: signalResult.reason,
+        rejectionReason,
+      });
+    };
+
+    const adaptiveDecision = adaptiveLossFilter?.isBlocked(signalResult.reason);
+    if (adaptiveDecision?.blocked) {
+      recordRejected("ADAPTIVE_LOSS_FILTER: " + adaptiveDecision.reason);
+      continue;
+    }
+
     const persistentParts = signalResult.reason.split(";");
     const persistentStrategy = persistentParts[1]?.trim().replace(/^(LONG|SHORT)\s+/i, "").trim() || "UNKNOWN_SETUP";
-    if (usePersistentLessons) {\n      const persistentLesson = getLessonDecision("XAUUSD", persistentStrategy, currentSetupSession(currentSetup), side);\n      if (persistentLesson.blocked) continue;\n    }
+    if (usePersistentLessons) {
+      const persistentLesson = getLessonDecision("XAUUSD", persistentStrategy, currentSetupSession(currentSetup), side);
+      if (persistentLesson.blocked) {
+        recordRejected("PERSISTENT_LESSON: " + persistentLesson.reason);
+        continue;
+      }
+    }
     const currentChartist = analyzeSMC(setupCandles).chartist;
     const currentSession = currentChartist?.session;
     if (currentSession !== "LONDON" && currentSession !== "NEW_YORK") continue;
     const sessionKey = `${new Date(currentSetup.time).toISOString().slice(0, 10)}-${currentSession}`;
     if ((sessionTradeCounts.get(sessionKey) ?? 0) >= MAX_TRADES_PER_SESSION_DAY) continue;
 
-    const tech = analyzeTechnicals(setupCandles);
-    if (!tech.atr || !Number.isFinite(tech.atr)) continue;
-
-    const nextCandle = candles[i + 1];
-    if (!nextCandle) continue;
-    const entry = nextCandle.open;
-    const setupCandle = setupCandles.at(-1)!;
-    const sweepSetup = /sweep reversal/i.test(signalResult.reason);
-    const structuralStop = sweepSetup
-      ? side === "LONG"
-        ? setupCandle.low - tech.atr * 0.1
-        : setupCandle.high + tech.atr * 0.1
-      : null;
-    const atrStopDistance = Math.max(tech.atr * STOP_ATR_MULTIPLIER, entry * (MIN_STOP_PERCENT / 100));
-    const structuralStopDistance = structuralStop === null ? 0 : Math.abs(entry - structuralStop);
-    const stopDistance = Math.max(atrStopDistance, structuralStopDistance);
-    const stop = side === "LONG" ? entry - stopDistance : entry + stopDistance;
     const rewardRisk = signalResult.rewardRisk;
-    const target = side === "LONG" ? entry + stopDistance * rewardRisk : entry - stopDistance * rewardRisk;
     const riskDollars = balance * (riskPercent / 100);
     const quantity = Number((riskDollars / stopDistance).toFixed(4));
     if (!(quantity > 0)) continue;
@@ -729,6 +777,14 @@ export function runBacktest(
   const grossLoss = Math.abs(losses.reduce((s, t) => s + t.pnl, 0));
   const profitFactor = grossLoss ? grossWin / grossLoss : wins.length ? Number.POSITIVE_INFINITY : 0;
 
+  if (usePersistentLessons) {
+    try {
+      rememberBacktestLosses(trades, candles, "XAUUSD");
+    } catch {
+      // Persistent research memory must never break a backtest.
+    }
+  }
+
   return {
     initialBalance,
     finalBalance: balance,
@@ -759,7 +815,8 @@ export function runBacktest(
       maxZoneAgeCandles: MAX_ZONE_AGE_CANDLES,
       zoneProximityAtr: ZONE_PROXIMITY_ATR,
       cooldownCandles: COOLDOWN_CANDLES,
-      dataDriven: true,\n      adaptiveLossFilter: adaptiveLossFilter ? "STATISTICAL_PRIOR_LOSS_FILTER" : "OFF",\n      adaptiveLossFilterVersion: adaptiveLossFilter?.version ?? "—",\n      adaptiveMinimumTrades: adaptiveLossFilter?.minimumTrades ?? 0,\n      adaptiveBlockedSetupFamilies: adaptiveLossFilter?.blockedKeys.length ?? 0,
+      dataDriven: true,
+      adaptiveLossFilter: adaptiveLossFilter ? "STATISTICAL_PRIOR_LOSS_FILTER" : "OFF",\n      adaptiveLossFilterVersion: adaptiveLossFilter?.version ?? "—",\n      adaptiveMinimumTrades: adaptiveLossFilter?.minimumTrades ?? 0,\n      adaptiveBlockedSetupFamilies: adaptiveLossFilter?.blockedKeys.length ?? 0,
     },
     ...analytics(trades, equityCurve, profitFactor),
     warnings,
