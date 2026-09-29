@@ -3,6 +3,8 @@ import { analyzeTechnicals } from "./technical";
 import { NINE_STRATEGIES, type StrategyDefinition } from "./strategyLibrary";
 import { getStrategyMemoryWeight } from "./strategyMemory";
 import { getStrategyEvolutionAdjustment } from "./strategyEvolution";
+import { buildRegimeIntelligence } from "./regimeIntelligence";
+import { routeStrategyByRegime } from "./regimeRouter";
 import type { Candle, MarketSnapshot, TradeDirection } from "./types";
 
 export interface StrategyCandidate {
@@ -100,6 +102,8 @@ function scoreStrategy(strategy: StrategyDefinition, market: MarketSnapshot, can
   const rangeLow = range20.length ? Math.min(...range20.map((c) => c.low)) : null;
   const trendDirection: TradeDirection = tech.trend === "BULLISH" ? "LONG" : tech.trend === "BEARISH" ? "SHORT" : "NONE";
   const regime = evaluateRegime(candles, tech.trend);
+  const regimeIntel = buildRegimeIntelligence(market.symbol, candles);
+  const route = routeStrategyByRegime(market, strategy, regimeIntel.features.regime);
   const memory = useMemory ? getStrategyMemoryWeight(market, strategy.id, session(last), regime) : { adjustment: 0, sampleTrades: 0, expectancyR: 0, winRate: 0, source: null };
   const evolution = getStrategyEvolutionAdjustment(market, strategy.id, session(last), regime);
   let direction: TradeDirection = trendDirection;
@@ -196,6 +200,19 @@ function scoreStrategy(strategy: StrategyDefinition, market: MarketSnapshot, can
     score += evolution.scoreBias;
     reasons.push(`Evolution ${evolution.status.toLowerCase()} adjustment ${evolution.scoreBias >= 0 ? "+" : ""}${evolution.scoreBias.toFixed(1)} (${evolution.variantId ?? "—"}).`);
     if (evolution.status === "RETIRED") blockers.push("Evolution engine retired this strategy pending re-validation.");
+  }
+
+  if (route.blocked) {
+    blockers.push(route.reason);
+  } else {
+    const routeAdjustment = Math.round((route.weight - 1) * 18);
+    score += routeAdjustment;
+    reasons.push(`Regime routing ${regimeIntel.features.regime}: family weight ${route.weight.toFixed(2)}.`);
+  }
+
+  if (regimeIntel.features.transition) {
+    score -= 3;
+    reasons.push(`Regime transition detected from ${regimeIntel.features.previousRegime ?? "UNKNOWN"} to ${regimeIntel.features.regime}; selection confidence reduced.`);
   }
 
   score = Math.max(0, Math.min(100, Math.round(score)));
