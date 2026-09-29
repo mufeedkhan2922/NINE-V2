@@ -2,6 +2,7 @@ import { analyzeSMC } from "./smc";
 import { analyzeTechnicals } from "./technical";
 import { NINE_STRATEGIES, type StrategyDefinition } from "./strategyLibrary";
 import { getStrategyMemoryWeight } from "./strategyMemory";
+import { getStrategyEvolutionAdjustment } from "./strategyEvolution";
 import type { Candle, MarketSnapshot, TradeDirection } from "./types";
 
 export interface StrategyCandidate {
@@ -100,6 +101,7 @@ function scoreStrategy(strategy: StrategyDefinition, market: MarketSnapshot, can
   const trendDirection: TradeDirection = tech.trend === "BULLISH" ? "LONG" : tech.trend === "BEARISH" ? "SHORT" : "NONE";
   const regime = evaluateRegime(candles, tech.trend);
   const memory = useMemory ? getStrategyMemoryWeight(market, strategy.id, session(last), regime) : { adjustment: 0, sampleTrades: 0, expectancyR: 0, winRate: 0, source: null };
+  const evolution = getStrategyEvolutionAdjustment(market, strategy.id, session(last), regime);
   let direction: TradeDirection = trendDirection;
   let score = 0;
   const matchedConcepts: string[] = [];
@@ -188,6 +190,12 @@ function scoreStrategy(strategy: StrategyDefinition, market: MarketSnapshot, can
   if (memory.sampleTrades > 0 && memory.adjustment !== 0) {
     score += memory.adjustment;
     reasons.push(`Historical memory adjustment ${memory.adjustment >= 0 ? "+" : ""}${memory.adjustment.toFixed(1)} from ${memory.sampleTrades} trades.`);
+  }
+
+  if (evolution.status !== "NONE") {
+    score += evolution.scoreBias;
+    reasons.push(`Evolution ${evolution.status.toLowerCase()} adjustment ${evolution.scoreBias >= 0 ? "+" : ""}${evolution.scoreBias.toFixed(1)} (${evolution.variantId ?? "—"}).`);
+    if (evolution.status === "RETIRED") blockers.push("Evolution engine retired this strategy pending re-validation.");
   }
 
   score = Math.max(0, Math.min(100, Math.round(score)));
