@@ -737,6 +737,8 @@ export function closePaperPosition(
       };
     }
 
+    updatePaperExcursion(position, marketPrice);
+
     const pnl =
       position.side === "BUY"
         ? (marketPrice -
