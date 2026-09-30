@@ -44,3 +44,50 @@ export function auditOosValidationWindow(
   }
   return { valid: true, reason: "Chronological OOS window is isolated after the training cutoff." };
 }
+
+
+export interface WalkForwardFoldWindow {
+  trainStartTime: number;
+  trainEndTime: number;
+  oosStartTime: number;
+  oosEndTime: number;
+}
+
+export interface WalkForwardAudit {
+  valid: boolean;
+  reason: string;
+  validFolds: number;
+}
+
+export function auditWalkForwardFolds(folds: WalkForwardFoldWindow[]): WalkForwardAudit {
+  if (!folds.length) {
+    return { valid: false, reason: "Walk-forward validation requires at least one fold.", validFolds: 0 };
+  }
+
+  let previousOosEnd = -Infinity;
+  for (let i = 0; i < folds.length; i += 1) {
+    const fold = folds[i]!;
+    if (![fold.trainStartTime, fold.trainEndTime, fold.oosStartTime, fold.oosEndTime].every(Number.isFinite)) {
+      return { valid: false, reason: `Fold ${i + 1} contains a non-finite timestamp.`, validFolds: i };
+    }
+    if (!(fold.trainStartTime < fold.trainEndTime)) {
+      return { valid: false, reason: `Fold ${i + 1} training window is invalid.`, validFolds: i };
+    }
+    if (!(fold.trainEndTime < fold.oosStartTime)) {
+      return { valid: false, reason: `Fold ${i + 1} training and OOS windows overlap.`, validFolds: i };
+    }
+    if (!(fold.oosStartTime < fold.oosEndTime)) {
+      return { valid: false, reason: `Fold ${i + 1} OOS window is invalid.`, validFolds: i };
+    }
+    if (fold.oosStartTime <= previousOosEnd) {
+      return { valid: false, reason: `Fold ${i + 1} OOS window overlaps a previous OOS window.`, validFolds: i };
+    }
+    previousOosEnd = fold.oosEndTime;
+  }
+
+  return {
+    valid: true,
+    reason: "Walk-forward folds are chronological with non-overlapping OOS evaluation windows.",
+    validFolds: folds.length,
+  };
+}
