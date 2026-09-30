@@ -45,6 +45,7 @@ import { runDecisionOutcomeTest } from "./decisionOutcome.test";
 import { runMistakePatternMiningTest } from "./mistakePatternMining.test";
 import { runMistakePreventionTest } from "./mistakePrevention.test";
 import { runCounterfactualReplayTest } from "./counterfactualReplay.test";
+import { runPaperOutcomeBridgeTest } from "./paperOutcomeBridge.test";
 
 const tests: Array<[string, () => void | Promise<void>]> = [
   ["technical", runTechnicalTest],
@@ -100,6 +101,7 @@ const tests: Array<[string, () => void | Promise<void>]> = [
   ["mistake pattern mining", runMistakePatternMiningTest],
   ["mistake prevention", runMistakePreventionTest],
   ["counterfactual replay", runCounterfactualReplayTest],
+  ["paper outcome learning bridge", runPaperOutcomeBridgeTest],
 ];
 
 async function main(): Promise<void> {
