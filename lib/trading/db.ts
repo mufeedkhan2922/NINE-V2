@@ -424,6 +424,35 @@ CREATE TABLE IF NOT EXISTS causal_failure_memory (
 CREATE UNIQUE INDEX IF NOT EXISTS causal_failure_key_idx
 ON causal_failure_memory(symbol,strategy,session,regime,side,failure_mode);
 
+
+CREATE TABLE IF NOT EXISTS mistake_patterns (
+  id TEXT PRIMARY KEY,
+  symbol TEXT NOT NULL,
+  session TEXT NOT NULL,
+  regime TEXT NOT NULL,
+  side TEXT NOT NULL,
+  failure_mode TEXT NOT NULL,
+  contexts INTEGER NOT NULL,
+  strategies INTEGER NOT NULL,
+  observations INTEGER NOT NULL,
+  failures INTEGER NOT NULL,
+  wins INTEGER NOT NULL,
+  failure_rate REAL NOT NULL,
+  failure_rate_lower_95 REAL NOT NULL,
+  expectancy_r REAL NOT NULL,
+  severity REAL NOT NULL,
+  confidence REAL NOT NULL,
+  status TEXT NOT NULL,
+  source TEXT NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS mistake_patterns_key_idx
+ON mistake_patterns(symbol,session,regime,side,failure_mode);
+
+CREATE INDEX IF NOT EXISTS mistake_patterns_lookup_idx
+ON mistake_patterns(symbol,session,regime,side,status,updated_at DESC);
+
 CREATE TABLE IF NOT EXISTS adaptive_calibration_memory (
   id TEXT PRIMARY KEY,
   symbol TEXT NOT NULL,
