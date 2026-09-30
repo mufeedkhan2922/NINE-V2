@@ -2,6 +2,7 @@ import { runBacktest } from "../lib/trading/backtest";
 import { Candle } from "../lib/trading/types";
 import * as assert from "./assert";
 import { auditOosValidationWindow, auditWalkForwardFolds } from "../lib/trading/statisticalValidation";
+import { db } from "../lib/trading/db";
 function candles(count = 220): Candle[] { return Array.from({ length: count }, (_, i) => { const close = 2300 + Math.sin(i / 8) * 5 + i * 0.25; return { time: i * 60000, open: close - 0.1, high: close + 1.1, low: close - 1.1, close }; }); }
 export function runBacktestTest() {
   const data = candles();
@@ -16,6 +17,23 @@ export function runBacktestTest() {
   });
   assert.ok(audit.valid, "OOS validation window should be valid");
 
+  const learningTables = [
+    "loss_memory",
+    "causal_failure_memory",
+    "counterfactual_results",
+    "counterfactual_learning_memory",
+    "rejection_quality_memory",
+    "decision_outcome_memory",
+    "mistake_patterns",
+    "rejection_governance_memory",
+  ];
+  const beforeCounts = new Map(
+    learningTables.map((table) => [
+      table,
+      Number((db.prepare(`SELECT COUNT(*) AS count FROM ${table}`).get() as { count: number }).count),
+    ]),
+  );
+
   const oos = runBacktest(data, 10000, 0.5, undefined, true, {
     validationMode: "OOS_ISOLATED",
     validationWindow: {
@@ -24,6 +42,10 @@ export function runBacktestTest() {
       oosEndTime: data[210]!.time,
     },
   });
+  for (const table of learningTables) {
+    const after = Number((db.prepare(`SELECT COUNT(*) AS count FROM ${table}`).get() as { count: number }).count);
+    assert.equal(after, beforeCounts.get(table), `OOS evaluation must not mutate ${table}`);
+  }
   assert.equal(oos.config.validationMode, "OOS_ISOLATED", "OOS isolation mode");
   assert.equal(oos.config.persistentLearningEnabled, false, "OOS mode must disable persistent learning");
   assert.equal(oos.config.closedLoopLearningEnabled, false, "OOS mode must disable closed-loop learning");
