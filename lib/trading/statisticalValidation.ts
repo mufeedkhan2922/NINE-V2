@@ -79,7 +79,7 @@ export function auditWalkForwardFolds(folds: WalkForwardFoldWindow[]): WalkForwa
     if (!(fold.oosStartTime < fold.oosEndTime)) {
       return { valid: false, reason: `Fold ${i + 1} OOS window is invalid.`, validFolds: i };
     }
-    if (fold.oosStartTime <= previousOosEnd) {
+    if (fold.oosStartTime < previousOosEnd) {
       return { valid: false, reason: `Fold ${i + 1} OOS window overlaps a previous OOS window.`, validFolds: i };
     }
     previousOosEnd = fold.oosEndTime;
