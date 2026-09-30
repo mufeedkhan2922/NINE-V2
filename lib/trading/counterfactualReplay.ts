@@ -192,7 +192,9 @@ export function replayRejectedTrade(trade: BacktestTrade, candles: Candle[], hor
     horizon,
   );
   const session = sessionOf(trade.entryTime);
-  const regime = regimeOf(candles);
+  const entryIndex = candles.findIndex((candle) => candle.time >= trade.entryTime);
+  const decisionCandles = entryIndex > 0 ? candles.slice(0, entryIndex) : candles.slice(0, Math.max(0, entryIndex));
+  const regime = regimeOf(decisionCandles);
   persistInsight(symbol, session, regime, trade.side, result);
   return {
     tradeId: result.tradeId,
