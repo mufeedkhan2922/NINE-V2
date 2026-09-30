@@ -5,7 +5,7 @@ const symbol = "XAUUSD";
 const summary = counterfactualReplaySummary(symbol);
 mkdirSync("artifacts",{recursive:true});
 writeFileSync("artifacts/xauusd-counterfactual-replay.json", JSON.stringify({
-  version:"0.5.30",
+  version:"0.5.32",
   symbol,
   generatedAt:new Date().toISOString(),
   summary,
