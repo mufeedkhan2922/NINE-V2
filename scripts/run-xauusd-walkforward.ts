@@ -4,7 +4,7 @@ import { runBacktest } from "../lib/trading/backtest";
 import { buildAdaptiveLossFilter } from "../lib/trading/adaptiveLossFilter";
 import type { BacktestTrade } from "../lib/trading/backtest";
 import type { Candle } from "../lib/trading/types";
-import { auditResearchIntegrity, auditMultipleTesting, auditParameterFreeOosEvaluation, bootstrapMeanInterval, buildReproducibilityHash, fingerprintCandles, type EmbargoedWalkForwardFoldWindow, type ResearchProvenance } from "../lib/trading/statisticalValidation";
+import { auditResearchIntegrity, auditMultipleTesting, auditParameterFreeOosEvaluation, auditWalkForwardFolds, bootstrapMeanInterval, buildReproducibilityHash, fingerprintCandles, type EmbargoedWalkForwardFoldWindow, type ResearchProvenance } from "../lib/trading/statisticalValidation";
 
 const START = process.env.NINE_WF_START ?? "2026-08-01";
 const END = process.env.NINE_WF_END ?? "2026-09-29";
@@ -144,6 +144,10 @@ function runWalkForward(candles: Candle[]) {
       testEnd: iso(testEnd),
       trainCandles: trainCandles.length,
       trainTrades: trainResult.trades.length,
+      trainStartTime: trainCandles[0]?.time ?? 0,
+      trainEndTime: trainCandles.at(-1)?.time ?? 0,
+      oosStartTime: testStartMs,
+      oosEndTime: testEndMs - 1,
       testCandles: Math.max(0, testEndIndex - testStartIndex),
       provenance: {
         trainStartTime: trainCandles[0]?.time ?? 0,
@@ -186,10 +190,11 @@ function runWalkForward(candles: Candle[]) {
   }
 
   const foldWindows: EmbargoedWalkForwardFoldWindow[] = folds.map((fold) => ({
-    trainStartTime: new Date(String(fold.trainStart) + "T00:00:00Z").getTime(),
-    trainEndTime: new Date(String(fold.testStart) + "T00:00:00Z").getTime() - 1,
-    oosStartTime: new Date(String(fold.testStart) + "T00:00:00Z").getTime(),
-    oosEndTime: new Date(String(fold.testEnd) + "T00:00:00Z").getTime() - 1,
+    trainStartTime: Number(fold.trainStartTime),
+    trainEndTime: Number(fold.trainEndTime),
+    oosStartTime: Number(fold.oosStartTime),
+    oosEndTime: Number(fold.oosEndTime),
+    embargoMs: EMBARGO_MS,
   }));
   const audit = auditWalkForwardFolds(foldWindows);
   if (!audit.valid) {
