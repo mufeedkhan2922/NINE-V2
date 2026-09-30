@@ -1,0 +1,35 @@
+name: NINE XAUUSD Paper Learning
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "lib/trading/paperOutcomeBridge.ts"
+      - "lib/trading/paperTrading.ts"
+      - "lib/trading/store.ts"
+      - "lib/trading/types.ts"
+      - "lib/trading/decisionOutcome.ts"
+      - "lib/trading/db.ts"
+      - "lib/trading/counterfactualReplay.ts"
+      - "tests/paperOutcomeBridge.test.ts"
+      - "tests/testRunner.ts"
+      - "scripts/run-xauusd-paper-learning.ts"
+      - "package.json"
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run research:xauusd:paper-learning
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nine-xauusd-paper-learning
+          path: artifacts/xauusd-paper-learning.json
