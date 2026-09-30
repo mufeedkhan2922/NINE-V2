@@ -248,6 +248,25 @@ async function main() {
   const positiveFolds = folds.filter((fold) => Number((fold.oos as Record<string, unknown>).netPnl ?? 0) > 0).length;
   const baselinePositiveFolds = folds.filter((fold) => Number((fold.baselineOos as Record<string, unknown>).netPnl ?? 0) > 0).length;
   const profitableFoldRate = folds.length ? Number(((positiveFolds / folds.length) * 100).toFixed(2)) : 0;
+  const dataFingerprint = fingerprintCandles(candles);
+  const codeVersion = process.env.GITHUB_SHA ?? "local";
+  const rulesetVersion = "NINE-0.5.43";
+  const parameterAudit = auditParameterFreeOosEvaluation({ oosTuned: false, tunedOnOos: false, selectedByOos: false, optimizeOos: false, oosOptimization: false, trainDays: TRAIN_DAYS, testDays: TEST_DAYS, embargoDays: EMBARGO_DAYS });
+  const multipleTesting = auditMultipleTesting(Math.max(1, folds.length));
+  const oosPnl = allOosTrades.map((trade) => Number(trade.pnl));
+  const pnlBootstrap = bootstrapMeanInterval(oosPnl, Number.parseInt(dataFingerprint, 16) || 1);
+  const provenance: ResearchProvenance = {
+    symbol: "XAUUSD", timeframe: "5min", dataStartTime: candles[0]?.time ?? 0, dataEndTime: candles.at(-1)?.time ?? 0,
+    dataFingerprint, trainStartTime: foldWindows[0]?.trainStartTime ?? 0, trainEndTime: foldWindows.at(-1)?.trainEndTime ?? 0,
+    oosStartTime: foldWindows[0]?.oosStartTime ?? 0, oosEndTime: foldWindows.at(-1)?.oosEndTime ?? 0,
+    candleCount: candles.length,
+    trainCandleCount: folds.reduce((sum, fold) => sum + Number(fold.trainCandles ?? 0), 0),
+    oosCandleCount: folds.reduce((sum, fold) => sum + Number(fold.testCandles ?? 0), 0),
+    rulesetVersion, codeVersion, learningState: "TRAIN_ONLY",
+  };
+  const reproducibilityHash = buildReproducibilityHash(provenance, { trainDays: TRAIN_DAYS, testDays: TEST_DAYS, stepDays: STEP_DAYS, embargoDays: EMBARGO_DAYS, warmupCandles: WARMUP_CANDLES, fixedLot: FIXED_LOT, contractSizeOz: CONTRACT_SIZE_OZ });
+  const integrity = auditResearchIntegrity(foldWindows, parameterAudit, multipleTesting, reproducibilityHash);
+  if (!integrity.valid) throw new Error("Final research integrity gate failed: " + integrity.reasons.join(" | "));
 
   const result = {
     instrument: "XAUUSD",
@@ -257,12 +276,18 @@ async function main() {
       trainDays: TRAIN_DAYS,
       testDays: TEST_DAYS,
       stepDays: STEP_DAYS,
+      embargoDays: EMBARGO_DAYS,
       fixedLot: FIXED_LOT,
       contractSizeOzPerLot: CONTRACT_SIZE_OZ,
       effectiveExposureOz: EXPOSURE_OZ,
       warmupCandles: WARMUP_CANDLES,
     },
     dataPoints: candles.length,
+    provenance,
+    reproducibilityHash,
+    parameterAudit,
+    multipleTesting,
+    statisticalSignificance: { metric: "mean_OOS_PnL_per_trade", bootstrap: pnlBootstrap },
     validationAudit: {
       status: "VALIDATED",
       method: "chronological_non_overlapping_oos_folds",
@@ -278,6 +303,8 @@ async function main() {
       "Each OOS fold receives only the immediately preceding 60 candles as indicator warmup.",
       "Adaptive loss filtering is trained only on each fold's prior training window and applied to the later OOS window.",
       "Each baseline and adaptive OOS evaluation runs in OOS_ISOLATED mode, which disables persistent learning and enforces the OOS entry/exit boundary.",
+      "Training data is purged before each OOS window and sequential folds are separated by an embargo.",
+      "The final research integrity gate must pass before this result is considered promotable.",
       "A setup is blocked only when its historical sample is large enough and its 95% Wilson upper win-rate bound remains below its break-even win rate with negative expectancy.",
       "Insufficient samples remain neutral; NINE does not delete setups merely because of a small losing sample.",
       "No spread, commission, financing or slippage is included unless represented by source prices.",
