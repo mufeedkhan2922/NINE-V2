@@ -11,4 +11,4 @@ writeFileSync("artifacts/xauusd-counterfactual-replay.json", JSON.stringify({
   summary,
   safety:{researchOnly:true,noBrokerExecution:true,sentinelFinalAuthority:true,unresolvedOutcomesDoNotPenalize:true}
 },null,2));
-console.log(JSON.stringify({version:"0.5.30",symbol,contexts:summary.length},null,2));
+console.log(JSON.stringify({version:"0.5.32",symbol,contexts:summary.length},null,2));
