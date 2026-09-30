@@ -509,6 +509,26 @@ CREATE TABLE IF NOT EXISTS decision_experiments (
 CREATE INDEX IF NOT EXISTS decision_experiments_lookup_idx
 ON decision_experiments(policy_name,symbol,session,regime,status,updated_at DESC);
 
+CREATE TABLE IF NOT EXISTS decision_outcome_memory (
+  id TEXT PRIMARY KEY,
+  symbol TEXT NOT NULL,
+  strategy_id TEXT NOT NULL,
+  session TEXT NOT NULL,
+  regime TEXT NOT NULL,
+  direction TEXT NOT NULL,
+  decision_status TEXT NOT NULL,
+  outcome TEXT NOT NULL,
+  pnl_r REAL NOT NULL,
+  max_favorable_r REAL NOT NULL DEFAULT 0,
+  max_adverse_r REAL NOT NULL DEFAULT 0,
+  exit_reason TEXT,
+  trace_id TEXT,
+  created_at INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS decision_outcome_lookup_idx
+ON decision_outcome_memory(symbol,strategy_id,session,regime,direction,created_at DESC);
+
 CREATE TABLE IF NOT EXISTS decision_trace (
   id TEXT PRIMARY KEY,
   symbol TEXT NOT NULL,
