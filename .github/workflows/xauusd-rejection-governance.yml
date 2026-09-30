@@ -1,18 +1,7 @@
 name: NINE XAUUSD Rejection Governance
 
 on:
-  push:
-    paths:
-      - "lib/trading/rejectionGovernance.ts"
-      - "lib/trading/counterfactualReplay.ts"
-      - "lib/trading/db.ts"
-      - "tests/rejectionGovernance.test.ts"
-      - "scripts/run-xauusd-rejection-governance.ts"
-      - "package.json"
-      - "package-lock.json"
-      - ".github/workflows/xauusd-rejection-governance.yml"
   workflow_dispatch:
-
 jobs:
   validate:
     runs-on: ubuntu-latest
