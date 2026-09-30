@@ -1,16 +1,7 @@
 name: NINE XAUUSD Autonomous Decision Intelligence
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - "lib/trading/**"
-      - "scripts/run-xauusd-autonomous-decision.ts"
-      - "tests/**"
-      - "package.json"
-      - ".github/workflows/xauusd-autonomous-decision.yml"
   workflow_dispatch:
-
 permissions:
   contents: read
 
@@ -22,7 +13,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: 22
           cache: npm
       - run: npm ci
       - run: npm run typecheck
