@@ -44,6 +44,7 @@ import { runAutonomousDecisionTest } from "./autonomousDecision.test";
 import { runDecisionOutcomeTest } from "./decisionOutcome.test";
 import { runMistakePatternMiningTest } from "./mistakePatternMining.test";
 import { runMistakePreventionTest } from "./mistakePrevention.test";
+import { runCounterfactualReplayTest } from "./counterfactualReplay.test";
 
 const tests: Array<[string, () => void | Promise<void>]> = [
   ["technical", runTechnicalTest],
@@ -98,6 +99,7 @@ const tests: Array<[string, () => void | Promise<void>]> = [
   ["decision outcome feedback", runDecisionOutcomeTest],
   ["mistake pattern mining", runMistakePatternMiningTest],
   ["mistake prevention", runMistakePreventionTest],
+  ["counterfactual replay", runCounterfactualReplayTest],
 ];
 
 async function main(): Promise<void> {
