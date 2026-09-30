@@ -369,8 +369,7 @@ async function main() {
     ...result.warnings.map((warning) => `- ${warning}`),
   ];
 
-  fs.writeFileSync("artifacts/xauusd-walkforward.md", lines.join("
-"));
+  fs.writeFileSync("artifacts/xauusd-walkforward.md", lines.join("\n"));
   console.log(JSON.stringify(result, null, 2));
 }
 
