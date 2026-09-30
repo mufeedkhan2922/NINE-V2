@@ -1,5 +1,6 @@
 import { db } from "../lib/trading/db";
 import { sequentialPolicyEvaluation, registerPolicyVersion, evaluatePolicyGovernance, promotePolicy, rollbackPolicy } from "../lib/trading/policyGovernance";
+import type { ResearchIntegrityGate } from "../lib/trading/statisticalValidation";
 
 export function runPolicyGovernanceTest(): void {
   const baseline=Array.from({length:200},(_,i)=>(i%2===0?1:0) as 0|1);
@@ -14,10 +15,22 @@ export function runPolicyGovernanceTest(): void {
   const before=evaluatePolicyGovernance(name);
   if(before.canProceed||before.sentinelRequired!==true) throw new Error("shadow policy bypassed governance");
   registerPolicyVersion(name,2,{threshold:0.72},"CANDIDATE");
-  const result=promotePolicy(name,1,2,60,60,evalResult.delta,0.9);
+  const researchIntegrity: ResearchIntegrityGate = {
+    valid: true,
+    reasons: [],
+    foldAudit: { valid: true, reason: "validated", validFolds: 2 },
+    parameterAudit: { valid: true, reason: "no OOS tuning", parameters: {} },
+    multipleTesting: { hypotheses: 2, alpha: 0.05, adjustedAlpha: 0.025, valid: true, method: "BONFERRONI" },
+    reproducibilityHash: "test-integrity",
+  };
+  const result=promotePolicy(name,1,2,60,60,evalResult.delta,0.9,researchIntegrity);
   if(result!=="PROMOTED") throw new Error("validated policy did not promote");
   const active=evaluatePolicyGovernance(name);
   if(active.policyVersion!==2||!active.canProceed||!active.sentinelRequired) throw new Error("active policy state invalid");
+  registerPolicyVersion(name,3,{threshold:0.74},"CANDIDATE");
+  const rejectedIntegrity = { ...researchIntegrity, valid: false, reasons: ["missing provenance"] };
+  const rejected = promotePolicy(name,2,3,60,60,evalResult.delta,0.9,rejectedIntegrity);
+  if(rejected!=="REJECTED") throw new Error("incomplete research integrity must block promotion");
   rollbackPolicy(name,1);
   const rolled=evaluatePolicyGovernance(name);
   if(rolled.policyVersion!==1||!rolled.canProceed||!rolled.sentinelRequired) throw new Error("rollback failed");
