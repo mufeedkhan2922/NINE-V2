@@ -42,6 +42,7 @@ import { runAdaptiveCalibrationTest } from "./adaptiveCalibration.test";
 import { runPolicyGovernanceTest } from "./policyGovernance.test";
 import { runAutonomousDecisionTest } from "./autonomousDecision.test";
 import { runDecisionOutcomeTest } from "./decisionOutcome.test";
+import { runMistakePatternMiningTest } from "./mistakePatternMining.test";
 
 const tests: Array<[string, () => void | Promise<void>]> = [
   ["technical", runTechnicalTest],
@@ -94,6 +95,7 @@ const tests: Array<[string, () => void | Promise<void>]> = [
   ["policy governance", runPolicyGovernanceTest],
   ["autonomous decision intelligence", runAutonomousDecisionTest],
   ["decision outcome feedback", runDecisionOutcomeTest],
+  ["mistake pattern mining", runMistakePatternMiningTest],
 ];
 
 async function main(): Promise<void> {
