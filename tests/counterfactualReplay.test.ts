@@ -4,7 +4,7 @@ import type { Candle } from "../lib/trading/types";
 
 export function runCounterfactualReplayTest(): void {
   const candles: Candle[] = [];
-  for (let i = 0; i < 50; i += 1) {
+  for (let i = 0; i < 80; i += 1) {
     const base = 100 + i * 0.02;
     candles.push({ time: 1700000000000 + i * 60000, open: base, high: base + 0.1, low: base - 0.1, close: base + 0.02, volume: 1000 });
   }
