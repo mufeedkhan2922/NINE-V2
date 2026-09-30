@@ -5,6 +5,7 @@ import type { AdaptiveLossFilter } from "./adaptiveLossFilter";
 import { getLessonDecision, rememberBacktestLosses } from "./lossInvestigator";
 import { recordCausalOutcomes, evaluateCounterfactualsForTrade, persistCounterfactual } from "./causalLearning";
 import { getClosedLoopDecision } from "./closedLoopGate";
+import { replayRejectedSetup } from "./counterfactualReplay";
 import { policyForRegime, regimeFromCandles } from "./regimePolicy";
 import type {
   BacktestAnalytics,
@@ -827,6 +828,15 @@ export function runBacktest(
       recordCausalOutcomes(trades, candles, "XAUUSD");
       for (const trade of trades) {
         try { persistCounterfactual("XAUUSD", evaluateCounterfactualsForTrade(trade, candles), trade.side); } catch { /* research telemetry must never break backtests */ }
+      }
+      if (research?.rejectedSignals?.length) {
+        for (const rejected of research.rejectedSignals) {
+          try {
+            replayRejectedSetup(rejected, candles, 36, "XAUUSD");
+          } catch {
+            // Counterfactual research must never break a backtest.
+          }
+        }
       }
     } catch {
       // Persistent research memory must never break a backtest.
