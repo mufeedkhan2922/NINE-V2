@@ -1,7 +1,7 @@
 import { runBacktest } from "../lib/trading/backtest";
 import { Candle } from "../lib/trading/types";
 import * as assert from "./assert";
-import { auditOosValidationWindow, auditWalkForwardFolds } from "../lib/trading/statisticalValidation";
+import { auditOosValidationWindow, auditWalkForwardFolds, auditMultipleTesting, auditParameterFreeOosEvaluation, bootstrapMeanInterval, buildReproducibilityHash, fingerprintCandles, auditResearchIntegrity } from "../lib/trading/statisticalValidation";
 import { db } from "../lib/trading/db";
 function candles(count = 220): Candle[] { return Array.from({ length: count }, (_, i) => { const close = 2300 + Math.sin(i / 8) * 5 + i * 0.25; return { time: i * 60000, open: close - 0.1, high: close + 1.1, low: close - 1.1, close }; }); }
 export function runBacktestTest() {
@@ -100,5 +100,41 @@ export function runBacktestTest() {
     },
   ]);
   assert.equal(overlappingFolds.valid, false, "walk-forward audit must reject overlapping OOS windows");
+  const multiple = auditMultipleTesting(4);
+  assert.equal(multiple.valid, true, "multiple-testing audit should accept positive hypothesis count");
+  assert.equal(multiple.adjustedAlpha, 0.0125, "Bonferroni alpha should be adjusted");
+
+  const parameterFree = auditParameterFreeOosEvaluation({ oosTuned: false, tunedOnOos: false });
+  assert.ok(parameterFree.valid, "parameter-free OOS audit should pass");
+
+  const contaminated = auditParameterFreeOosEvaluation({ tunedOnOos: true });
+  assert.equal(contaminated.valid, false, "OOS tuning must be rejected");
+
+  const bootstrap = bootstrapMeanInterval([1, 2, 3, 4, 5], 42, 250);
+  assert.equal(bootstrap.samples, 5, "bootstrap sample count");
+  assert.ok(bootstrap.lower95 <= bootstrap.estimate && bootstrap.estimate <= bootstrap.upper95, "bootstrap interval must contain estimate");
+
+  const fingerprint = fingerprintCandles(data);
+  const provenance = {
+    symbol: "XAUUSD", timeframe: "5min", dataStartTime: data[0]!.time, dataEndTime: data.at(-1)!.time,
+    dataFingerprint: fingerprint, trainStartTime: data[0]!.time, trainEndTime: data[99]!.time,
+    oosStartTime: data[100]!.time, oosEndTime: data.at(-1)!.time, candleCount: data.length,
+    trainCandleCount: 100, oosCandleCount: 120, rulesetVersion: "test", codeVersion: "test", learningState: "TRAIN_ONLY" as const,
+  };
+  const hashA = buildReproducibilityHash(provenance, { risk: 0.5, warmup: 60 });
+  const hashB = buildReproducibilityHash(provenance, { warmup: 60, risk: 0.5 });
+  assert.equal(hashA, hashB, "reproducibility hash must be key-order independent");
+
+  const integrity = auditResearchIntegrity([
+    { trainStartTime: 0, trainEndTime: 8, oosStartTime: 10, oosEndTime: 19, embargoMs: 1 },
+    { trainStartTime: 21, trainEndTime: 29, oosStartTime: 31, oosEndTime: 40, embargoMs: 1 },
+  ], parameterFree, multiple, hashA);
+  assert.ok(integrity.valid, "complete research integrity gate should pass");
+
+  const brokenIntegrity = auditResearchIntegrity([
+    { trainStartTime: 0, trainEndTime: 9, oosStartTime: 10, oosEndTime: 19, embargoMs: 1 },
+    { trainStartTime: 20, trainEndTime: 30, oosStartTime: 31, oosEndTime: 40, embargoMs: 1 },
+  ], parameterFree, multiple, hashA);
+  assert.equal(brokenIntegrity.valid, false, "research integrity gate must reject an insufficient purge/embargo");
 }
 
