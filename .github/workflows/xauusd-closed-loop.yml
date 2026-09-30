@@ -32,6 +32,7 @@ jobs:
           TWELVE_DATA_API_KEY: ${{ secrets.TWELVE_DATA_API_KEY }}
           NINE_LEARNING_START: "2026-08-01"
           NINE_LEARNING_END: "2026-09-29"
+          NINE_PROVIDER_MAX_REQUESTS_PER_MINUTE: "6"
       - uses: actions/upload-artifact@v4
         with:
           name: nine-xauusd-closed-loop
