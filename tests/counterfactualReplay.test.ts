@@ -1,4 +1,4 @@
-import { replayRejectedTrades, counterfactualReplaySummary } from "../lib/trading/counterfactualReplay";
+import { replayRejectedTrades, replayRejectedSetup, counterfactualReplaySummary, getCounterfactualPreventionDecision } from "../lib/trading/counterfactualReplay";
 import type { BacktestTrade } from "../lib/trading/backtest";
 import type { Candle } from "../lib/trading/types";
 
@@ -29,4 +29,20 @@ export function runCounterfactualReplayTest(): void {
   if (insights.length !== 1) throw new Error("counterfactual replay did not return an insight");
   const summary = counterfactualReplaySummary("TEST-REPLAY-XAUUSD");
   if (!summary.length) throw new Error("counterfactual replay memory was not persisted");
+
+  const rejected = {
+    id: "rejected-context-1",
+    entryTime: candles[40].time,
+    side: "LONG" as const,
+    entryPrice: candles[40].close,
+    stopLoss: candles[40].close - 0.05,
+    takeProfit: candles[40].close + 0.2,
+    rejectionReason: "MISTAKE_PREVENTION",
+  };
+  for (let i = 0; i < 20; i += 1) replayRejectedSetup(rejected, candles, 6, "TEST-REPLAY-VALIDATED");
+  const prevention = getCounterfactualPreventionDecision("TEST-REPLAY-VALIDATED", "OFF", "RANGING", "LONG");
+  if (prevention.status !== "WATCH" || prevention.adjustment >= 0 || prevention.observations < 20) {
+    throw new Error("validated counterfactual rejection did not reach prevention");
+  }
+
 }
