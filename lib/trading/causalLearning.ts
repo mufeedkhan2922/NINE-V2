@@ -126,7 +126,6 @@ export function getCausalDecision(market:MarketSnapshot,strategy:string,side:"LO
   const rows=db.prepare("SELECT * FROM causal_failure_memory WHERE symbol=? AND session=? AND (regime=? OR regime='MIXED') AND side=? ORDER BY failure_rate_lower_95 DESC").all(market.symbol,session,regime,side) as any[];
   const strategyKey = normalizeStrategyKey(strategy);
   const strategyRows = rows.filter(r => normalizeStrategyKey(String(r.strategy)) === strategyKey);
-  if(!strategyRows.length) return {blocked:false,adjustment:0,confidence:0,observations:0,reason:"No causal failure memory for this exact context.",failureModes:[]};
   const relevant=concepts.length===0
     ? strategyRows
     : strategyRows.filter(r =>
