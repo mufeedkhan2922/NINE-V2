@@ -681,6 +681,13 @@ ON research_runs(symbol, timeframe, created_at DESC);
 `);
 
 ensureColumn("positions", "order_id", "TEXT");
+ensureColumn("positions", "strategy_id", "TEXT");
+ensureColumn("positions", "decision_session", "TEXT");
+ensureColumn("positions", "decision_regime", "TEXT");
+ensureColumn("positions", "decision_status", "TEXT");
+ensureColumn("positions", "trace_id", "TEXT");
+ensureColumn("positions", "max_favorable_r", "REAL NOT NULL DEFAULT 0");
+ensureColumn("positions", "max_adverse_r", "REAL NOT NULL DEFAULT 0");
 ensureColumn("execution_ledger", "order_id", "TEXT");
 ensureColumn("learned_rules", "expectancy_r", "REAL NOT NULL DEFAULT 0");
 ensureColumn("learned_rules", "failure_rate_lower_95", "REAL NOT NULL DEFAULT 0");
