@@ -696,6 +696,8 @@ export function executePaperSetup(
       account,
     };
   });
+  for (const observation of outcomes) recordDecisionOutcome(observation);
+  return result;
 }
 
 export function closePaperPosition(
