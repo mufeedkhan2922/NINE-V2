@@ -27,6 +27,9 @@ export function runBacktestTest() {
   assert.equal(oos.config.validationMode, "OOS_ISOLATED", "OOS isolation mode");
   assert.equal(oos.config.persistentLearningEnabled, false, "OOS mode must disable persistent learning");
   assert.equal(oos.config.closedLoopLearningEnabled, false, "OOS mode must disable closed-loop learning");
+  assert.equal(oos.config.validationTrainEndTime, split - 60000, "OOS config must preserve train cutoff");
+  assert.equal(oos.config.validationOosStartTime, split, "OOS config must preserve OOS start");
+  assert.equal(oos.config.validationOosEndTime, data[210]!.time, "OOS config must preserve OOS end");
   assert.ok(oos.trades.every((trade) => trade.entryTime >= split), "OOS trades must not precede the split");
 
   const invalidOrder = auditOosValidationWindow(data, { trainEndTime: split, oosStartTime: split - 60000 });
