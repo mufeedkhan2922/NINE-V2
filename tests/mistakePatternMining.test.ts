@@ -6,21 +6,17 @@ export function runMistakePatternMiningTest(): void {
   db.prepare("DELETE FROM mistake_patterns WHERE symbol=?").run(symbol);
   db.prepare("DELETE FROM causal_failure_memory WHERE symbol=?").run(symbol);
 
-  const modes = ["IMMEDIATE_ADVERSE_MOVE", "IMMEDIATE_ADVERSE_MOVE"];
   for (let strategyIndex = 0; strategyIndex < 2; strategyIndex += 1) {
-    for (let i = 0; i < 12; i += 1) {
-      const strategy = `strategy-${strategyIndex}`;
-      const id = `pattern-${strategy}-${i}`;
-      db.prepare(`
-        INSERT INTO causal_failure_memory
-        (id,symbol,strategy,session,regime,side,failure_mode,observations,failures,wins,
-         failure_rate,failure_rate_lower_95,expectancy_r,severity,confidence,status,last_seen,source)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-      `).run(
-        id,symbol,strategy,"NEW_YORK","TRENDING_UP","LONG",modes[strategyIndex],
-        1,1,0,1,0.5,-0.4,1,0.5,"PENALIZE",Date.now(),"TEST"
-      );
-    }
+    const strategy = `strategy-${strategyIndex}`;
+    db.prepare(`
+      INSERT INTO causal_failure_memory
+      (id,symbol,strategy,session,regime,side,failure_mode,observations,failures,wins,
+       failure_rate,failure_rate_lower_95,expectancy_r,severity,confidence,status,last_seen,source)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+    `).run(
+      `pattern-${strategy}`,symbol,strategy,"NEW_YORK","TRENDING_UP","LONG","IMMEDIATE_ADVERSE_MOVE",
+      12,12,0,1,0.5,-0.4,1,0.5,"PENALIZE",Date.now(),"TEST"
+    );
   }
 
   const mined = mineMistakePatterns(symbol);
