@@ -3,7 +3,7 @@ import { sequentialPolicyEvaluation, registerPolicyVersion, evaluatePolicyGovern
 
 export function runPolicyGovernanceTest(): void {
   const baseline=Array.from({length:200},(_,i)=>(i%2===0?1:0) as 0|1);
-  const candidate=Array.from({length:60},(_,i)=>(i%10<7?1:0) as 0|1);
+  const candidate=Array.from({length:200},(_,i)=>(i%10<7?1:0) as 0|1);
   const evalResult=sequentialPolicyEvaluation(baseline,candidate,30);
   if(evalResult.status!=="PROMOTE"||evalResult.delta<0.03) throw new Error("OOS promotion gate failed");
   const insufficient=sequentialPolicyEvaluation(baseline.slice(0,10),candidate.slice(0,10),30);
