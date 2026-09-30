@@ -290,7 +290,7 @@ async function main() {
     statisticalSignificance: { metric: "mean_OOS_PnL_per_trade", bootstrap: pnlBootstrap },
     validationAudit: {
       status: "VALIDATED",
-      method: "chronological_non_overlapping_oos_folds",
+      method: "chronological_purged_embargoed_oos_folds",
       folds: folds.length,
     },
     folds,
