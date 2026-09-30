@@ -239,6 +239,13 @@ export interface SentinelDecision {
 
 export interface NINEOrchestration {
   agentReports: AgentReport[];
+  decisionContext?: {
+    strategyId?: string;
+    traceId?: string;
+    session?: string;
+    regime?: string;
+    decisionStatus?: "TRADE" | "WATCH" | "BLOCK";
+  };
   atlas?: AtlasContext;
   setup: TradingSetup;
   sentinel: SentinelDecision;
@@ -267,6 +274,13 @@ export interface PaperPosition {
   exitPrice?: number;
   closedAt?: number;
   realizedPnl?: number;
+  strategyId?: string;
+  decisionSession?: string;
+  decisionRegime?: string;
+  decisionStatus?: "TRADE" | "WATCH" | "BLOCK";
+  traceId?: string;
+  maxFavorableR?: number;
+  maxAdverseR?: number;
 }
 
 export interface PaperAccount {
