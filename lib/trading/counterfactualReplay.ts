@@ -14,6 +14,14 @@ export interface RejectedSetupInput {
   rejectionReason?: string;
 }
 
+export interface RejectionQualityDecision {
+  status: "NEUTRAL" | "VALIDATED" | "COSTLY";
+  observations: number;
+  winRateLower95: number;
+  expectancyR: number;
+  reason: string;
+}
+
 export interface CounterfactualPreventionDecision {
   status: "ALLOW" | "WATCH" | "PENALIZE";
   adjustment: number;
@@ -52,6 +60,11 @@ function regimeOf(candles: Candle[]): string {
   return "RANGING";
 }
 
+function normalizeBlocker(reason?: string): string {
+  const raw = (reason ?? "UNKNOWN_REJECTION").trim();
+  return raw.split(":")[0]?.trim().toUpperCase().replace(/\\s+/g, "_") || "UNKNOWN_REJECTION";
+}
+
 function wilsonLower(wins: number, n: number): number {
   if (n <= 0) return 0;
   const z = 1.96;
@@ -60,7 +73,53 @@ function wilsonLower(wins: number, n: number): number {
   return (p + z*z/(2*n) - z*Math.sqrt((p*(1-p)+z*z/(4*n))/n)) / d;
 }
 
-function persistInsight(symbol: string, session: string, regime: string, side: "LONG"|"SHORT", result: CounterfactualResult): void {
+function persistRejectionQuality(
+  symbol: string,
+  blocker: string,
+  session: string,
+  regime: string,
+  side: "LONG" | "SHORT",
+  result: CounterfactualResult,
+): void {
+  const outcome = result.hypotheticalOutcome;
+  if (outcome === "UNRESOLVED") return;
+  const id = createHash("sha256").update(["rejection", symbol, blocker, session, regime, side, outcome].join("|")).digest("hex").slice(0, 24);
+  transaction(() => {
+    const old = db.prepare(
+      "SELECT observations,wins,losses,expectancy_r FROM rejection_quality_memory WHERE id=?",
+    ).get(id) as any;
+    const isWin = outcome === "WOULD_HAVE_WON";
+    const isLoss = outcome === "WOULD_HAVE_LOST";
+    if (!old) {
+      db.prepare(
+        "INSERT INTO rejection_quality_memory (id,symbol,blocker,session,regime,side,outcome,observations,wins,losses,expectancy_r,win_rate_lower_95,status,source,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+      ).run(
+        id, symbol, blocker, session, regime, side, outcome, 1,
+        isWin ? 1 : 0, isLoss ? 1 : 0, result.hypotheticalPnl,
+        wilsonLower(isWin ? 1 : 0, 1), "OBSERVE", "REJECTION_QUALITY_AUDIT", Date.now(),
+      );
+      return;
+    }
+    const previousN = Number(old.observations);
+    const n = previousN + 1;
+    const wins = Number(old.wins) + (isWin ? 1 : 0);
+    const losses = Number(old.losses) + (isLoss ? 1 : 0);
+    const expectancy = (Number(old.expectancy_r) * previousN + result.hypotheticalPnl) / n;
+    const lower = wilsonLower(wins, n);
+    const status =
+      n >= 20 && lower < 0.45 && expectancy < 0
+        ? "VALIDATED"
+        : n >= 20 && lower > 0.55 && expectancy > 0
+          ? "COSTLY"
+          : "OBSERVE";
+    db.prepare(
+      "UPDATE rejection_quality_memory SET observations=?,wins=?,losses=?,expectancy_r=?,win_rate_lower_95=?,status=?,updated_at=? WHERE id=?",
+    ).run(n, wins, losses, expectancy, lower, status, Date.now(), id);
+  });
+}
+
+function persistInsight(symbol: string, session: string, regime: string, side: "LONG"|"SHORT", result: CounterfactualResult, rejectionReason?: string): void {
+  persistRejectionQuality(symbol, normalizeBlocker(rejectionReason), session, regime, side, result);
   const outcome = result.hypotheticalOutcome;
   const id = createHash("sha256").update([symbol, session, regime, side, outcome].join("|")).digest("hex").slice(0,24);
   transaction(() => {
@@ -101,7 +160,7 @@ export function replayRejectedSetup(
   );
   const session = sessionOf(setup.entryTime);
   const regime = regimeOf(candles);
-  persistInsight(symbol, session, regime, setup.side, result);
+  persistInsight(symbol, session, regime, setup.side, result, setup.rejectionReason);
   return {
     tradeId: result.tradeId,
     session,
@@ -195,4 +254,58 @@ export function getCounterfactualPreventionDecision(
     expectancyR: Number(exact.expectancyR),
     reason: `Validated rejected-setup replay shows this ${side} context historically would have lost; keep the setup under elevated scrutiny.`,
   };
+}
+
+export function getRejectionQualityDecision(
+  symbol: string,
+  blocker: string,
+  session: string,
+  regime: string,
+  side: "LONG" | "SHORT",
+): RejectionQualityDecision {
+  const row = db.prepare(
+    `SELECT observations,win_rate_lower_95 AS winRateLower95,expectancy_r,status
+     FROM rejection_quality_memory
+     WHERE symbol=? AND blocker=? AND session=? AND regime=? AND side=?
+     ORDER BY observations DESC LIMIT 1`,
+  ).get(symbol, normalizeBlocker(blocker), session, regime, side) as any;
+
+  if (!row || row.status === "OBSERVE") {
+    return {
+      status: "NEUTRAL",
+      observations: Number(row?.observations ?? 0),
+      winRateLower95: Number(row?.winRateLower95 ?? 0),
+      expectancyR: Number(row?.expectancy_r ?? 0),
+      reason: "Insufficient rejection-quality evidence for this blocker/context.",
+    };
+  }
+
+  if (row.status === "VALIDATED") {
+    return {
+      status: "VALIDATED",
+      observations: Number(row.observations),
+      winRateLower95: Number(row.winRateLower95),
+      expectancyR: Number(row.expectancy_r),
+      reason: "Historical replay supports the rejection: rejected setups in this blocker/context were statistically more likely to fail.",
+    };
+  }
+
+  return {
+    status: "COSTLY",
+    observations: Number(row.observations),
+    winRateLower95: Number(row.winRateLower95),
+    expectancyR: Number(row.expectancy_r),
+    reason: "Historical replay flags this blocker/context as costly: rejected setups were statistically more likely to succeed. This is audit evidence only and does not weaken the blocker automatically.",
+  };
+}
+
+export function rejectionQualitySummary(symbol = "XAUUSD") {
+  return db.prepare(
+    `SELECT blocker,session,regime,side,outcome,observations,wins,losses,
+            ROUND(expectancy_r,4) AS expectancyR,
+            ROUND(win_rate_lower_95,4) AS winRateLower95,status
+     FROM rejection_quality_memory
+     WHERE symbol=?
+     ORDER BY observations DESC,updated_at DESC`,
+  ).all(symbol) as Array<Record<string, unknown>>;
 }
