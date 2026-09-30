@@ -43,6 +43,7 @@ import { runPolicyGovernanceTest } from "./policyGovernance.test";
 import { runAutonomousDecisionTest } from "./autonomousDecision.test";
 import { runDecisionOutcomeTest } from "./decisionOutcome.test";
 import { runMistakePatternMiningTest } from "./mistakePatternMining.test";
+import { runMistakePreventionTest } from "./mistakePrevention.test";
 
 const tests: Array<[string, () => void | Promise<void>]> = [
   ["technical", runTechnicalTest],
@@ -96,6 +97,7 @@ const tests: Array<[string, () => void | Promise<void>]> = [
   ["autonomous decision intelligence", runAutonomousDecisionTest],
   ["decision outcome feedback", runDecisionOutcomeTest],
   ["mistake pattern mining", runMistakePatternMiningTest],
+  ["mistake prevention", runMistakePreventionTest],
 ];
 
 async function main(): Promise<void> {
