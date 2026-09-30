@@ -3,7 +3,7 @@ import { decisionOutcomeResearchSummary } from "../lib/trading/decisionOutcome";
 
 const summary = decisionOutcomeResearchSummary("XAUUSD");
 const result = {
-  version: "0.5.26",
+  version: "0.5.27",
   generatedAt: new Date().toISOString(),
   ...summary,
   safety: [
