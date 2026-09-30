@@ -1,4 +1,5 @@
 import { getMistakePatternDecision } from "./mistakePatternMining";
+import { getCounterfactualPreventionDecision } from "./counterfactualReplay";
 
 export type PreventionStatus = "ALLOW" | "PENALIZE" | "WATCH" | "BLOCK";
 
@@ -28,6 +29,13 @@ export interface MistakePreventionDecision {
  */
 export function evaluateMistakePrevention(input: MistakePreventionInput): MistakePreventionDecision {
   const pattern = getMistakePatternDecision(input.symbol, input.session, input.regime, input.side);
+  const counterfactual = getCounterfactualPreventionDecision(
+    input.symbol,
+    input.session,
+    input.regime,
+    input.side,
+  );
+
   if (pattern.blocked) {
     return {
       status: "BLOCK",
@@ -39,17 +47,29 @@ export function evaluateMistakePrevention(input: MistakePreventionInput): Mistak
     };
   }
 
-  if (pattern.adjustment < 0) {
+  if (pattern.adjustment < 0 || counterfactual.adjustment < 0) {
     const contextSimilarity = Math.min(1, pattern.observations / 50);
     const confidencePenalty = input.confidence < 70 ? 0.15 : 0;
-    const similarity = Math.max(0, Math.min(1, contextSimilarity + confidencePenalty));
+    const counterfactualSimilarity = Math.min(1, counterfactual.observations / 50);
+    const similarity = Math.max(
+      0,
+      Math.min(1, Math.max(contextSimilarity, counterfactualSimilarity) + confidencePenalty),
+    );
+    const adjustment = Math.max(-6, pattern.adjustment + counterfactual.adjustment);
+    const reasons = [
+      pattern.adjustment < 0 ? pattern.reason : null,
+      counterfactual.adjustment < 0 ? counterfactual.reason : null,
+    ].filter(Boolean).join(" ");
     return {
       status: similarity >= 0.65 ? "WATCH" : "PENALIZE",
-      adjustment: pattern.adjustment,
+      adjustment,
       similarity,
-      observations: pattern.observations,
-      reason: pattern.reason,
-      matchedPatterns: pattern.patterns,
+      observations: Math.max(pattern.observations, counterfactual.observations),
+      reason: reasons || "Historical failure evidence requires additional scrutiny.",
+      matchedPatterns: [
+        ...pattern.patterns,
+        ...(counterfactual.adjustment < 0 ? ["COUNTERFACTUAL_REPLAY"] : []),
+      ],
     };
   }
 
