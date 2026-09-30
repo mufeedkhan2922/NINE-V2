@@ -149,7 +149,7 @@ export function validateClosedLoopRules(
 
   const cut = splitIndex(candles, 0.70);
   const trainCandles = candles.slice(0, cut);
-  const oosCandles = candles.slice(Math.max(0, cut - 60));
+  // OOS may use pre-split candles only as indicator warmup; no post-split candle is used to build decision context.\n  const oosCandles = candles.slice(Math.max(0, cut - 60));
   const splitTime = candles[cut]!.time;
   const trainTrades = trades.filter((trade) => trade.entryTime < splitTime);
   const oosTrades = trades.filter((trade) => trade.entryTime >= splitTime);
