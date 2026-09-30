@@ -682,6 +682,7 @@ export function runBacktest(
     : WARMUP_CANDLES;
   const startIndex = validationStartIndex < WARMUP_CANDLES ? WARMUP_CANDLES : validationStartIndex;
   for (let i = startIndex; i < candles.length - 1; i += 1) {
+    if (validationMode === "OOS_ISOLATED" && options.validationWindow?.oosEndTime !== undefined && candles[i]!.time > options.validationWindow.oosEndTime) break;
     if (i - lastEntryIndex < COOLDOWN_CANDLES) continue;
 
     const setupCandles = candles.slice(0, i + 1);
