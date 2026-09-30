@@ -28,5 +28,14 @@ export function runBacktestTest() {
   assert.equal(oos.config.persistentLearningEnabled, false, "OOS mode must disable persistent learning");
   assert.equal(oos.config.closedLoopLearningEnabled, false, "OOS mode must disable closed-loop learning");
   assert.ok(oos.trades.every((trade) => trade.entryTime >= split), "OOS trades must not precede the split");
+
+  const invalidOrder = auditOosValidationWindow(data, { trainEndTime: split, oosStartTime: split - 60000 });
+  assert.equal(invalidOrder.valid, false, "OOS audit must reject overlapping train/OOS windows");
+
+  const invalidChronology = auditOosValidationWindow([data[0]!, data[1]!, data[1]!], {
+    trainEndTime: data[0]!.time,
+    oosStartTime: data[1]!.time,
+  });
+  assert.equal(invalidChronology.valid, false, "OOS audit must reject non-chronological candles");
 }
 
