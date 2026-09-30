@@ -4,6 +4,24 @@ import { evaluateRejectedTrade, type CounterfactualResult } from "./counterfactu
 import type { BacktestTrade } from "./backtest";
 import type { Candle } from "./types";
 
+export interface RejectedSetupInput {
+  id: string;
+  entryTime: number;
+  side: "LONG" | "SHORT";
+  entryPrice: number;
+  stopLoss: number;
+  takeProfit: number;
+  rejectionReason?: string;
+}
+
+export interface CounterfactualPreventionDecision {
+  status: "ALLOW" | "WATCH" | "PENALIZE";
+  adjustment: number;
+  observations: number;
+  expectancyR: number;
+  reason: string;
+}
+
 export interface ReplayInsight {
   tradeId: string;
   session: string;
@@ -60,10 +78,45 @@ function persistInsight(symbol: string, session: string, regime: string, side: "
     const losses = Number(old.losses)+(isLoss?1:0);
     const expectancy = (Number(old.expectancy_r)*Number(old.observations)+result.hypotheticalPnl)/n;
     const lower = wilsonLower(wins,n);
-    const status = n >= 20 && outcome === "WOULD_HAVE_LOST" && lower < 0.45 && expectancy < 0 ? "VALIDATED" : "OBSERVE";
+    const status = n >= 20 && losses > 0 && lower < 0.45 && expectancy < 0 ? "VALIDATED" : "OBSERVE";
     db.prepare("UPDATE counterfactual_learning_memory SET observations=?,wins=?,losses=?,expectancy_r=?,win_rate_lower_95=?,status=?,updated_at=? WHERE id=?")
       .run(n,wins,losses,expectancy,lower,status,Date.now(),id);
   });
+}
+
+export function replayRejectedSetup(
+  setup: RejectedSetupInput,
+  candles: Candle[],
+  horizon = 36,
+  symbol = "XAUUSD",
+): ReplayInsight {
+  const result = evaluateRejectedTrade(
+    setup.entryTime,
+    setup.side,
+    setup.entryPrice,
+    setup.stopLoss,
+    setup.takeProfit,
+    candles,
+    horizon,
+  );
+  const session = sessionOf(setup.entryTime);
+  const regime = regimeOf(candles);
+  persistInsight(symbol, session, regime, setup.side, result);
+  return {
+    tradeId: result.tradeId,
+    session,
+    regime,
+    side: setup.side,
+    outcome: result.hypotheticalOutcome,
+    hypotheticalPnl: result.hypotheticalPnl,
+    maxFavorableR: result.maxFavorableR,
+    maxAdverseR: result.maxAdverseR,
+    lesson: result.hypotheticalOutcome === "WOULD_HAVE_LOST"
+      ? "REJECTION_VALIDATED"
+      : result.hypotheticalOutcome === "WOULD_HAVE_WON"
+        ? "REJECTION_COSTLY"
+        : "UNRESOLVED",
+  };
 }
 
 export function replayRejectedTrade(trade: BacktestTrade, candles: Candle[], horizon = 36, symbol = "XAUUSD"): ReplayInsight {
@@ -109,4 +162,37 @@ export function counterfactualReplaySummary(symbol = "XAUUSD") {
      WHERE symbol=?
      ORDER BY observations DESC, updated_at DESC`,
   ).all(symbol) as Array<Record<string, unknown>>;
+}
+
+
+export function getCounterfactualPreventionDecision(
+  symbol: string,
+  session: string,
+  regime: string,
+  side: "LONG" | "SHORT",
+): CounterfactualPreventionDecision {
+  const exact = db.prepare(
+    `SELECT observations, expectancy_r AS expectancyR
+     FROM counterfactual_learning_memory
+     WHERE symbol=? AND session=? AND regime=? AND side=? AND outcome='WOULD_HAVE_LOST' AND status='VALIDATED'
+     ORDER BY observations DESC LIMIT 1`,
+  ).get(symbol, session, regime, side) as any;
+
+  if (!exact) {
+    return {
+      status: "ALLOW",
+      adjustment: 0,
+      observations: 0,
+      expectancyR: 0,
+      reason: "No statistically validated counterfactual rejection pattern matches this exact context.",
+    };
+  }
+
+  return {
+    status: "WATCH",
+    adjustment: -3,
+    observations: Number(exact.observations),
+    expectancyR: Number(exact.expectancyR),
+    reason: `Validated rejected-setup replay shows this ${side} context historically would have lost; keep the setup under elevated scrutiny.`,
+  };
 }
