@@ -1,6 +1,6 @@
 {
   "name": "nine-app",
-  "version": "0.5.29",
+  "version": "0.5.30",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -22,7 +22,8 @@
     "research:xauusd:autonomous-decision": "npx tsx@4.20.5 scripts/run-xauusd-autonomous-decision.ts",
     "research:xauusd:decision-outcomes": "npx tsx@4.20.5 scripts/run-xauusd-decision-outcomes.ts",
     "research:xauusd:mistake-patterns": "npx tsx@4.20.5 scripts/run-xauusd-mistake-patterns.ts",
-    "research:xauusd:mistake-prevention": "npx tsx@4.20.5 scripts/run-xauusd-mistake-prevention.ts"
+    "research:xauusd:mistake-prevention": "npx tsx@4.20.5 scripts/run-xauusd-mistake-prevention.ts",
+    "research:xauusd:counterfactual-replay": "npx tsx@4.20.5 scripts/run-xauusd-counterfactual-replay.ts"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.8",
