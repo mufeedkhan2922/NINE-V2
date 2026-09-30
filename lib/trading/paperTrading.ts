@@ -38,6 +38,18 @@ const MAX_NOTIONAL_USD = Number(
   process.env.NINE_PAPER_MAX_NOTIONAL_USD ?? 5_000,
 );
 
+function recordPaperOutcomes(
+  outcomes: ReturnType<typeof buildPaperDecisionObservation>[],
+): void {
+  for (const observation of outcomes) {
+    try {
+      recordDecisionOutcome(observation);
+    } catch (error) {
+      console.error("Paper outcome learning failed; paper state remains authoritative.", error);
+    }
+  }
+}
+
 function safeNumber(
   value: number,
   fallback: number,
@@ -255,7 +267,7 @@ export function getPaperAccount(
 
     return account;
   });
-  for (const observation of outcomes) recordDecisionOutcome(observation);
+  recordPaperOutcomes(outcomes);
   return account;
 }
 
