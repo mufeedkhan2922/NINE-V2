@@ -10,7 +10,9 @@ const START = process.env.NINE_WF_START ?? "2026-08-01";
 const END = process.env.NINE_WF_END ?? "2026-09-29";
 const TRAIN_DAYS = Math.max(7, Number(process.env.NINE_WF_TRAIN_DAYS ?? "14"));
 const TEST_DAYS = Math.max(3, Number(process.env.NINE_WF_TEST_DAYS ?? "7"));
-const EMBARGO_DAYS = Math.max(1, Number(process.env.NINE_WF_EMBARGO_DAYS ?? "1"));\nconst STEP_DAYS = Math.max(TEST_DAYS + EMBARGO_DAYS, Number(process.env.NINE_WF_STEP_DAYS ?? String(TEST_DAYS + EMBARGO_DAYS)));\nconst EMBARGO_MS = EMBARGO_DAYS * 24 * 60 * 60 * 1000;
+const EMBARGO_DAYS = Math.max(1, Number(process.env.NINE_WF_EMBARGO_DAYS ?? "1"));
+const STEP_DAYS = Math.max(TEST_DAYS + EMBARGO_DAYS, Number(process.env.NINE_WF_STEP_DAYS ?? String(TEST_DAYS + EMBARGO_DAYS)));
+const EMBARGO_MS = EMBARGO_DAYS * 24 * 60 * 60 * 1000;
 const INITIAL_BALANCE = Number(process.env.NINE_BACKTEST_INITIAL_BALANCE ?? "10000");
 const FIXED_LOT = Number(process.env.NINE_BACKTEST_LOTS ?? "0.01");
 const CONTRACT_SIZE_OZ = Number(process.env.NINE_XAUUSD_CONTRACT_SIZE_OZ ?? "100");
@@ -86,21 +88,21 @@ function runWalkForward(candles: Candle[]) {
     const testStart = addDays(cursor, TRAIN_DAYS);
     const testEnd = addDays(testStart, TEST_DAYS);
 
-    const testStartMs = testStart.getTime();\n    const purgedTrainEndMs = testStartMs - EMBARGO_MS;
+    const testStartMs = testStart.getTime();
+    const purgedTrainEndMs = testStartMs - EMBARGO_MS;
     const testEndMs = testEnd.getTime();
     const testStartIndex = candles.findIndex((c) => c.time >= testStartMs);
     const testEndIndex = candles.findIndex((c) => c.time >= testEndMs);
-    if (testStartIndex < WARMUP_CANDLES || testEndIndex <= testStartIndex) break;
+    const purgedTrainEndIndex = candles.findIndex((c) => c.time >= purgedTrainEndMs);
+    if (testStartIndex < WARMUP_CANDLES || purgedTrainEndIndex <= 0 || testEndIndex <= testStartIndex) break;
 
-    // Only the final 60 candles immediately before the OOS window are supplied
-    // as warmup. No candles from the future test window are used to build setup state.
-    const oosCandles = candles.slice(
-      Math.max(0, testStartIndex - WARMUP_CANDLES),
-      testEndIndex,
-    );
+    // Purge the embargo interval from both training and OOS warmup context.
+    // This prevents candles inside the embargo gap from influencing either side.
+    const oosWarmupStartIndex = Math.max(0, purgedTrainEndIndex - WARMUP_CANDLES);
+    const oosCandles = candles.slice(oosWarmupStartIndex, testEndIndex);
 
-    const trainStartIndex = Math.max(0, testStartIndex - WARMUP_CANDLES - Math.ceil(TRAIN_DAYS * 24 * 12));
-    const trainCandles = candles.slice(trainStartIndex, testStartIndex);
+    const trainStartIndex = Math.max(0, purgedTrainEndIndex - Math.ceil(TRAIN_DAYS * 24 * 12));
+    const trainCandles = candles.slice(trainStartIndex, purgedTrainEndIndex);
     const trainResult = runBacktest(trainCandles, INITIAL_BALANCE, 0.5, undefined, false);
     const adaptiveFilter = buildAdaptiveLossFilter(trainResult.trades, {
       minimumTrades: 20,
@@ -367,7 +369,8 @@ async function main() {
     ...result.warnings.map((warning) => `- ${warning}`),
   ];
 
-  fs.writeFileSync("artifacts/xauusd-walkforward.md", lines.join("\n"));
+  fs.writeFileSync("artifacts/xauusd-walkforward.md", lines.join("
+"));
   console.log(JSON.stringify(result, null, 2));
 }
 
