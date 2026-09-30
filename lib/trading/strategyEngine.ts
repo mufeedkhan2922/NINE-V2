@@ -11,6 +11,7 @@ import { getCausalDecision } from "./causalLearning";
 import { getCalibrationDecision } from "./adaptiveCalibration";
 import { buildDecisionTrace } from "./policyGovernance";
 import { evaluateAutonomousDecision } from "./autonomousDecision";
+import { evaluateMistakePrevention } from "./mistakePrevention";
 import type { Candle, MarketSnapshot, TradeDirection } from "./types";
 
 export interface StrategyCandidate {
@@ -268,6 +269,24 @@ function scoreStrategy(strategy: StrategyDefinition, market: MarketSnapshot, can
     blockers.push(`Adaptive confidence threshold raised to ${adaptiveMinimum}/100 by validated calibration.`);
   }
   if (calibration.riskAdjustment < 0) reasons.push(`Risk calibration suggests a ${Math.abs(calibration.riskAdjustment * 100).toFixed(1)}% risk reduction under current uncertainty.`);
+  const prevention = direction === "NONE"
+    ? { status: "ALLOW" as const, adjustment: 0, similarity: 0, observations: 0, reason: "No directional setup to prevent.", matchedPatterns: [] as string[] }
+    : evaluateMistakePrevention({
+        symbol: market.symbol,
+        session: session(last),
+        regime: regimeIntel.features.regime,
+        side: direction,
+        strategyId: strategy.id,
+        score,
+        confidence: Math.max(0, Math.min(99, Math.round(calibration.calibratedConfidence * 100))),
+        concepts: independentConcepts,
+      });
+  if (prevention.adjustment !== 0) {
+    score = Math.max(0, Math.min(100, Math.round(score + prevention.adjustment)));
+    reasons.push(`Adaptive mistake prevention ${prevention.status.toLowerCase()}: ${prevention.reason}`);
+  }
+  if (prevention.status === "BLOCK") blockers.push(`Mistake prevention gate: ${prevention.reason}`);
+  if (prevention.status === "WATCH") blockers.push(`Mistake prevention watch: recurring failure similarity ${(prevention.similarity * 100).toFixed(0)}%.`);
   const confidence = Math.max(0, Math.min(99, Math.round(calibration.calibratedConfidence * 100)));
   try {
     buildDecisionTrace(
