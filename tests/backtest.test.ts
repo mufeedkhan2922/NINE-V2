@@ -40,5 +40,11 @@ export function runBacktestTest() {
     oosStartTime: data[1]!.time,
   });
   assert.equal(invalidChronology.valid, false, "OOS audit must reject non-chronological candles");
+
+  const missingTrain = auditOosValidationWindow(data, {
+    trainEndTime: -1,
+    oosStartTime: data[10]!.time,
+  });
+  assert.equal(missingTrain.valid, false, "OOS audit must reject a missing training segment");
 }
 
