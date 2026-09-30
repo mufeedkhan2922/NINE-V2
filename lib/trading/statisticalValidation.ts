@@ -91,3 +91,177 @@ export function auditWalkForwardFolds(folds: WalkForwardFoldWindow[]): WalkForwa
     validFolds: folds.length,
   };
 }
+
+
+export interface EmbargoedWalkForwardFoldWindow extends WalkForwardFoldWindow {
+  embargoMs: number;
+}
+
+export interface ParameterFreeOosAudit {
+  valid: boolean;
+  reason: string;
+  parameters: Record<string, string | number | boolean>;
+}
+
+export interface BootstrapInterval {
+  estimate: number;
+  lower95: number;
+  upper95: number;
+  samples: number;
+  resamples: number;
+}
+
+export interface MultipleTestingAudit {
+  hypotheses: number;
+  alpha: number;
+  adjustedAlpha: number;
+  valid: boolean;
+  method: "BONFERRONI";
+}
+
+export interface ResearchProvenance {
+  symbol: string;
+  timeframe: string;
+  dataStartTime: number;
+  dataEndTime: number;
+  trainStartTime: number;
+  trainEndTime: number;
+  oosStartTime: number;
+  oosEndTime: number;
+  candleCount: number;
+  trainCandleCount: number;
+  oosCandleCount: number;
+  rulesetVersion: string;
+  codeVersion: string;
+  learningState: "DISABLED" | "TRAIN_ONLY";
+}
+
+export interface ResearchIntegrityGate {
+  valid: boolean;
+  reasons: string[];
+  foldAudit: WalkForwardAudit;
+  parameterAudit: ParameterFreeOosAudit;
+  multipleTesting: MultipleTestingAudit;
+  reproducibilityHash: string;
+}
+
+function seededRandom(seed: number): () => number {
+  let state = Math.abs(Math.floor(seed)) || 1;
+  return () => {
+    state |= 0;
+    state = Math.imul(state ^ (state >>> 16), 2246822519);
+    state = Math.imul(state ^ (state >>> 13), 3266489917);
+    state ^= state >>> 16;
+    return (state >>> 0) / 4294967296;
+  };
+}
+
+export function bootstrapMeanInterval(
+  values: number[],
+  seed = 1,
+  resamples = 2000,
+): BootstrapInterval {
+  const finite = values.filter(Number.isFinite);
+  if (!finite.length) return { estimate: 0, lower95: 0, upper95: 0, samples: 0, resamples: 0 };
+  const mean = finite.reduce((sum, value) => sum + value, 0) / finite.length;
+  if (finite.length === 1) return { estimate: mean, lower95: mean, upper95: mean, samples: 1, resamples: 1 };
+  const random = seededRandom(seed);
+  const bootstrap: number[] = [];
+  for (let b = 0; b < Math.max(100, resamples); b += 1) {
+    let sum = 0;
+    for (let i = 0; i < finite.length; i += 1) {
+      sum += finite[Math.floor(random() * finite.length)]!;
+    }
+    bootstrap.push(sum / finite.length);
+  }
+  bootstrap.sort((a, b) => a - b);
+  const lo = bootstrap[Math.floor(bootstrap.length * 0.025)]!;
+  const hi = bootstrap[Math.min(bootstrap.length - 1, Math.floor(bootstrap.length * 0.975))]!;
+  return {
+    estimate: Number(mean.toFixed(6)),
+    lower95: Number(lo.toFixed(6)),
+    upper95: Number(hi.toFixed(6)),
+    samples: finite.length,
+    resamples: bootstrap.length,
+  };
+}
+
+export function auditMultipleTesting(hypotheses: number, alpha = 0.05): MultipleTestingAudit {
+  const valid = Number.isInteger(hypotheses) && hypotheses > 0 && Number.isFinite(alpha) && alpha > 0 && alpha < 1;
+  if (!valid) return { hypotheses: 0, alpha, adjustedAlpha: 0, valid: false, method: "BONFERRONI" };
+  return {
+    hypotheses,
+    alpha,
+    adjustedAlpha: alpha / hypotheses,
+    valid: true,
+    method: "BONFERRONI",
+  };
+}
+
+export function auditParameterFreeOosEvaluation(
+  parameters: Record<string, unknown>,
+): ParameterFreeOosAudit {
+  const forbidden = ["oosTuned", "tunedOnOos", "selectedByOos", "optimizeOos", "oosOptimization"];
+  const found = forbidden.filter((key) => parameters[key] === true);
+  const allowedParameters: Record<string, string | number | boolean> = {};
+  for (const [key, value] of Object.entries(parameters)) {
+    if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+      allowedParameters[key] = value;
+    }
+  }
+  return {
+    valid: found.length === 0,
+    reason: found.length ? `OOS tuning flags detected: ${found.join(", ")}.` : "No OOS-derived tuning flags are enabled.",
+    parameters: allowedParameters,
+  };
+}
+
+export function buildReproducibilityHash(
+  provenance: ResearchProvenance,
+  configuration: Record<string, unknown>,
+): string {
+  const stable = (value: unknown): string => {
+    if (value === null || typeof value !== "object") return JSON.stringify(value);
+    if (Array.isArray(value)) return "[" + value.map(stable).join(",") + "]";
+    return "{" + Object.keys(value as Record<string, unknown>).sort().map((key) => JSON.stringify(key) + ":" + stable((value as Record<string, unknown>)[key])).join(",") + "}";
+  };
+  // FNV-1a keeps this module dependency-free while producing a deterministic run identifier.
+  const input = stable({ provenance, configuration });
+  let hash = 2166136261;
+  for (let i = 0; i < input.length; i += 1) {
+    hash ^= input.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(16).padStart(8, "0");
+}
+
+export function auditResearchIntegrity(
+  folds: EmbargoedWalkForwardFoldWindow[],
+  parameterAudit: ParameterFreeOosAudit,
+  multipleTesting: MultipleTestingAudit,
+  reproducibilityHash: string,
+): ResearchIntegrityGate {
+  const base = auditWalkForwardFolds(folds);
+  const reasons = [...(base.valid ? [] : [base.reason])];
+  for (let i = 1; i < folds.length; i += 1) {
+    const previous = folds[i - 1]!;
+    const current = folds[i]!;
+    if (current.trainStartTime < previous.oosEndTime + Math.max(0, previous.embargoMs)) {
+      reasons.push(`Fold ${i + 1} training starts before the previous OOS embargo expires.`);
+    }
+    if (current.trainEndTime + Math.max(0, current.embargoMs) >= current.oosStartTime) {
+      reasons.push(`Fold ${i + 1} training window is not purged before OOS.`);
+    }
+  }
+  if (!parameterAudit.valid) reasons.push(parameterAudit.reason);
+  if (!multipleTesting.valid) reasons.push("Multiple-testing audit is invalid.");
+  if (!reproducibilityHash) reasons.push("Reproducibility hash is missing.");
+  return {
+    valid: reasons.length === 0,
+    reasons,
+    foldAudit: base,
+    parameterAudit,
+    multipleTesting,
+    reproducibilityHash,
+  };
+}
