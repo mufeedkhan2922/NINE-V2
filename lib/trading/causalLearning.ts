@@ -3,6 +3,7 @@ import { db, transaction } from "./db";
 import type { BacktestTrade } from "./backtest";
 import type { Candle, MarketSnapshot } from "./types";
 import { evaluateRejectedTrade, type CounterfactualResult } from "./counterfactual";
+import { getMistakePatternDecision } from "./mistakePatternMining";
 
 export type FailureMode =
   | "IMMEDIATE_ADVERSE_MOVE"
@@ -135,7 +136,21 @@ export function getCausalDecision(market:MarketSnapshot,strategy:string,side:"LO
   const observations=relevant.reduce((s,r)=>s+Number(r.observations),0);
   const blocked=relevant.some(r=>r.status==="BLOCK" && Number(r.failure_rate_lower_95)>=.55 && Number(r.observations)>=20);
   const penalty=relevant.reduce((s,r)=>s+(r.status==="PENALIZE"?Math.min(3,Number(r.failure_rate_lower_95)*4):0),0);
-  return {blocked,adjustment:Number((-Math.min(6,penalty)).toFixed(2)),confidence:Number(Math.min(1,relevant.reduce((s,r)=>s+Number(r.confidence),0)/Math.max(1,relevant.length)).toFixed(3)),observations,reason:blocked?"Repeated causal failure pattern is statistically persistent in this context.":penalty>0?"Prior causal failures reduce selection confidence; new evidence can recover the pattern.":"Causal history is observational only.",failureModes:relevant.map(r=>r.failure_mode as FailureMode)};
+  const pattern = getMistakePatternDecision(market.symbol, session, regime, side);
+  const combinedBlocked = blocked || pattern.blocked;
+  const combinedAdjustment = Number((-Math.min(6, penalty + Math.abs(pattern.adjustment))).toFixed(2));
+  return {
+    blocked: combinedBlocked,
+    adjustment: combinedAdjustment,
+    confidence: Number(Math.min(1, relevant.reduce((s,r)=>s+Number(r.confidence),0)/Math.max(1,relevant.length)).toFixed(3)),
+    observations: observations + pattern.observations,
+    reason: combinedBlocked
+      ? (pattern.blocked ? pattern.reason : "Repeated causal failure pattern is statistically persistent in this context.")
+      : penalty > 0 || pattern.adjustment !== 0
+        ? `Prior causal/mistake-pattern failures reduce selection confidence; new evidence can recover the pattern. ${pattern.reason}`
+        : "Causal history is observational only.",
+    failureModes: [...relevant.map(r=>r.failure_mode as FailureMode), ...pattern.patterns as FailureMode[]],
+  };
 }
 
 export function evaluateCounterfactualsForTrade(trade:BacktestTrade,candles:Candle[]):CounterfactualResult {
