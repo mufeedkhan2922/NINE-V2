@@ -542,6 +542,30 @@ CREATE TABLE IF NOT EXISTS calibration_corrections (
 CREATE INDEX IF NOT EXISTS calibration_corrections_lookup_idx
 ON calibration_corrections(symbol,strategy_id,status,created_at DESC);
 
+CREATE TABLE IF NOT EXISTS rejection_governance_memory (
+  id TEXT PRIMARY KEY,
+  symbol TEXT NOT NULL,
+  blocker TEXT NOT NULL,
+  session TEXT NOT NULL,
+  regime TEXT NOT NULL,
+  side TEXT NOT NULL,
+  observations INTEGER NOT NULL,
+  win_rate_lower_95 REAL NOT NULL,
+  expectancy_r REAL NOT NULL,
+  quality_status TEXT NOT NULL,
+  governance_status TEXT NOT NULL,
+  reason TEXT NOT NULL,
+  source TEXT NOT NULL,
+  created_at INTEGER NOT NULL,
+  reviewed_at INTEGER
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS rejection_governance_key_idx
+ON rejection_governance_memory(symbol,blocker,session,regime,side);
+
+CREATE INDEX IF NOT EXISTS rejection_governance_lookup_idx
+ON rejection_governance_memory(symbol,blocker,session,regime,side,governance_status,created_at DESC);
+
 CREATE TABLE IF NOT EXISTS decision_policy_versions (
   id TEXT PRIMARY KEY,
   policy_name TEXT NOT NULL,
