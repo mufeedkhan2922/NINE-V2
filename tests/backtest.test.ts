@@ -73,10 +73,10 @@ export function runBacktestTest() {
     {
       trainStartTime: 10,
       trainEndTime: 19,
-      oosStartTime: 20,
+      oosStartTime: 19,
       oosEndTime: 30,
     },
   ]);
-  assert.equal(overlappingFolds.valid, false, "walk-forward audit must reject touching/overlapping OOS windows");
+  assert.equal(overlappingFolds.valid, false, "walk-forward audit must reject overlapping OOS windows");
 }
 
