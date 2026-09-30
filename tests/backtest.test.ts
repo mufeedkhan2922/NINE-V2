@@ -1,7 +1,7 @@
 import { runBacktest } from "../lib/trading/backtest";
 import { Candle } from "../lib/trading/types";
 import * as assert from "./assert";
-import { auditOosValidationWindow } from "../lib/trading/statisticalValidation";
+import { auditOosValidationWindow, auditWalkForwardFolds } from "../lib/trading/statisticalValidation";
 function candles(count = 220): Candle[] { return Array.from({ length: count }, (_, i) => { const close = 2300 + Math.sin(i / 8) * 5 + i * 0.25; return { time: i * 60000, open: close - 0.1, high: close + 1.1, low: close - 1.1, close }; }); }
 export function runBacktestTest() {
   const data = candles();
@@ -46,5 +46,37 @@ export function runBacktestTest() {
     oosStartTime: data[10]!.time,
   });
   assert.equal(missingTrain.valid, false, "OOS audit must reject a missing training segment");
+
+  const walkForward = auditWalkForwardFolds([
+    {
+      trainStartTime: 0,
+      trainEndTime: 9,
+      oosStartTime: 10,
+      oosEndTime: 19,
+    },
+    {
+      trainStartTime: 10,
+      trainEndTime: 19,
+      oosStartTime: 20,
+      oosEndTime: 29,
+    },
+  ]);
+  assert.ok(walkForward.valid, "walk-forward folds should be chronological");
+
+  const overlappingFolds = auditWalkForwardFolds([
+    {
+      trainStartTime: 0,
+      trainEndTime: 9,
+      oosStartTime: 10,
+      oosEndTime: 20,
+    },
+    {
+      trainStartTime: 10,
+      trainEndTime: 19,
+      oosStartTime: 20,
+      oosEndTime: 30,
+    },
+  ]);
+  assert.equal(overlappingFolds.valid, false, "walk-forward audit must reject touching/overlapping OOS windows");
 }
 
