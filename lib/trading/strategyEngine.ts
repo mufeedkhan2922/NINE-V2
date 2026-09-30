@@ -10,6 +10,7 @@ import { arbitrateStrategies, calculateMetaAdjustment, deduplicateEvidence } fro
 import { getCausalDecision } from "./causalLearning";
 import { getCalibrationDecision } from "./adaptiveCalibration";
 import { buildDecisionTrace } from "./policyGovernance";
+import { evaluateAutonomousDecision } from "./autonomousDecision";
 import type { Candle, MarketSnapshot, TradeDirection } from "./types";
 
 export interface StrategyCandidate {
@@ -33,6 +34,9 @@ export interface StrategyConsensus {
   alignedStrategies: number;
   regime: "TRENDING_UP" | "TRENDING_DOWN" | "RANGING" | "EXPANDING" | "MIXED";
   generatedAt: number;
+  decisionStatus?: "TRADE" | "WATCH" | "BLOCK";
+  decisionUncertainty?: number;
+  decisionReason?: string;
 }
 
 function ema(values: number[], period: number): number {
@@ -305,11 +309,32 @@ export function evaluateStrategyBook(market: MarketSnapshot, options: { useMemor
     confidence: candidate.confidence,
     blockers: candidate.blockers,
   })));
-  const direction: TradeDirection = arbitrated.abstain ? "NONE" : arbitrated.direction;
+  const autonomous = evaluateAutonomousDecision({
+    candidates,
+    consensus: {
+      direction: arbitrated.direction,
+      score: arbitrated.score,
+      confidence: arbitrated.confidence,
+      alignedStrategies: arbitrated.direction === "LONG" ? long.length : arbitrated.direction === "SHORT" ? short.length : 0,
+    },
+  });
+  const direction: TradeDirection = autonomous.status === "TRADE" ? autonomous.direction : "NONE";
   const aligned = direction === "LONG" ? long.length : direction === "SHORT" ? short.length : 0;
   const top = candidates.slice(0, 5);
-  const score = arbitrated.abstain ? 0 : (top.length ? Math.round(top.reduce((sum, candidate) => sum + candidate.score, 0) / top.length) : 0);
-  const confidence = arbitrated.abstain ? 0 : arbitrated.confidence;
+  const score = autonomous.status === "TRADE" ? autonomous.score : 0;
+  const confidence = autonomous.status === "TRADE" ? autonomous.confidence : 0;
   const regime = evaluateRegime(market.candles, analyzeTechnicals(market.candles).trend);
-  return { direction, score, confidence, candidates: top, activeStrategies: active.length, alignedStrategies: aligned, regime, generatedAt: Date.now() };
+  return {
+    direction,
+    score,
+    confidence,
+    candidates: top,
+    activeStrategies: active.length,
+    alignedStrategies: aligned,
+    regime,
+    generatedAt: Date.now(),
+    decisionStatus: autonomous.status,
+    decisionUncertainty: autonomous.uncertainty,
+    decisionReason: autonomous.reason,
+  };
 }
