@@ -82,6 +82,18 @@ function loadAccount(): PaperAccount {
           p.order_id == null
             ? undefined
             : String(p.order_id),
+        strategyId:
+          p.strategy_id == null ? undefined : String(p.strategy_id),
+        decisionSession:
+          p.decision_session == null ? undefined : String(p.decision_session),
+        decisionRegime:
+          p.decision_regime == null ? undefined : String(p.decision_regime),
+        decisionStatus:
+          p.decision_status == null ? undefined : p.decision_status,
+        traceId:
+          p.trace_id == null ? undefined : String(p.trace_id),
+        maxFavorableR: Number(p.max_favorable_r ?? 0),
+        maxAdverseR: Number(p.max_adverse_r ?? 0),
       }) as PaperPosition,
   );
 
@@ -202,11 +214,19 @@ function saveAccount(
         exit_price,
         closed_at,
         realized_pnl,
-        order_id
+        order_id,
+        strategy_id,
+        decision_session,
+        decision_regime,
+        decision_status,
+        trace_id,
+        max_favorable_r,
+        max_adverse_r
       )
       VALUES (
         ?, ?, ?, ?, ?, ?, ?, ?, ?,
-        ?, ?, ?, ?, ?
+        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+        ?
       )
     `,
   );
@@ -227,6 +247,13 @@ function saveAccount(
       position.closedAt ?? null,
       position.realizedPnl ?? null,
       position.orderId ?? null,
+      position.strategyId ?? null,
+      position.decisionSession ?? null,
+      position.decisionRegime ?? null,
+      position.decisionStatus ?? null,
+      position.traceId ?? null,
+      position.maxFavorableR ?? 0,
+      position.maxAdverseR ?? 0,
     );
   }
 }
