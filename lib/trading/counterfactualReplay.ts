@@ -5,7 +5,7 @@ import type { BacktestTrade } from "./backtest";
 import type { Candle } from "./types";
 
 export interface RejectedSetupInput {
-  id: string;
+  id?: string;
   entryTime: number;
   side: "LONG" | "SHORT";
   entryPrice: number;
