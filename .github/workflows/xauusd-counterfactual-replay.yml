@@ -2,18 +2,6 @@ name: NINE XAUUSD Counterfactual Replay
 
 on:
   workflow_dispatch:
-push:
-    paths:
-      - "lib/trading/counterfactual.ts"
-      - "lib/trading/counterfactualReplay.ts"
-      - "lib/trading/backtest.ts"
-      - "lib/trading/mistakePrevention.ts"
-      - "lib/trading/db.ts"
-      - "tests/counterfactualReplay.test.ts"
-      - "tests/mistakePrevention.test.ts"
-      - "tests/testRunner.ts"
-      - "scripts/run-xauusd-counterfactual-replay.ts"
-      - "package.json"
 
 jobs:
   validate:
