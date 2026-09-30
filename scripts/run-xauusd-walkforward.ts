@@ -4,7 +4,7 @@ import { runBacktest } from "../lib/trading/backtest";
 import { buildAdaptiveLossFilter } from "../lib/trading/adaptiveLossFilter";
 import type { BacktestTrade } from "../lib/trading/backtest";
 import type { Candle } from "../lib/trading/types";
-import { auditResearchIntegrity, auditMultipleTesting, auditParameterFreeOosEvaluation, bootstrapMeanInterval, buildReproducibilityHash, fingerprintCandles, type WalkForwardFoldWindow, type ResearchProvenance } from "../lib/trading/statisticalValidation";
+import { auditResearchIntegrity, auditMultipleTesting, auditParameterFreeOosEvaluation, bootstrapMeanInterval, buildReproducibilityHash, fingerprintCandles, type EmbargoedWalkForwardFoldWindow, type ResearchProvenance } from "../lib/trading/statisticalValidation";
 
 const START = process.env.NINE_WF_START ?? "2026-08-01";
 const END = process.env.NINE_WF_END ?? "2026-09-29";
@@ -174,7 +174,7 @@ function runWalkForward(candles: Candle[]) {
     cursor = addDays(cursor, STEP_DAYS);
   }
 
-  const foldWindows: WalkForwardFoldWindow[] = folds.map((fold) => ({
+  const foldWindows: EmbargoedWalkForwardFoldWindow[] = folds.map((fold) => ({
     trainStartTime: new Date(String(fold.trainStart) + "T00:00:00Z").getTime(),
     trainEndTime: new Date(String(fold.testStart) + "T00:00:00Z").getTime() - 1,
     oosStartTime: new Date(String(fold.testStart) + "T00:00:00Z").getTime(),
