@@ -108,8 +108,27 @@ function runWalkForward(candles: Candle[]) {
       requireNegativeExpectancy: true,
     });
 
-    const baselineResult = runBacktest(oosCandles, INITIAL_BALANCE, 0.5, undefined, false);
-    const adaptiveResult = runBacktest(oosCandles, INITIAL_BALANCE, 0.5, adaptiveFilter, false);
+    const validationWindow = {
+      trainEndTime: testStartMs - 1,
+      oosStartTime: testStartMs,
+      oosEndTime: testEndMs - 1,
+    };
+    const baselineResult = runBacktest(
+      oosCandles,
+      INITIAL_BALANCE,
+      0.5,
+      undefined,
+      false,
+      { validationMode: "OOS_ISOLATED", validationWindow },
+    );
+    const adaptiveResult = runBacktest(
+      oosCandles,
+      INITIAL_BALANCE,
+      0.5,
+      adaptiveFilter,
+      false,
+      { validationMode: "OOS_ISOLATED", validationWindow },
+    );
     const baselineTrades = baselineResult.trades.filter(
       (trade) => trade.entryTime >= testStartMs && trade.entryTime < testEndMs,
     );
@@ -157,9 +176,9 @@ function runWalkForward(candles: Candle[]) {
 
   const foldWindows: WalkForwardFoldWindow[] = folds.map((fold) => ({
     trainStartTime: new Date(String(fold.trainStart) + "T00:00:00Z").getTime(),
-    trainEndTime: new Date(String(fold.trainEnd) + "T00:00:00Z").getTime(),
+    trainEndTime: new Date(String(fold.testStart) + "T00:00:00Z").getTime() - 1,
     oosStartTime: new Date(String(fold.testStart) + "T00:00:00Z").getTime(),
-    oosEndTime: new Date(String(fold.testEnd) + "T00:00:00Z").getTime(),
+    oosEndTime: new Date(String(fold.testEnd) + "T00:00:00Z").getTime() - 1,
   }));
   const audit = auditWalkForwardFolds(foldWindows);
   if (!audit.valid) {
@@ -258,6 +277,7 @@ async function main() {
       "This walk-forward report does not tune parameters on the OOS windows.",
       "Each OOS fold receives only the immediately preceding 60 candles as indicator warmup.",
       "Adaptive loss filtering is trained only on each fold's prior training window and applied to the later OOS window.",
+      "Each baseline and adaptive OOS evaluation runs in OOS_ISOLATED mode, which disables persistent learning and enforces the OOS entry/exit boundary.",
       "A setup is blocked only when its historical sample is large enough and its 95% Wilson upper win-rate bound remains below its break-even win rate with negative expectancy.",
       "Insufficient samples remain neutral; NINE does not delete setups merely because of a small losing sample.",
       "No spread, commission, financing or slippage is included unless represented by source prices.",
