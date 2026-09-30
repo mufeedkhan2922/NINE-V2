@@ -1,0 +1,32 @@
+name: NINE XAUUSD Rejection Governance
+
+on:
+  push:
+    paths:
+      - "lib/trading/rejectionGovernance.ts"
+      - "lib/trading/counterfactualReplay.ts"
+      - "lib/trading/db.ts"
+      - "tests/rejectionGovernance.test.ts"
+      - "scripts/run-xauusd-rejection-governance.ts"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/xauusd-rejection-governance.yml"
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run research:xauusd:rejection-governance
+      - uses: actions/upload-artifact@v4
+        with:
+          name: xauusd-rejection-governance
+          path: artifacts/xauusd-rejection-governance.json
