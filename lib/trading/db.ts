@@ -400,6 +400,30 @@ CREATE TABLE IF NOT EXISTS counterfactual_results (
 CREATE INDEX IF NOT EXISTS counterfactual_lookup_idx
 ON counterfactual_results(symbol, entry_time DESC);
 
+CREATE TABLE IF NOT EXISTS rejection_quality_memory (
+  id TEXT PRIMARY KEY,
+  symbol TEXT NOT NULL,
+  blocker TEXT NOT NULL,
+  session TEXT NOT NULL,
+  regime TEXT NOT NULL,
+  side TEXT NOT NULL,
+  outcome TEXT NOT NULL,
+  observations INTEGER NOT NULL,
+  wins INTEGER NOT NULL,
+  losses INTEGER NOT NULL,
+  expectancy_r REAL NOT NULL,
+  win_rate_lower_95 REAL NOT NULL,
+  status TEXT NOT NULL,
+  source TEXT NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS rejection_quality_key_idx
+ON rejection_quality_memory(symbol,blocker,session,regime,side,outcome);
+
+CREATE INDEX IF NOT EXISTS rejection_quality_lookup_idx
+ON rejection_quality_memory(symbol,blocker,session,regime,side,status,updated_at DESC);
+
 CREATE TABLE IF NOT EXISTS counterfactual_learning_memory (
   id TEXT PRIMARY KEY,
   symbol TEXT NOT NULL,
