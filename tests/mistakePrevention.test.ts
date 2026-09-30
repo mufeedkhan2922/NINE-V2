@@ -8,17 +8,15 @@ export function runMistakePreventionTest(): void {
   db.prepare("DELETE FROM causal_failure_memory WHERE symbol=?").run(symbol);
 
   for (let s = 0; s < 2; s += 1) {
-    for (let i = 0; i < 12; i += 1) {
-      db.prepare(`
-        INSERT INTO causal_failure_memory
-        (id,symbol,strategy,session,regime,side,failure_mode,observations,failures,wins,
-         failure_rate,failure_rate_lower_95,expectancy_r,severity,confidence,status,last_seen,source)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-      `).run(
-        `prevention-${s}-${i}`,symbol,`strategy-${s}`,"NEW_YORK","TRENDING_UP","LONG",
-        "IMMEDIATE_ADVERSE_MOVE",1,1,0,1,0.5,-0.4,1,0.5,"PENALIZE",Date.now(),"TEST"
-      );
-    }
+    db.prepare(`
+      INSERT INTO causal_failure_memory
+      (id,symbol,strategy,session,regime,side,failure_mode,observations,failures,wins,
+       failure_rate,failure_rate_lower_95,expectancy_r,severity,confidence,status,last_seen,source)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+    `).run(
+      `prevention-${s}`,symbol,`strategy-${s}`,"NEW_YORK","TRENDING_UP","LONG",
+      "IMMEDIATE_ADVERSE_MOVE",12,12,0,1,0.5,-0.4,1,0.5,"PENALIZE",Date.now(),"TEST"
+    );
   }
 
   mineMistakePatterns(symbol);
