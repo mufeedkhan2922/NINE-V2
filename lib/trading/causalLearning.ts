@@ -120,7 +120,12 @@ export function getCausalDecision(market:MarketSnapshot,strategy:string,side:"LO
   const candle=market.candles.at(-1); const session=sessionOf(candle?.time??Date.now()); const regime=regimeOf(market.candles);
   const rows=db.prepare("SELECT * FROM causal_failure_memory WHERE symbol=? AND strategy=? AND session=? AND (regime=? OR regime='MIXED') AND side=? ORDER BY failure_rate_lower_95 DESC").all(market.symbol,strategy,session,regime,side) as any[];
   if(!rows.length) return {blocked:false,adjustment:0,confidence:0,observations:0,reason:"No causal failure memory for this exact context.",failureModes:[]};
-  const relevant=concepts.length===0 ? rows : rows.filter(r=>concepts.some(c=>String(r.failure_mode).toLowerCase().includes(c.toLowerCase().replace(/-/g,"_"))));
+  const relevant=concepts.length===0
+    ? rows
+    : rows.filter(r =>
+        r.failure_mode === "DECISION_OUTCOME" ||
+        concepts.some(c => String(r.failure_mode).toLowerCase().includes(c.toLowerCase().replace(/-/g, "_")))
+      );
   const observations=relevant.reduce((s,r)=>s+Number(r.observations),0);
   const blocked=relevant.some(r=>r.status==="BLOCK" && Number(r.failure_rate_lower_95)>=.55 && Number(r.observations)>=20);
   const penalty=relevant.reduce((s,r)=>s+(r.status==="PENALIZE"?Math.min(3,Number(r.failure_rate_lower_95)*4):0),0);
