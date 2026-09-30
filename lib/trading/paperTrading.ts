@@ -23,6 +23,8 @@ import {
   updateOrder,
 } from "./orders";
 import { validatePaperAccountCore } from "./coreSafety";
+import { recordDecisionOutcome } from "./decisionOutcome";
+import { buildPaperDecisionObservation, updatePaperExcursion } from "./paperOutcomeBridge";
 
 const MAX_OPEN_POSITIONS = Number(
   process.env.NINE_PAPER_MAX_OPEN_POSITIONS ?? 3,
@@ -93,6 +95,7 @@ function settleTriggeredPositions(
   account: PaperAccount,
   price: number,
   store?: ReturnType<typeof getStoreSnapshot>,
+  outcomes: ReturnType<typeof buildPaperDecisionObservation>[] = [],
 ): void {
   const now = Date.now();
 
@@ -101,6 +104,8 @@ function settleTriggeredPositions(
       (item) => item.status === "OPEN",
     )
   ) {
+    updatePaperExcursion(position, price);
+
     const stopHit =
       position.side === "BUY"
         ? price <= position.stopLoss
@@ -130,6 +135,14 @@ function settleTriggeredPositions(
     position.exitPrice = exitPrice;
     position.closedAt = now;
     position.realizedPnl = pnl;
+    outcomes.push(
+      buildPaperDecisionObservation(
+        position,
+        exitPrice,
+        stopHit ? "STOP" : "TARGET",
+        now,
+      ),
+    );
 
     if (position.orderId) {
       updateOrder(position.orderId, {
@@ -221,13 +234,14 @@ function paperOrderRequestHash(
 export function getPaperAccount(
   price?: number,
 ): PaperAccount {
-  return withStore((store) => {
+  const outcomes: ReturnType<typeof buildPaperDecisionObservation>[] = [];
+  const account = withStore((store) => {
     const account = store.account;
     const mark = safeNumber(price ?? 0, 0);
 
     if (mark > 0) {
       resetDailyCounters(account);
-      settleTriggeredPositions(account, mark, store);
+      settleTriggeredPositions(account, mark, store, outcomes);
       markToMarket(account, mark);
     } else {
       const openPosition = account.positions.find(
@@ -241,6 +255,8 @@ export function getPaperAccount(
 
     return account;
   });
+  for (const observation of outcomes) recordDecisionOutcome(observation);
+  return account;
 }
 
 export function getPaperEvents(
@@ -320,7 +336,8 @@ export function executePaperSetup(
     });
   }
 
-  return withStore((store) => {
+  const outcomes: ReturnType<typeof buildPaperDecisionObservation>[] = [];
+  const result = withStore((store) => {
     const account =
       store.account;
 
@@ -347,6 +364,7 @@ export function executePaperSetup(
       account,
       market.price,
       store,
+      outcomes,
     );
 
     markToMarket(
@@ -590,6 +608,13 @@ export function executePaperSetup(
       status: "OPEN",
       orderId:
         order.id,
+      strategyId: orchestration.decisionContext?.strategyId ?? "paper-setup",
+      decisionSession: orchestration.decisionContext?.session,
+      decisionRegime: orchestration.decisionContext?.regime,
+      decisionStatus: orchestration.decisionContext?.decisionStatus ?? "TRADE",
+      traceId: orchestration.decisionContext?.traceId,
+      maxFavorableR: 0,
+      maxAdverseR: 0,
     };
 
     account.positions.push(
@@ -682,7 +707,8 @@ export function closePaperPosition(
   orderId?: string;
   account: PaperAccount;
 } {
-  return withStore((store) => {
+  const outcomes: ReturnType<typeof buildPaperDecisionObservation>[] = [];
+  const result = withStore((store) => {
     const account =
       store.account;
 
@@ -690,6 +716,7 @@ export function closePaperPosition(
       account,
       marketPrice,
       store,
+      outcomes,
     );
 
     const position =
@@ -728,6 +755,15 @@ export function closePaperPosition(
 
     position.realizedPnl =
       pnl;
+
+    outcomes.push(
+      buildPaperDecisionObservation(
+        position,
+        marketPrice,
+        "MANUAL",
+        position.closedAt,
+      ),
+    );
 
     account.balance += pnl;
     account.realizedPnl += pnl;
@@ -804,4 +840,6 @@ export function closePaperPosition(
       account,
     };
   });
+  for (const observation of outcomes) recordDecisionOutcome(observation);
+  return result;
 }
