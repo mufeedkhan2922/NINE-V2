@@ -27,6 +27,14 @@ export function auditOosValidationWindow(
       return { valid: false, reason: "Validation candles must be strictly chronological." };
     }
   }
+  const train = candles.filter((c) => c.time <= window.trainEndTime);
+  if (!train.length) {
+    return { valid: false, reason: "Validation window contains no training candles before the training cutoff." };
+  }
+  const lastTrain = train.at(-1)!.time;
+  if (lastTrain > window.trainEndTime) {
+    return { valid: false, reason: "Training candles cross the declared training cutoff." };
+  }
   const oos = candles.filter((c) =>
     c.time >= window.oosStartTime &&
     (window.oosEndTime === undefined || c.time <= window.oosEndTime),
