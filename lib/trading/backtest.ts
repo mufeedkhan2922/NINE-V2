@@ -7,6 +7,7 @@ import { recordCausalOutcomes, evaluateCounterfactualsForTrade, persistCounterfa
 import { getClosedLoopDecision } from "./closedLoopGate";
 import { replayRejectedSetup } from "./counterfactualReplay";
 import { policyForRegime, regimeFromCandles } from "./regimePolicy";
+import { auditOosValidationWindow, type OosValidationWindow } from "./statisticalValidation";
 import type {
   BacktestAnalytics,
   BacktestDistribution,
@@ -127,6 +128,12 @@ export interface BacktestOptions {
   research?: BacktestResearch;
   regimePolicyMode?: "OFF" | "SHADOW" | "BLOCK";
   useClosedLoopLearning?: boolean;
+  /**
+   * OOS_ISOLATED is a leakage-resistant evaluation mode. It never reads or
+   * writes persistent learning memory and begins evaluation at oosStartTime.
+   */
+  validationMode?: "STANDARD" | "OOS_ISOLATED";
+  validationWindow?: OosValidationWindow;
 }
 
 function utcDayKey(timestamp: number): string {
@@ -624,6 +631,16 @@ export function runBacktest(
 
   const trades: BacktestTrade[] = [];
   const research: BacktestResearch = options.research ?? { rejectedSignals: [] };
+  const validationMode = options.validationMode ?? "STANDARD";
+  if (validationMode === "OOS_ISOLATED") {
+    if (!options.validationWindow) {
+      throw new Error("OOS_ISOLATED backtest requires validationWindow.");
+    }
+    const audit = auditOosValidationWindow(candles, options.validationWindow);
+    if (!audit.valid) throw new Error(`Invalid OOS validation window: ${audit.reason}`);
+  }
+  const persistentLearningEnabled = usePersistentLessons && validationMode !== "OOS_ISOLATED";
+  const closedLoopLearningEnabled = Boolean(options.useClosedLoopLearning) && validationMode !== "OOS_ISOLATED";
   const regimePolicyMode = options.regimePolicyMode ?? "OFF";
   const warnings = [
     "Advanced ensemble setup engine evaluates previous-day liquidity sweeps, Asia-range sweeps, opening-range breakouts, breakout-retests, FVG/OB retests, volatility expansion, EMA pullbacks, breakouts, and mean-reversion.",
@@ -635,6 +652,9 @@ export function runBacktest(
     "When stop and target are both touched inside the same candle, the stop is assumed to trigger first (conservative intrabar ordering).",
     "This backtest models price movement but does not include broker commissions, financing, or spread unless already represented in the candle prices.",
     "Results are historical simulation outputs and do not establish future trading performance.",
+    validationMode === "OOS_ISOLATED"
+      ? "OOS isolation is active: persistent learning reads/writes and closed-loop feedback are disabled for this evaluation."
+      : "Standard backtest mode permits configured learning memory access.",
     regimePolicyMode !== "OFF"
       ? "Regime policy " + regimePolicyMode + " is active; policy decisions remain separate from the validated baseline strategy."
       : "Regime policy is OFF; baseline strategy selection is unchanged.",
@@ -654,7 +674,14 @@ export function runBacktest(
   let lastEntryIndex = -Infinity;
   const sessionTradeCounts = new Map<string, number>();
 
-  for (let i = WARMUP_CANDLES; i < candles.length - 1; i += 1) {
+  const validationStartIndex = validationMode === "OOS_ISOLATED"
+    ? Math.max(
+        WARMUP_CANDLES,
+        candles.findIndex((candle) => candle.time >= options.validationWindow!.oosStartTime),
+      )
+    : WARMUP_CANDLES;
+  const startIndex = validationStartIndex < WARMUP_CANDLES ? WARMUP_CANDLES : validationStartIndex;
+  for (let i = startIndex; i < candles.length - 1; i += 1) {
     if (i - lastEntryIndex < COOLDOWN_CANDLES) continue;
 
     const setupCandles = candles.slice(0, i + 1);
@@ -714,7 +741,7 @@ export function runBacktest(
       continue;
     }
 
-    if (options.useClosedLoopLearning) {
+    if (closedLoopLearningEnabled) {
       const closedLoopDecision = getClosedLoopDecision("XAUUSD", {
         strategy: strategyName,
         session: currentSetupSession(currentSetup),
@@ -739,7 +766,7 @@ export function runBacktest(
 
     const persistentParts = signalResult.reason.split(";");
     const persistentStrategy = persistentParts[1]?.trim().replace(/^(LONG|SHORT)\s+/i, "").trim() || "UNKNOWN_SETUP";
-    if (usePersistentLessons) {
+    if (persistentLearningEnabled) {
       const persistentLesson = getLessonDecision("XAUUSD", persistentStrategy, currentSetupSession(currentSetup), side);
       if (persistentLesson.blocked) {
         recordRejected("PERSISTENT_LESSON: " + persistentLesson.reason);
@@ -822,7 +849,7 @@ export function runBacktest(
   const grossLoss = Math.abs(losses.reduce((s, t) => s + t.pnl, 0));
   const profitFactor = grossLoss ? grossWin / grossLoss : wins.length ? Number.POSITIVE_INFINITY : 0;
 
-  if (usePersistentLessons) {
+  if (persistentLearningEnabled) {
     try {
       rememberBacktestLosses(trades, candles, "XAUUSD");
       recordCausalOutcomes(trades, candles, "XAUUSD");
@@ -879,6 +906,9 @@ export function runBacktest(
       adaptiveMinimumTrades: adaptiveLossFilter?.minimumTrades ?? 0,
       adaptiveBlockedSetupFamilies: adaptiveLossFilter?.blockedKeys.length ?? 0,
       regimePolicyMode,
+      validationMode,
+      persistentLearningEnabled,
+      closedLoopLearningEnabled,
     },
     ...analytics(trades, equityCurve, profitFactor),
     warnings,
