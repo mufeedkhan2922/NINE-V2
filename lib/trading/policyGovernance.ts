@@ -65,8 +65,8 @@ export function registerPolicyVersion(policyName:string,version:number,config:Re
 }
 export function promotePolicy(
   policyName:string,fromVersion:number,toVersion:number,trainObservations:number,oosObservations:number,oosDelta:number,confidence:number,
-):"PROMOTED"|"REJECTED"{
-  const valid=trainObservations>=50&&oosObservations>=30&&oosDelta>=0.03&&confidence>=0.7&&researchIntegrity.valid;
+  researchIntegrity: ResearchIntegrityGate,
+): "PROMOTED"|"REJECTED"{  const valid=trainObservations>=50&&oosObservations>=30&&oosDelta>=0.03&&confidence>=0.7&&researchIntegrity.valid;
   transaction(()=>{
     db.prepare("INSERT INTO policy_promotions (id,policy_name,from_version,to_version,train_observations,oos_observations,oos_delta,confidence,reason,status,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)")
       .run(createHash("sha256").update([policyName,fromVersion,toVersion,String(Date.now())].join("|")).digest("hex").slice(0,24),policyName,fromVersion,toVersion,trainObservations,oosObservations,oosDelta,confidence,valid?"OOS governance and research-integrity gates passed.":"OOS governance or research-integrity gate failed.",valid?"PROMOTED":"REJECTED",Date.now());
