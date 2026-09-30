@@ -4,13 +4,13 @@ import { runBacktest } from "../lib/trading/backtest";
 import { buildAdaptiveLossFilter } from "../lib/trading/adaptiveLossFilter";
 import type { BacktestTrade } from "../lib/trading/backtest";
 import type { Candle } from "../lib/trading/types";
-import { auditWalkForwardFolds, type WalkForwardFoldWindow } from "../lib/trading/statisticalValidation";
+import { auditResearchIntegrity, auditMultipleTesting, auditParameterFreeOosEvaluation, bootstrapMeanInterval, buildReproducibilityHash, fingerprintCandles, type WalkForwardFoldWindow, type ResearchProvenance } from "../lib/trading/statisticalValidation";
 
 const START = process.env.NINE_WF_START ?? "2026-08-01";
 const END = process.env.NINE_WF_END ?? "2026-09-29";
 const TRAIN_DAYS = Math.max(7, Number(process.env.NINE_WF_TRAIN_DAYS ?? "14"));
 const TEST_DAYS = Math.max(3, Number(process.env.NINE_WF_TEST_DAYS ?? "7"));
-const STEP_DAYS = Math.max(1, Number(process.env.NINE_WF_STEP_DAYS ?? "7"));
+const EMBARGO_DAYS = Math.max(1, Number(process.env.NINE_WF_EMBARGO_DAYS ?? "1"));\nconst STEP_DAYS = Math.max(TEST_DAYS + EMBARGO_DAYS, Number(process.env.NINE_WF_STEP_DAYS ?? String(TEST_DAYS + EMBARGO_DAYS)));\nconst EMBARGO_MS = EMBARGO_DAYS * 24 * 60 * 60 * 1000;
 const INITIAL_BALANCE = Number(process.env.NINE_BACKTEST_INITIAL_BALANCE ?? "10000");
 const FIXED_LOT = Number(process.env.NINE_BACKTEST_LOTS ?? "0.01");
 const CONTRACT_SIZE_OZ = Number(process.env.NINE_XAUUSD_CONTRACT_SIZE_OZ ?? "100");
@@ -86,7 +86,7 @@ function runWalkForward(candles: Candle[]) {
     const testStart = addDays(cursor, TRAIN_DAYS);
     const testEnd = addDays(testStart, TEST_DAYS);
 
-    const testStartMs = testStart.getTime();
+    const testStartMs = testStart.getTime();\n    const purgedTrainEndMs = testStartMs - EMBARGO_MS;
     const testEndMs = testEnd.getTime();
     const testStartIndex = candles.findIndex((c) => c.time >= testStartMs);
     const testEndIndex = candles.findIndex((c) => c.time >= testEndMs);
@@ -139,7 +139,7 @@ function runWalkForward(candles: Candle[]) {
     folds.push({
       fold: folds.length + 1,
       trainStart: iso(trainStart),
-      trainEnd: iso(testStart),
+      trainEnd: iso(new Date(purgedTrainEndMs)),
       testStart: iso(testStart),
       testEnd: iso(testEnd),
       trainCandles: trainCandles.length,
@@ -195,7 +195,7 @@ async function main() {
   }
 
   const candles = await fetchHistory(START, END);
-  const folds = runWalkForward(candles);
+  const { folds, foldWindows } = runWalkForward(candles);
   const allBaselineTrades = folds.flatMap((fold) => {
     const items = Array.isArray(fold.baselineTrades) ? fold.baselineTrades : [];
     return items as Array<{ pnl: number }>;
