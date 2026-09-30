@@ -40,6 +40,7 @@ import { runMetaLearningTest } from "./metaLearning.test";
 import { runCausalLearningTest } from "./causalLearning.test";
 import { runAdaptiveCalibrationTest } from "./adaptiveCalibration.test";
 import { runPolicyGovernanceTest } from "./policyGovernance.test";
+import { runAutonomousDecisionTest } from "./autonomousDecision.test";
 
 const tests: Array<[string, () => void | Promise<void>]> = [
   ["technical", runTechnicalTest],
@@ -90,6 +91,7 @@ const tests: Array<[string, () => void | Promise<void>]> = [
   ["causal loss learning", runCausalLearningTest],
   ["adaptive calibration", runAdaptiveCalibrationTest],
   ["policy governance", runPolicyGovernanceTest],
+  ["autonomous decision intelligence", runAutonomousDecisionTest],
 ];
 
 async function main(): Promise<void> {
