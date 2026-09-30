@@ -1,0 +1,33 @@
+name: NINE XAUUSD Adaptive Mistake Prevention
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "lib/trading/mistakePrevention.ts"
+      - "lib/trading/mistakePatternMining.ts"
+      - "lib/trading/causalLearning.ts"
+      - "lib/trading/strategyEngine.ts"
+      - "tests/mistakePrevention.test.ts"
+      - "tests/mistakePatternMining.test.ts"
+      - "tests/testRunner.ts"
+      - "scripts/run-xauusd-mistake-prevention.ts"
+      - "package.json"
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run research:xauusd:mistake-prevention
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nine-xauusd-mistake-prevention
+          path: artifacts/xauusd-mistake-prevention.json
