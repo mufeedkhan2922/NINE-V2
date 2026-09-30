@@ -50,7 +50,7 @@ export function buildDecisionTrace(
   return id;
 }
 export function evaluatePolicyGovernance(policyName:string):DecisionGovernance{
-  const row=db.prepare("SELECT version,status,config_json FROM decision_policy_versions WHERE policy_name=? ORDER BY version DESC LIMIT 1").get(policyName) as any;
+  const row=db.prepare("SELECT version,status,config_json FROM decision_policy_versions WHERE policy_name=? ORDER BY CASE WHEN status='ACTIVE' THEN 0 WHEN status='CANDIDATE' THEN 1 WHEN status='SHADOW' THEN 2 WHEN status='QUARANTINED' THEN 3 WHEN status='RETIRED' THEN 4 ELSE 5 END, version DESC LIMIT 1").get(policyName) as any;
   if(!row)return {policyVersion:1,calibratedScore:0,uncertainty:1,status:"SHADOW",canProceed:false,sentinelRequired:true,reason:"No validated policy version; remain shadow-only."};
   const status=row.status as DecisionGovernance["status"];
   const can=status==="ACTIVE";
@@ -68,7 +68,7 @@ export function promotePolicy(
   const valid=trainObservations>=50&&oosObservations>=30&&oosDelta>=0.03&&confidence>=0.7;
   transaction(()=>{
     db.prepare("INSERT INTO policy_promotions (id,policy_name,from_version,to_version,train_observations,oos_observations,oos_delta,confidence,reason,status,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)")
-      .run(createHash("sha256").update([policyName,fromVersion,toVersion,String(Date.now())].join("|")).digest("hex").slice(0,24),policyName,fromVersion,toVersion,trainObservations,oosObservations,oosDelta,confidence,valid?"OOS governance gate passed.":"OOS governance gate failed.","PROMOTED"=== (valid?"PROMOTED":"REJECTED"),Date.now());
+      .run(createHash("sha256").update([policyName,fromVersion,toVersion,String(Date.now())].join("|")).digest("hex").slice(0,24),policyName,fromVersion,toVersion,trainObservations,oosObservations,oosDelta,confidence,valid?"OOS governance gate passed.":"OOS governance gate failed.",valid?"PROMOTED":"REJECTED",Date.now());
     if(valid){
       db.prepare("UPDATE decision_policy_versions SET status='RETIRED',retired_at=? WHERE policy_name=? AND version=?").run(Date.now(),policyName,fromVersion);
       db.prepare("UPDATE decision_policy_versions SET status='ACTIVE',activated_at=? WHERE policy_name=? AND version=?").run(Date.now(),policyName,toVersion);
