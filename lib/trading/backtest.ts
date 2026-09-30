@@ -693,6 +693,7 @@ export function runBacktest(
     const currentSetup = setupCandles.at(-1)!;
     const nextCandle = candles[i + 1];
     if (!nextCandle) continue;
+    if (validationMode === "OOS_ISOLATED" && options.validationWindow?.oosEndTime !== undefined && nextCandle.time > options.validationWindow.oosEndTime) continue;
 
     const tech = analyzeTechnicals(setupCandles);
     if (!tech.atr || !Number.isFinite(tech.atr)) continue;
@@ -911,6 +912,9 @@ export function runBacktest(
       validationMode,
       persistentLearningEnabled,
       closedLoopLearningEnabled,
+      validationTrainEndTime: validationMode === "OOS_ISOLATED" ? options.validationWindow?.trainEndTime ?? 0 : 0,
+      validationOosStartTime: validationMode === "OOS_ISOLATED" ? options.validationWindow?.oosStartTime ?? 0 : 0,
+      validationOosEndTime: validationMode === "OOS_ISOLATED" ? options.validationWindow?.oosEndTime ?? 0 : 0,
     },
     ...analytics(trades, equityCurve, profitFactor),
     warnings,
