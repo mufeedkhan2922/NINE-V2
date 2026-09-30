@@ -4,7 +4,7 @@ import type { Candle } from "./types";
 export interface CounterfactualResult {
   tradeId: string;
   rejected: boolean;
-  hypotheticalOutcome: "WOULD_HAVE_WON" | "WOULD_HAVE_LOST" | "UNRESOLVED";
+  hypotheticalOutcome: "WOULD_HAVE_WON" | "WOULD_HAVE_LOST" | "AMBIGUOUS" | "UNRESOLVED";
   hypotheticalPnl: number;
   maxFavorableR: number;
   maxAdverseR: number;
@@ -22,7 +22,26 @@ export function evaluateRejectedTrade(entryTime: number, side: "LONG"|"SHORT", e
     mfe=Math.max(mfe,fav); mae=Math.max(mae,adv);
     const stopHit=side==="LONG"?c.low<=stop:c.high>=stop;
     const targetHit=side==="LONG"?c.high>=target:c.low<=target;
-    if(stopHit||targetHit) return {tradeId:String(entryTime),rejected:true,hypotheticalOutcome:targetHit&&!stopHit?"WOULD_HAVE_WON":"WOULD_HAVE_LOST",hypotheticalPnl:targetHit&&!stopHit?Math.abs(target-entry): -risk,maxFavorableR:mfe,maxAdverseR:mae,horizonCandles:Math.max(1, Math.min(horizon, candles.length - index))};
+    if (stopHit || targetHit) {
+      const outcome = stopHit && targetHit
+        ? "AMBIGUOUS"
+        : targetHit
+          ? "WOULD_HAVE_WON"
+          : "WOULD_HAVE_LOST";
+      return {
+        tradeId: String(entryTime),
+        rejected: true,
+        hypotheticalOutcome: outcome,
+        hypotheticalPnl: outcome === "WOULD_HAVE_WON"
+          ? Math.abs(target - entry)
+          : outcome === "WOULD_HAVE_LOST"
+            ? -risk
+            : 0,
+        maxFavorableR: mfe,
+        maxAdverseR: mae,
+        horizonCandles: Math.max(1, Math.min(horizon, candles.length - index)),
+      };
+    }
   }
   return {tradeId:String(entryTime),rejected:true,hypotheticalOutcome:"UNRESOLVED",hypotheticalPnl:0,maxFavorableR:mfe,maxAdverseR:mae,horizonCandles:Math.min(horizon,candles.length-index)};
 }
