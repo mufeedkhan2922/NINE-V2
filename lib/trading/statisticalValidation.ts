@@ -266,3 +266,16 @@ export function auditResearchIntegrity(
     reproducibilityHash,
   };
 }
+
+
+export function fingerprintCandles(
+  candles: Array<{ time: number; open: number; high: number; low: number; close: number }>,
+): string {
+  const input = candles.map((c) => [c.time, c.open, c.high, c.low, c.close].join(":")).join("|");
+  let hash = 2166136261;
+  for (let i = 0; i < input.length; i += 1) {
+    hash ^= input.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(16).padStart(8, "0");
+}
