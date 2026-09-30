@@ -1,4 +1,5 @@
-import { db } from "./db";
+import { createHash } from "node:crypto";
+import { db, transaction } from "./db";
 
 export type DecisionOutcome = "WIN" | "LOSS" | "BREAKEVEN" | "MISSED" | "INVALIDATED";
 
@@ -90,6 +91,99 @@ export function calculateDecisionOutcomeAudit(
   };
 }
 
+function learnOutcomeIntoCausalMemory(observation: DecisionOutcomeObservation, outcome: DecisionOutcome): void {
+  const failureMode = outcome === "LOSS"
+    ? "DECISION_OUTCOME"
+    : outcome === "INVALIDATED"
+      ? "STRUCTURE_INVALIDATION"
+      : outcome === "MISSED"
+        ? "NO_FOLLOW_THROUGH"
+        : "DECISION_OUTCOME";
+  const id = createHash("sha256")
+    .update([
+      observation.symbol,
+      observation.strategyId,
+      observation.session,
+      observation.regime,
+      observation.direction,
+      failureMode,
+    ].join("|"))
+    .digest("hex")
+    .slice(0, 24);
+  const isFailure = outcome === "LOSS" || outcome === "INVALIDATED";
+  const r = Number.isFinite(observation.pnlR) ? observation.pnlR : 0;
+  transaction(() => {
+    const old = db.prepare(
+      "SELECT observations,failures,wins,expectancy_r,severity FROM causal_failure_memory WHERE id=?",
+    ).get(id) as any;
+    if (old) {
+      const observations = Number(old.observations) + 1;
+      const failures = Number(old.failures) + (isFailure ? 1 : 0);
+      const wins = Number(old.wins) + (isFailure ? 0 : 1);
+      const expectancyR = (Number(old.expectancy_r) * Number(old.observations) + r) / observations;
+      const failureRate = failures / observations;
+      const lower = causalWilsonLower(failures, observations);
+      const status =
+        observations >= 20 && lower >= 0.55 && expectancyR < -0.05
+          ? "BLOCK"
+          : observations >= 5 && lower >= 0.45
+            ? "PENALIZE"
+            : "OBSERVE";
+      db.prepare(
+        "UPDATE causal_failure_memory SET observations=?,failures=?,wins=?,failure_rate=?,failure_rate_lower_95=?,expectancy_r=?,severity=?,confidence=?,status=?,last_seen=?,source=? WHERE id=?",
+      ).run(
+        observations,
+        failures,
+        wins,
+        failureRate,
+        lower,
+        expectancyR,
+        (Number(old.severity) * Number(old.observations) + (isFailure ? 1 : 0.25)) / observations,
+        Math.min(1, observations / 100),
+        status,
+        Date.now(),
+        "DECISION_OUTCOME_FEEDBACK",
+        id,
+      );
+    } else {
+      db.prepare(
+        "INSERT INTO causal_failure_memory (id,symbol,strategy,session,regime,side,failure_mode,observations,failures,wins,failure_rate,failure_rate_lower_95,expectancy_r,severity,confidence,status,last_seen,source) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+      ).run(
+        id,
+        observation.symbol,
+        observation.strategyId,
+        observation.session,
+        observation.regime,
+        observation.direction,
+        failureMode,
+        1,
+        isFailure ? 1 : 0,
+        isFailure ? 0 : 1,
+        isFailure ? 1 : 0,
+        causalWilsonLower(isFailure ? 1 : 0, 1),
+        r,
+        isFailure ? 1 : 0.25,
+        0.01,
+        "OBSERVE",
+        Date.now(),
+        "DECISION_OUTCOME_FEEDBACK",
+      );
+    }
+  });
+}
+
+function causalWilsonLower(wins: number, n: number): number {
+  if (n <= 0) return 0;
+  const z = 1.96;
+  const p = wins / n;
+  const denominator = 1 + z * z / n;
+  return (
+    p +
+    z * z / (2 * n) -
+    z * Math.sqrt((p * (1 - p) + z * z / (4 * n)) / n)
+  ) / denominator;
+}
+
 export function recordDecisionOutcome(observation: DecisionOutcomeObservation): void {
   const now = observation.timestamp ?? Date.now();
   const pnlR = Number.isFinite(observation.pnlR) ? observation.pnlR : 0;
@@ -118,6 +212,8 @@ export function recordDecisionOutcome(observation: DecisionOutcomeObservation): 
     observation.traceId ?? null,
     now,
   );
+
+  learnOutcomeIntoCausalMemory(observation, outcome);
 
   if (observation.traceId) {
     db.prepare("UPDATE decision_trace SET outcome=? WHERE id=?").run(outcome, observation.traceId);
