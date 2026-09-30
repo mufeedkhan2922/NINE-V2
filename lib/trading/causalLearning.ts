@@ -116,13 +116,19 @@ export function recordCausalOutcomes(trades: BacktestTrade[], candles: Candle[],
   return recorded;
 }
 
+function normalizeStrategyKey(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+}
+
 export function getCausalDecision(market:MarketSnapshot,strategy:string,side:"LONG"|"SHORT",concepts:string[]):CausalDecision {
   const candle=market.candles.at(-1); const session=sessionOf(candle?.time??Date.now()); const regime=regimeOf(market.candles);
-  const rows=db.prepare("SELECT * FROM causal_failure_memory WHERE symbol=? AND strategy=? AND session=? AND (regime=? OR regime='MIXED') AND side=? ORDER BY failure_rate_lower_95 DESC").all(market.symbol,strategy,session,regime,side) as any[];
-  if(!rows.length) return {blocked:false,adjustment:0,confidence:0,observations:0,reason:"No causal failure memory for this exact context.",failureModes:[]};
+  const rows=db.prepare("SELECT * FROM causal_failure_memory WHERE symbol=? AND session=? AND (regime=? OR regime='MIXED') AND side=? ORDER BY failure_rate_lower_95 DESC").all(market.symbol,session,regime,side) as any[];
+  const strategyKey = normalizeStrategyKey(strategy);
+  const strategyRows = rows.filter(r => normalizeStrategyKey(String(r.strategy)) === strategyKey);
+  if(!strategyRows.length) return {blocked:false,adjustment:0,confidence:0,observations:0,reason:"No causal failure memory for this exact context.",failureModes:[]};
   const relevant=concepts.length===0
-    ? rows
-    : rows.filter(r =>
+    ? strategyRows
+    : strategyRows.filter(r =>
         r.failure_mode === "DECISION_OUTCOME" ||
         concepts.some(c => String(r.failure_mode).toLowerCase().includes(c.toLowerCase().replace(/-/g, "_")))
       );
