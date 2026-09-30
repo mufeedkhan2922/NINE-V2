@@ -129,6 +129,7 @@ export interface ResearchProvenance {
   oosStartTime: number;
   oosEndTime: number;
   candleCount: number;
+  dataFingerprint: string;
   trainCandleCount: number;
   oosCandleCount: number;
   rulesetVersion: string;
