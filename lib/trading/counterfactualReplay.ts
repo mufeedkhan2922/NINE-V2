@@ -82,7 +82,7 @@ function persistRejectionQuality(
   result: CounterfactualResult,
 ): void {
   const outcome = result.hypotheticalOutcome;
-  if (outcome === "UNRESOLVED") return;
+  if (outcome === "UNRESOLVED" || outcome === "AMBIGUOUS") return;
   const id = createHash("sha256").update(["rejection", symbol, blocker, session, regime, side, outcome].join("|")).digest("hex").slice(0, 24);
   transaction(() => {
     const old = db.prepare(
@@ -121,6 +121,7 @@ function persistRejectionQuality(
 function persistInsight(symbol: string, session: string, regime: string, side: "LONG"|"SHORT", result: CounterfactualResult, rejectionReason?: string): void {
   persistRejectionQuality(symbol, normalizeBlocker(rejectionReason), session, regime, side, result);
   const outcome = result.hypotheticalOutcome;
+  if (outcome === "AMBIGUOUS") return;
   const id = createHash("sha256").update([symbol, session, regime, side, outcome].join("|")).digest("hex").slice(0,24);
   transaction(() => {
     const old = db.prepare("SELECT observations,wins,losses,expectancy_r FROM counterfactual_learning_memory WHERE id=?").get(id) as any;
@@ -159,7 +160,9 @@ export function replayRejectedSetup(
     horizon,
   );
   const session = sessionOf(setup.entryTime);
-  const regime = regimeOf(candles);
+  const entryIndex = candles.findIndex((candle) => candle.time >= setup.entryTime);
+  const decisionCandles = entryIndex > 0 ? candles.slice(0, entryIndex) : candles.slice(0, Math.max(0, entryIndex));
+  const regime = regimeOf(decisionCandles);
   persistInsight(symbol, session, regime, setup.side, result, setup.rejectionReason);
   return {
     tradeId: result.tradeId,
