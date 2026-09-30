@@ -1,4 +1,5 @@
 import { replayRejectedTrades, replayRejectedSetup, counterfactualReplaySummary, getCounterfactualPreventionDecision, getRejectionQualityDecision } from "../lib/trading/counterfactualReplay";
+import { evaluateRejectedTrade } from "../lib/trading/counterfactual";
 import type { BacktestTrade } from "../lib/trading/backtest";
 import type { Candle } from "../lib/trading/types";
 
@@ -47,6 +48,32 @@ export function runCounterfactualReplayTest(): void {
   const quality = getRejectionQualityDecision("TEST-REPLAY-VALIDATED", "MISTAKE_PREVENTION", "OFF", "RANGING", "LONG");
   if (quality.status !== "VALIDATED" || quality.observations < 20) {
     throw new Error("rejection quality audit did not validate a historically good blocker");
+  }
+
+  const ambiguousEntry = candles[50]!.time;
+  const ambiguousEntryPrice = candles[50]!.open;
+  const ambiguousCandles = candles.map((candle, index) =>
+    index === 50
+      ? {
+          ...candle,
+          open: ambiguousEntryPrice,
+          high: ambiguousEntryPrice + 0.2,
+          low: ambiguousEntryPrice - 0.2,
+          close: ambiguousEntryPrice,
+        }
+      : candle,
+  );
+  const ambiguous = evaluateRejectedTrade(
+    ambiguousEntry,
+    "LONG",
+    ambiguousEntryPrice,
+    ambiguousEntryPrice - 0.1,
+    ambiguousEntryPrice + 0.1,
+    ambiguousCandles,
+    1,
+  );
+  if (ambiguous.hypotheticalOutcome !== "AMBIGUOUS") {
+    throw new Error("same-candle stop+target must be classified as ambiguous");
   }
 
 }
