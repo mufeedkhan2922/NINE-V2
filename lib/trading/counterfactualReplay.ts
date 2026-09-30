@@ -62,7 +62,7 @@ function regimeOf(candles: Candle[]): string {
 
 function normalizeBlocker(reason?: string): string {
   const raw = (reason ?? "UNKNOWN_REJECTION").trim();
-  return raw.split(":")[0]?.trim().toUpperCase().replace(/\\s+/g, "_") || "UNKNOWN_REJECTION";
+  return raw.split(":")[0]?.trim().toUpperCase().replace(/\s+/g, "_") || "UNKNOWN_REJECTION";
 }
 
 function wilsonLower(wins: number, n: number): number {
