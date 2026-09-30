@@ -4,6 +4,7 @@ import { runBacktest } from "../lib/trading/backtest";
 import { buildAdaptiveLossFilter } from "../lib/trading/adaptiveLossFilter";
 import type { BacktestTrade } from "../lib/trading/backtest";
 import type { Candle } from "../lib/trading/types";
+import { auditWalkForwardFolds, type WalkForwardFoldWindow } from "../lib/trading/statisticalValidation";
 
 const START = process.env.NINE_WF_START ?? "2026-08-01";
 const END = process.env.NINE_WF_END ?? "2026-09-29";
@@ -154,6 +155,17 @@ function runWalkForward(candles: Candle[]) {
     cursor = addDays(cursor, STEP_DAYS);
   }
 
+  const foldWindows: WalkForwardFoldWindow[] = folds.map((fold) => ({
+    trainStartTime: new Date(String(fold.trainStart) + "T00:00:00Z").getTime(),
+    trainEndTime: new Date(String(fold.trainEnd) + "T00:00:00Z").getTime(),
+    oosStartTime: new Date(String(fold.testStart) + "T00:00:00Z").getTime(),
+    oosEndTime: new Date(String(fold.testEnd) + "T00:00:00Z").getTime(),
+  }));
+  const audit = auditWalkForwardFolds(foldWindows);
+  if (!audit.valid) {
+    throw new Error("Walk-forward contamination audit failed: " + audit.reason);
+  }
+
   return folds;
 }
 
@@ -232,6 +244,11 @@ async function main() {
       warmupCandles: WARMUP_CANDLES,
     },
     dataPoints: candles.length,
+    validationAudit: {
+      status: "VALIDATED",
+      method: "chronological_non_overlapping_oos_folds",
+      folds: folds.length,
+    },
     folds,
     aggregateBaselineOos: aggregateBaseline,
     aggregateAdaptiveOos: aggregateAdaptive,
