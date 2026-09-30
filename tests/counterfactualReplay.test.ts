@@ -41,11 +41,11 @@ export function runCounterfactualReplayTest(): void {
     rejectionReason: "MISTAKE_PREVENTION",
   };
   for (let i = 0; i < 20; i += 1) replayRejectedSetup(rejected, candles, 6, "TEST-REPLAY-VALIDATED");
-  const prevention = getCounterfactualPreventionDecision("TEST-REPLAY-VALIDATED", "OFF", "RANGING", "LONG");
+  const prevention = getCounterfactualPreventionDecision("TEST-REPLAY-VALIDATED", "OFF", "MIXED", "LONG");
   if (prevention.status !== "WATCH" || prevention.adjustment >= 0 || prevention.observations < 20) {
     throw new Error("validated counterfactual rejection did not reach prevention");
   }
-  const quality = getRejectionQualityDecision("TEST-REPLAY-VALIDATED", "MISTAKE_PREVENTION", "OFF", "RANGING", "LONG");
+  const quality = getRejectionQualityDecision("TEST-REPLAY-VALIDATED", "MISTAKE_PREVENTION", "OFF", "MIXED", "LONG");
   if (quality.status !== "VALIDATED" || quality.observations < 20) {
     throw new Error("rejection quality audit did not validate a historically good blocker");
   }
