@@ -142,7 +142,16 @@ export function getMistakePatternDecision(
   regime: string,
   side: "LONG" | "SHORT",
 ): { blocked: boolean; adjustment: number; observations: number; reason: string; patterns: string[] } {
-  const rows = db.prepare(`
+  // Generalized contexts are deliberately weaker than exact matches. OFF/MIXED
+  // patterns can inform a warning, but they must not silently become exact blockers.
+  const exactRows = db.prepare(`
+    SELECT * FROM mistake_patterns
+    WHERE symbol=? AND side=? AND session=? AND regime=?
+      AND status IN ('PENALIZE','BLOCK')
+    ORDER BY failure_rate_lower_95 DESC, observations DESC
+  `).all(symbol,side,session,regime) as Array<any>;
+
+  const generalizedRows = exactRows.length ? [] : db.prepare(`
     SELECT * FROM mistake_patterns
     WHERE symbol=? AND side=?
       AND (session=? OR session='OFF')
@@ -151,14 +160,23 @@ export function getMistakePatternDecision(
     ORDER BY failure_rate_lower_95 DESC, observations DESC
   `).all(symbol,side,session,regime) as Array<any>;
 
+  const exact = exactRows.length > 0;
+  const rows = exact ? exactRows : generalizedRows.filter((r) =>
+    Number(r.observations) >= 40 &&
+    Number(r.strategies) >= 3 &&
+    Number(r.failure_rate_lower_95) >= 0.65
+  );
+
   if (!rows.length) {
-    return { blocked:false, adjustment:0, observations:0, reason:"No validated recurring mistake pattern for this context.", patterns:[] };
+    return { blocked:false, adjustment:0, observations:0, reason:"No sufficiently validated recurring mistake pattern for this context.", patterns:[] };
   }
 
-  const blockers = rows.filter((r) => r.status === "BLOCK" && Number(r.strategies) >= 2);
+  const blockers = exact
+    ? rows.filter((r) => r.status === "BLOCK" && Number(r.strategies) >= 2)
+    : [];
   const penalty = rows
     .filter((r) => r.status === "PENALIZE")
-    .reduce((sum, r) => sum + Math.min(4, Number(r.failure_rate_lower_95) * 4), 0);
+    .reduce((sum, r) => sum + Math.min(4, Number(r.failure_rate_lower_95) * 4) * (exact ? 1 : 0.5), 0);
 
   return {
     blocked: blockers.length > 0,
