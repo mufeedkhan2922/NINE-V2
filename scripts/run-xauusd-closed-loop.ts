@@ -11,6 +11,7 @@ const START = process.env.NINE_LEARNING_START ?? "2026-08-01";
 const END = process.env.NINE_LEARNING_END ?? "2026-09-29";
 const CHUNK_DAYS = 10;
 const RULE_TTL_DAYS = 30;
+const PROVIDER_CHUNK_DELAY_MS = Math.max(0, Math.min(Number(process.env.NINE_PROVIDER_CHUNK_DELAY_MS ?? 10_000), 60_000));
 
 function addDays(d: Date, n: number) {
   const x = new Date(d);
@@ -31,6 +32,9 @@ async function fetchHistory(): Promise<Candle[]> {
     const to = addDays(cursor, CHUNK_DAYS) < end ? addDays(cursor, CHUNK_DAYS) : end;
     for (const candle of await fetchProviderHistoricalCandles("XAUUSD", "5min", iso(cursor), iso(to))) {
       map.set(candle.time, candle);
+    }
+    if (to < end && PROVIDER_CHUNK_DELAY_MS > 0) {
+      await new Promise((resolve) => setTimeout(resolve, PROVIDER_CHUNK_DELAY_MS));
     }
   }
 
