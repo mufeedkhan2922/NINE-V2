@@ -623,7 +623,7 @@ export function runBacktest(
   }
 
   const trades: BacktestTrade[] = [];
-  const research = options.research;
+  const research: BacktestResearch = options.research ?? { rejectedSignals: [] };
   const regimePolicyMode = options.regimePolicyMode ?? "OFF";
   const warnings = [
     "Advanced ensemble setup engine evaluates previous-day liquidity sweeps, Asia-range sweeps, opening-range breakouts, breakout-retests, FVG/OB retests, volatility expansion, EMA pullbacks, breakouts, and mean-reversion.",
