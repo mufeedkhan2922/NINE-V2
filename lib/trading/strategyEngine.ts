@@ -33,7 +33,7 @@ export interface StrategyConsensus {
   candidates: StrategyCandidate[];
   activeStrategies: number;
   alignedStrategies: number;
-  regime: "TRENDING_UP" | "TRENDING_DOWN" | "RANGING" | "EXPANDING" | "MIXED";
+  regime: "TRENDING_UP" | "TRENDING_DOWN" | "RANGING" | "EXPANDING" | "COMPRESSED" | "MIXED";
   generatedAt: number;
   decisionStatus?: "TRADE" | "WATCH" | "BLOCK";
   decisionUncertainty?: number;
@@ -83,18 +83,9 @@ function session(candle?: Candle): "ASIA" | "LONDON" | "NEW_YORK" | "OFF" {
   return "OFF";
 }
 
-function evaluateRegime(candles: Candle[], techTrend: string): StrategyConsensus["regime"] {
-  if (candles.length < 30) return "MIXED";
-  const ranges = candles.slice(-20).map((c) => c.high - c.low);
-  const meanRange = ranges.reduce((a, b) => a + b, 0) / Math.max(1, ranges.length);
-  const priorRanges = candles.slice(-60, -20).map((c) => c.high - c.low);
-  const priorMean = priorRanges.reduce((a, b) => a + b, 0) / Math.max(1, priorRanges.length);
-  const displacement = candles.at(-1)!.close - candles[Math.max(0, candles.length - 20)].close;
-  if (priorMean > 0 && meanRange > priorMean * 1.35) return "EXPANDING";
-  if (techTrend === "BULLISH" && displacement > 0) return "TRENDING_UP";
-  if (techTrend === "BEARISH" && displacement < 0) return "TRENDING_DOWN";
-  if (techTrend === "NEUTRAL") return "RANGING";
-  return "MIXED";
+function evaluateRegime(symbol: string, candles: Candle[]): StrategyConsensus["regime"] {
+  if (candles.length < 40) return "MIXED";
+  return buildRegimeIntelligence(symbol, candles).features.regime;
 }
 
 function scoreStrategy(strategy: StrategyDefinition, market: MarketSnapshot, candles: Candle[], useMemory = true): StrategyCandidate {
@@ -111,8 +102,8 @@ function scoreStrategy(strategy: StrategyDefinition, market: MarketSnapshot, can
   const rangeHigh = range20.length ? Math.max(...range20.map((c) => c.high)) : null;
   const rangeLow = range20.length ? Math.min(...range20.map((c) => c.low)) : null;
   const trendDirection: TradeDirection = tech.trend === "BULLISH" ? "LONG" : tech.trend === "BEARISH" ? "SHORT" : "NONE";
-  const regime = evaluateRegime(candles, tech.trend);
   const regimeIntel = buildRegimeIntelligence(market.symbol, candles);
+  const regime = regimeIntel.features.regime;
   const route = routeStrategyByRegime(market, strategy, regimeIntel.features.regime);
   const memory = useMemory ? getStrategyMemoryWeight(market, strategy.id, session(last), regime) : { adjustment: 0, sampleTrades: 0, expectancyR: 0, winRate: 0, source: null };
   const evolution = getStrategyEvolutionAdjustment(market, strategy.id, session(last), regime);
@@ -342,7 +333,7 @@ export function evaluateStrategyBook(market: MarketSnapshot, options: { useMemor
   const top = candidates.slice(0, 5);
   const score = autonomous.status === "TRADE" ? autonomous.score : 0;
   const confidence = autonomous.status === "TRADE" ? autonomous.confidence : 0;
-  const regime = evaluateRegime(market.candles, analyzeTechnicals(market.candles).trend);
+  const regime = evaluateRegime(market.symbol, market.candles);
   return {
     direction,
     score,
