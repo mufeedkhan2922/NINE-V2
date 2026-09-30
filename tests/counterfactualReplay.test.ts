@@ -1,4 +1,4 @@
-import { replayRejectedTrades, replayRejectedSetup, counterfactualReplaySummary, getCounterfactualPreventionDecision } from "../lib/trading/counterfactualReplay";
+import { replayRejectedTrades, replayRejectedSetup, counterfactualReplaySummary, getCounterfactualPreventionDecision, getRejectionQualityDecision } from "../lib/trading/counterfactualReplay";
 import type { BacktestTrade } from "../lib/trading/backtest";
 import type { Candle } from "../lib/trading/types";
 
@@ -43,6 +43,10 @@ export function runCounterfactualReplayTest(): void {
   const prevention = getCounterfactualPreventionDecision("TEST-REPLAY-VALIDATED", "OFF", "RANGING", "LONG");
   if (prevention.status !== "WATCH" || prevention.adjustment >= 0 || prevention.observations < 20) {
     throw new Error("validated counterfactual rejection did not reach prevention");
+  }
+  const quality = getRejectionQualityDecision("TEST-REPLAY-VALIDATED", "MISTAKE_PREVENTION", "OFF", "RANGING", "LONG");
+  if (quality.status !== "VALIDATED" || quality.observations < 20) {
+    throw new Error("rejection quality audit did not validate a historically good blocker");
   }
 
 }
