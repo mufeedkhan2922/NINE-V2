@@ -1,3 +1,4 @@
+import { mkdirSync, writeFileSync } from "node:fs";
 import { decisionOutcomeResearchSummary } from "../lib/trading/decisionOutcome";
 
 const summary = decisionOutcomeResearchSummary("XAUUSD");
@@ -13,4 +14,6 @@ const result = {
   ],
 };
 
+mkdirSync("artifacts", { recursive: true });
+writeFileSync("artifacts/xauusd-decision-outcomes.json", JSON.stringify(result, null, 2));
 console.log(JSON.stringify(result, null, 2));
