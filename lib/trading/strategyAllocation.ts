@@ -18,6 +18,7 @@ interface MemoryRow {
   strategy_id: string;
   strategy_name?: string;
   strategy_family?: StrategyFamily;
+  family?: StrategyFamily;
   trades: number;
   expectancy_r: number;
   win_rate: number;
@@ -39,7 +40,7 @@ function loadPeerRows(
   regime: string,
 ): MemoryRow[] {
   const rows = db.prepare(
-    `SELECT strategy_id, strategy_name, trades, expectancy_r, win_rate
+    `SELECT strategy_id, strategy_name, family AS strategy_family, trades, expectancy_r, win_rate
      FROM strategy_memory
      WHERE symbol = ?
        AND (session = ? OR session = 'ALL')
@@ -118,7 +119,7 @@ export function getStrategyAllocationAdjustment(
     const rows = loadPeerRows(market, session, regime);
     const allocations = calculateStrategyAllocations(rows.map((row) => ({
       strategyId: row.strategy_id,
-      family,
+      family: row.strategy_family ?? family,
       trades: Number(row.trades),
       expectancyR: Number(row.expectancy_r ?? 0),
       winRate: Number(row.win_rate ?? 0),
