@@ -25,7 +25,8 @@
     "research:xauusd:mistake-prevention": "npx tsx@4.20.5 scripts/run-xauusd-mistake-prevention.ts",
     "research:xauusd:counterfactual-replay": "npx tsx@4.20.5 scripts/run-xauusd-counterfactual-replay.ts",
     "research:xauusd:paper-learning": "npx tsx@4.20.5 scripts/run-xauusd-paper-learning.ts",
-    "research:xauusd:rejection-governance": "npx tsx@4.20.5 scripts/run-xauusd-rejection-governance.ts"
+    "research:xauusd:rejection-governance": "npx tsx@4.20.5 scripts/run-xauusd-rejection-governance.ts",
+    "walkforward": "npx tsx@4.20.5 scripts/run-xauusd-walkforward.ts"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.8",
