@@ -788,7 +788,8 @@ export function runBacktest(
     let exit = nextCandle.close;
     let reason: BacktestTrade["reason"] = "END";
     let exitIndex = i + 1;
-    for (let j = i + 1; j < candles.length; j += 1) {
+    const evaluationEndTime = validationMode === "OOS_ISOLATED" ? options.validationWindow?.oosEndTime : undefined;
+    for (let j = i + 1; j < candles.length && (evaluationEndTime === undefined || candles[j]!.time <= evaluationEndTime); j += 1) {
       const bar = candles[j];
       const stopHit = side === "LONG" ? bar.low <= stop : bar.high >= stop;
       const targetHit = side === "LONG" ? bar.high >= target : bar.low <= target;
