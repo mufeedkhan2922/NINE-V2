@@ -279,3 +279,287 @@ export function fingerprintCandles(
   }
   return (hash >>> 0).toString(16).padStart(8, "0");
 }
+
+
+export interface WilsonInterval {
+  estimate: number;
+  lower95: number;
+  upper95: number;
+  successes: number;
+  trials: number;
+}
+
+export interface FoldStabilityAudit {
+  valid: boolean;
+  folds: number;
+  positiveFolds: number;
+  positiveFoldRate: number;
+  meanExpectancy: number;
+  standardDeviation: number;
+  coefficientOfVariation: number | null;
+  reason: string;
+}
+
+export interface RegimeStabilityAudit {
+  valid: boolean;
+  regimes: number;
+  evaluatedRegimes: number;
+  positiveRegimes: number;
+  minimumTradesPerRegime: number;
+  reason: string;
+}
+
+export interface ParameterPerturbationAudit {
+  valid: boolean;
+  baseline: number;
+  variants: number;
+  minimumRetainedEdge: number;
+  worstRetention: number;
+  reason: string;
+}
+
+export interface OosDegradationAudit {
+  valid: boolean;
+  trainMetric: number;
+  oosMetric: number;
+  retention: number;
+  degradation: number;
+  minimumRetention: number;
+  reason: string;
+}
+
+export interface EffectSizeAudit {
+  valid: boolean;
+  mean: number;
+  standardDeviation: number;
+  cohensD: number;
+  minimumEffectSize: number;
+  reason: string;
+}
+
+export interface NestedWalkForwardAudit {
+  valid: boolean;
+  outerFolds: number;
+  invalidFolds: number;
+  reason: string;
+}
+
+export interface ResearchRobustnessGate {
+  valid: boolean;
+  reasons: string[];
+  foldStability: FoldStabilityAudit;
+  regimeStability: RegimeStabilityAudit;
+  parameterPerturbation: ParameterPerturbationAudit;
+  degradation: OosDegradationAudit;
+  effectSize: EffectSizeAudit;
+  nestedWalkForward: NestedWalkForwardAudit;
+}
+
+export function wilsonWinRateInterval(successes: number, trials: number, z = 1.96): WilsonInterval {
+  if (!Number.isInteger(successes) || !Number.isInteger(trials) || trials <= 0 || successes < 0 || successes > trials || !(z > 0)) {
+    return { estimate: 0, lower95: 0, upper95: 0, successes: 0, trials: 0 };
+  }
+  const p = successes / trials;
+  const denominator = 1 + (z * z) / trials;
+  const center = (p + (z * z) / (2 * trials)) / denominator;
+  const margin = (z / denominator) * Math.sqrt((p * (1 - p)) / trials + (z * z) / (4 * trials * trials));
+  return {
+    estimate: Number(p.toFixed(6)),
+    lower95: Number(Math.max(0, center - margin).toFixed(6)),
+    upper95: Number(Math.min(1, center + margin).toFixed(6)),
+    successes,
+    trials,
+  };
+}
+
+function finiteMean(values: number[]): number {
+  const finite = values.filter(Number.isFinite);
+  return finite.length ? finite.reduce((sum, value) => sum + value, 0) / finite.length : 0;
+}
+
+function finiteStd(values: number[]): number {
+  const finite = values.filter(Number.isFinite);
+  if (finite.length < 2) return 0;
+  const mean = finiteMean(finite);
+  return Math.sqrt(finite.reduce((sum, value) => sum + (value - mean) ** 2, 0) / (finite.length - 1));
+}
+
+export function auditFoldStability(
+  foldExpectancies: number[],
+  minimumPositiveFoldRate = 0.5,
+): FoldStabilityAudit {
+  const values = foldExpectancies.filter(Number.isFinite);
+  const mean = finiteMean(values);
+  const standardDeviation = finiteStd(values);
+  const positiveFolds = values.filter((value) => value > 0).length;
+  const positiveFoldRate = values.length ? positiveFolds / values.length : 0;
+  const coefficientOfVariation = mean !== 0 ? Math.abs(standardDeviation / mean) : null;
+  const valid = values.length >= 2 && positiveFoldRate >= minimumPositiveFoldRate && mean > 0;
+  return {
+    valid,
+    folds: values.length,
+    positiveFolds,
+    positiveFoldRate: Number(positiveFoldRate.toFixed(6)),
+    meanExpectancy: Number(mean.toFixed(6)),
+    standardDeviation: Number(standardDeviation.toFixed(6)),
+    coefficientOfVariation: coefficientOfVariation === null ? null : Number(coefficientOfVariation.toFixed(6)),
+    reason: valid
+      ? "OOS expectancy is positive across the required proportion of folds."
+      : "Fold stability is insufficient: require at least two folds, positive mean expectancy, and the minimum positive-fold rate.",
+  };
+}
+
+export function auditRegimeStability(
+  regimes: Array<{ regime: string; trades: number; expectancy: number }>,
+  minimumTradesPerRegime = 20,
+): RegimeStabilityAudit {
+  const eligible = regimes.filter((item) =>
+    item.regime.length > 0 &&
+    Number.isFinite(item.trades) &&
+    item.trades >= minimumTradesPerRegime &&
+    Number.isFinite(item.expectancy),
+  );
+  const positiveRegimes = eligible.filter((item) => item.expectancy > 0).length;
+  const valid = eligible.length >= 2 && positiveRegimes >= Math.ceil(eligible.length / 2);
+  return {
+    valid,
+    regimes: regimes.length,
+    evaluatedRegimes: eligible.length,
+    positiveRegimes,
+    minimumTradesPerRegime,
+    reason: valid
+      ? "The edge remains positive across at least half of sufficiently sampled regimes."
+      : "Regime stability is insufficient or too few regimes have enough observations.",
+  };
+}
+
+export function auditParameterPerturbation(
+  baseline: number,
+  variants: number[],
+  minimumRetainedEdge = 0.7,
+): ParameterPerturbationAudit {
+  const finiteVariants = variants.filter(Number.isFinite);
+  const edge = Math.abs(baseline);
+  if (!(edge > 0) || !finiteVariants.length || !(minimumRetainedEdge > 0 && minimumRetainedEdge <= 1)) {
+    return {
+      valid: false,
+      baseline,
+      variants: finiteVariants.length,
+      minimumRetainedEdge,
+      worstRetention: 0,
+      reason: "Parameter perturbation requires a non-zero baseline, finite variants, and a retention threshold in (0, 1].",
+    };
+  }
+  const worstRetention = Math.min(...finiteVariants.map((value) => value / baseline));
+  const valid = finiteVariants.every((value) => value > 0) && worstRetention >= minimumRetainedEdge;
+  return {
+    valid,
+    baseline: Number(baseline.toFixed(6)),
+    variants: finiteVariants.length,
+    minimumRetainedEdge,
+    worstRetention: Number(worstRetention.toFixed(6)),
+    reason: valid
+      ? "Perturbed parameter configurations retain the required fraction of the baseline edge."
+      : "Edge is too sensitive to parameter perturbation.",
+  };
+}
+
+export function auditOosDegradation(
+  trainMetric: number,
+  oosMetric: number,
+  minimumRetention = 0.5,
+): OosDegradationAudit {
+  const retention = trainMetric > 0 ? oosMetric / trainMetric : 0;
+  const degradation = trainMetric > 0 ? 1 - retention : 1;
+  const valid = trainMetric > 0 && oosMetric > 0 && retention >= minimumRetention;
+  return {
+    valid,
+    trainMetric: Number(trainMetric.toFixed(6)),
+    oosMetric: Number(oosMetric.toFixed(6)),
+    retention: Number(retention.toFixed(6)),
+    degradation: Number(degradation.toFixed(6)),
+    minimumRetention,
+    reason: valid
+      ? "OOS retains the required fraction of the training edge."
+      : "OOS edge degradation exceeds the configured tolerance.",
+  };
+}
+
+export function auditEffectSize(
+  values: number[],
+  minimumEffectSize = 0.2,
+): EffectSizeAudit {
+  const finite = values.filter(Number.isFinite);
+  const mean = finiteMean(finite);
+  const standardDeviation = finiteStd(finite);
+  const cohensD = standardDeviation > 0 ? mean / standardDeviation : 0;
+  const valid = finite.length >= 2 && cohensD >= minimumEffectSize && mean > 0;
+  return {
+    valid,
+    mean: Number(mean.toFixed(6)),
+    standardDeviation: Number(standardDeviation.toFixed(6)),
+    cohensD: Number(cohensD.toFixed(6)),
+    minimumEffectSize,
+    reason: valid
+      ? "The observed edge has the minimum required standardized effect size."
+      : "Effect size is too small or the sample is insufficient.",
+  };
+}
+
+export function auditNestedWalkForward(
+  outerFolds: WalkForwardFoldWindow[],
+  innerFoldsByOuterFold: WalkForwardFoldWindow[][],
+): NestedWalkForwardAudit {
+  if (outerFolds.length === 0 || innerFoldsByOuterFold.length !== outerFolds.length) {
+    return { valid: false, outerFolds: outerFolds.length, invalidFolds: outerFolds.length, reason: "Nested validation requires one inner-fold set per outer fold." };
+  }
+  let invalidFolds = 0;
+  outerFolds.forEach((outer, index) => {
+    const inner = innerFoldsByOuterFold[index] ?? [];
+    const audit = auditWalkForwardFolds(inner);
+    const contained = inner.every((fold) =>
+      fold.trainStartTime >= outer.trainStartTime &&
+      fold.oosEndTime < outer.oosStartTime &&
+      fold.trainEndTime < fold.oosStartTime,
+    );
+    if (!audit.valid || !contained) invalidFolds += 1;
+  });
+  return {
+    valid: invalidFolds === 0,
+    outerFolds: outerFolds.length,
+    invalidFolds,
+    reason: invalidFolds === 0
+      ? "All inner folds are chronological and fully contained inside the corresponding outer training window."
+      : "Nested walk-forward validation contains an invalid or outer-OOS-contaminating inner fold.",
+  };
+}
+
+export function auditResearchRobustness(
+  foldExpectancies: number[],
+  regimeResults: Array<{ regime: string; trades: number; expectancy: number }>,
+  baselineParameterMetric: number,
+  perturbedParameterMetrics: number[],
+  trainMetric: number,
+  oosMetric: number,
+  oosTradePnls: number[],
+  outerFolds: WalkForwardFoldWindow[],
+  innerFoldsByOuterFold: WalkForwardFoldWindow[][],
+): ResearchRobustnessGate {
+  const foldStability = auditFoldStability(foldExpectancies);
+  const regimeStability = auditRegimeStability(regimeResults);
+  const parameterPerturbation = auditParameterPerturbation(baselineParameterMetric, perturbedParameterMetrics);
+  const degradation = auditOosDegradation(trainMetric, oosMetric);
+  const effectSize = auditEffectSize(oosTradePnls);
+  const nestedWalkForward = auditNestedWalkForward(outerFolds, innerFoldsByOuterFold);
+  const audits = [foldStability, regimeStability, parameterPerturbation, degradation, effectSize, nestedWalkForward];
+  return {
+    valid: audits.every((audit) => audit.valid),
+    reasons: audits.filter((audit) => !audit.valid).map((audit) => audit.reason),
+    foldStability,
+    regimeStability,
+    parameterPerturbation,
+    degradation,
+    effectSize,
+    nestedWalkForward,
+  };
+}
