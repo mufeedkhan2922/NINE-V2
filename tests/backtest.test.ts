@@ -1,7 +1,7 @@
 import { runBacktest } from "../lib/trading/backtest";
 import { Candle } from "../lib/trading/types";
 import * as assert from "./assert";
-import { auditOosValidationWindow, auditWalkForwardFolds, auditMultipleTesting, auditParameterFreeOosEvaluation, bootstrapMeanInterval, buildReproducibilityHash, fingerprintCandles, auditResearchIntegrity } from "../lib/trading/statisticalValidation";
+import { auditOosValidationWindow, auditWalkForwardFolds, auditMultipleTesting, auditParameterFreeOosEvaluation, bootstrapMeanInterval, buildReproducibilityHash, fingerprintCandles, auditResearchIntegrity, wilsonWinRateInterval, auditFoldStability, auditRegimeStability, auditParameterPerturbation, auditOosDegradation, auditEffectSize, auditNestedWalkForward, auditResearchRobustness } from "../lib/trading/statisticalValidation";
 import { db } from "../lib/trading/db";
 function candles(count = 220): Candle[] { return Array.from({ length: count }, (_, i) => { const close = 2300 + Math.sin(i / 8) * 5 + i * 0.25; return { time: i * 60000, open: close - 0.1, high: close + 1.1, low: close - 1.1, close }; }); }
 export function runBacktestTest() {
@@ -136,5 +136,56 @@ export function runBacktestTest() {
     { trainStartTime: 20, trainEndTime: 30, oosStartTime: 31, oosEndTime: 40, embargoMs: 1 },
   ], parameterFree, multiple, hashA);
   assert.equal(brokenIntegrity.valid, false, "research integrity gate must reject an insufficient purge/embargo");
+
+  const wilson = wilsonWinRateInterval(70, 100);
+  assert.ok(wilson.lower95 < wilson.estimate && wilson.estimate < wilson.upper95, "Wilson interval should contain the win-rate estimate");
+
+  const foldStability = auditFoldStability([1, 2, 0.5, -0.2]);
+  assert.ok(foldStability.valid, "fold stability should pass when the majority of folds are positive");
+
+  const regimeStability = auditRegimeStability([
+    { regime: "TRENDING_UP", trades: 30, expectancy: 1.2 },
+    { regime: "TRENDING_DOWN", trades: 30, expectancy: 0.8 },
+    { regime: "RANGING", trades: 30, expectancy: -0.1 },
+  ]);
+  assert.ok(regimeStability.valid, "regime stability should pass when most sufficiently sampled regimes are positive");
+
+  const perturbation = auditParameterPerturbation(1, [0.9, 0.8, 0.75]);
+  assert.ok(perturbation.valid, "parameter perturbation should retain the required edge");
+
+  const degradation = auditOosDegradation(2, 1.2);
+  assert.ok(degradation.valid, "OOS degradation should pass at 60% retention");
+
+  const effect = auditEffectSize([1, 2, 2, 3, 4, 2]);
+  assert.ok(effect.valid, "positive OOS observations should produce a meaningful effect size");
+
+  const outer = [
+    { trainStartTime: 0, trainEndTime: 49, oosStartTime: 50, oosEndTime: 59 },
+    { trainStartTime: 60, trainEndTime: 109, oosStartTime: 110, oosEndTime: 119 },
+  ];
+  const nested = auditNestedWalkForward(outer, [
+    [{ trainStartTime: 0, trainEndTime: 19, oosStartTime: 20, oosEndTime: 29 }],
+    [{ trainStartTime: 60, trainEndTime: 79, oosStartTime: 80, oosEndTime: 89 }],
+  ]);
+  assert.ok(nested.valid, "nested folds should remain inside outer training windows");
+
+  const robustness = auditResearchRobustness(
+    [1, 1.2, 0.8],
+    [
+      { regime: "TRENDING_UP", trades: 30, expectancy: 1 },
+      { regime: "TRENDING_DOWN", trades: 30, expectancy: 0.8 },
+    ],
+    1,
+    [0.9, 0.8, 0.75],
+    2,
+    1.2,
+    [1, 2, 1, 3, 2],
+    outer,
+    [
+      [{ trainStartTime: 0, trainEndTime: 19, oosStartTime: 20, oosEndTime: 29 }],
+      [{ trainStartTime: 60, trainEndTime: 79, oosStartTime: 80, oosEndTime: 89 }],
+    ],
+  );
+  assert.ok(robustness.valid, "complete research robustness gate should pass");
 }
 
