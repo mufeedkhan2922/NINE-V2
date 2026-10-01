@@ -74,7 +74,7 @@ export async function GET(request: Request) {
       setupId: paperLoop.setupId,
       positionId: paperLoop.positionId,
       sentinelApproved: orchestration.sentinel.approved,
-      marketData: market.feedStatus ?? "UNKNOWN",
+      marketData: Object.keys(market.providerErrors).length === 0 ? "OK" : "DEGRADED",
       durationMs: Date.now() - startedAt,
       safety: runtimeSafety(),
       timestamp: new Date().toISOString(),
