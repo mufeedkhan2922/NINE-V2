@@ -1,0 +1,25 @@
+name: NINE 24/7 Heartbeat
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: nine-24-7-heartbeat
+  cancel-in-progress: true
+
+jobs:
+  heartbeat:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Wake NINE
+        env:
+          NINE_BASE_URL: ${{ secrets.NINE_BASE_URL }}
+          NINE_CRON_SECRET: ${{ secrets.NINE_CRON_SECRET }}
+        run: |
+          set -euo pipefail
+          test -n "$NINE_BASE_URL"
+          test -n "$NINE_CRON_SECRET"
+          curl --fail --silent --show-error             --max-time 120             -H "Authorization: Bearer $NINE_CRON_SECRET"             "$NINE_BASE_URL/api/cron/nine"             -o /dev/null
