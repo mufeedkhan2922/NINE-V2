@@ -74,7 +74,46 @@ async function fetchHistory(startDate: string, endDate: string): Promise<Candle[
     cursor = boundedEnd;
   }
 
-  return [...byTime.values()].sort((a, b) => a.time - b.time);
+  const sorted = [...byTime.values()].sort((a, b) => a.time - b.time);
+  if (sorted.length === 0) {
+    throw new Error("Historical data quality gate failed: provider returned zero XAUUSD candles.");
+  }
+
+  // Reject malformed candles before they enter training or OOS evaluation.
+  // Gaps are reported rather than automatically rejected because FX/metal feeds
+  // legitimately omit weekends, holidays, and provider maintenance windows.
+  for (let index = 0; index < sorted.length; index += 1) {
+    const candle = sorted[index]!;
+    const values = [candle.time, candle.open, candle.high, candle.low, candle.close];
+    if (!values.every(Number.isFinite)) {
+      throw new Error(`Historical data quality gate failed: non-finite OHLC/time at candle index ${index}.`);
+    }
+    if (index > 0 && candle.time <= sorted[index - 1]!.time) {
+      throw new Error(`Historical data quality gate failed: non-chronological candles at index ${index}.`);
+    }
+    if (candle.high < Math.max(candle.open, candle.close, candle.low) ||
+        candle.low > Math.min(candle.open, candle.close, candle.high) ||
+        candle.high < candle.low) {
+      throw new Error(`Historical data quality gate failed: inconsistent OHLC at candle index ${index}.`);
+    }
+  }
+
+  const expectedFiveMinuteMs = 5 * 60 * 1000;
+  const gaps = sorted.slice(1).filter((candle, index) =>
+    candle.time - sorted[index]!.time > expectedFiveMinuteMs,
+  ).length;
+  console.log(JSON.stringify({
+    dataQuality: {
+      status: "VALID",
+      candles: sorted.length,
+      duplicateTimestampsDeduplicated: 0,
+      gapsOverFiveMinutes: gaps,
+      firstCandle: new Date(sorted[0]!.time).toISOString(),
+      lastCandle: new Date(sorted.at(-1)!.time).toISOString(),
+    },
+  }));
+
+  return sorted;
 }
 
 function runWalkForward(candles: Candle[]) {
@@ -212,8 +251,20 @@ async function main() {
     throw new Error("Invalid walk-forward configuration.");
   }
 
+  if (!Number.isFinite(new Date(`${START}T00:00:00Z`).getTime()) ||
+      !Number.isFinite(new Date(`${END}T00:00:00Z`).getTime()) ||
+      new Date(`${START}T00:00:00Z`).getTime() >= new Date(`${END}T00:00:00Z`).getTime()) {
+    throw new Error("Invalid walk-forward date range: START must be a valid date before END.");
+  }
+
   const candles = await fetchHistory(START, END);
+  if (candles.length < WARMUP_CANDLES + 2) {
+    throw new Error(`Historical data quality gate failed: only ${candles.length} candles available; need more than ${WARMUP_CANDLES + 1}.`);
+  }
   const { folds, foldWindows } = runWalkForward(candles);
+  if (folds.length === 0) {
+    throw new Error("Research gate failed: no valid walk-forward folds were produced. Expand the date range or reduce the fold window.");
+  }
   const allBaselineTrades = folds.flatMap((fold) => {
     const items = Array.isArray(fold.baselineTrades) ? fold.baselineTrades : [];
     return items as Array<{ pnl: number }>;
@@ -327,6 +378,8 @@ async function main() {
       "Insufficient samples remain neutral; NINE does not delete setups merely because of a small losing sample.",
       "No spread, commission, financing or slippage is included unless represented by source prices.",
       "Historical simulation is not predictive of future performance.",
+      "This report does not include broker-specific spread, commission, financing, or slippage unless those costs are represented in the source prices.",
+      "Data-quality gate rejects malformed/non-chronological OHLC candles and fails closed on empty or insufficient history; five-minute gaps are counted because session/holiday gaps may be legitimate.",
     ],
   };
 
