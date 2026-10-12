@@ -1,4 +1,8 @@
 import fs from "node:fs";
+import { loadEnvConfig } from "@next/env";
+
+// Load the project-local environment files for direct CLI research runs.
+loadEnvConfig(process.cwd());
 import { fetchProviderHistoricalCandles } from "../lib/trading/provider";
 import { runBacktest } from "../lib/trading/backtest";
 import { buildAdaptiveLossFilter } from "../lib/trading/adaptiveLossFilter";
