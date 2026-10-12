@@ -203,7 +203,7 @@ function runWalkForward(candles: Candle[]) {
     throw new Error("Walk-forward contamination audit failed: " + audit.reason);
   }
 
-  return folds;
+  return { folds, foldWindows };
 }
 
 async function main() {
