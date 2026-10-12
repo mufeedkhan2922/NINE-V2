@@ -349,7 +349,7 @@ async function main() {
   const profitableFoldRate = folds.length ? Number(((positiveFolds / folds.length) * 100).toFixed(2)) : 0;
   const dataFingerprint = fingerprintCandles(candles);
   const codeVersion = process.env.GITHUB_SHA ?? "local";
-  const rulesetVersion = "NINE-0.5.43";
+  const rulesetVersion = "NINE-0.5.44";
   const parameterAudit = auditParameterFreeOosEvaluation({ oosTuned: false, tunedOnOos: false, selectedByOos: false, optimizeOos: false, oosOptimization: false, trainDays: TRAIN_DAYS, testDays: TEST_DAYS, embargoDays: EMBARGO_DAYS });
   const multipleTesting = auditMultipleTesting(Math.max(1, folds.length));
   const oosPnl = allOosTrades.map((trade) => Number(trade.pnl));
@@ -414,7 +414,7 @@ async function main() {
       "A setup is blocked only when its historical sample is large enough and its 95% Wilson upper win-rate bound remains below its break-even win rate with negative expectancy.",
       "Insufficient samples remain neutral; NINE does not delete setups merely because of a small losing sample.",
       COSTS_CONFIGURED
-        ? "Net P&L deducts the explicitly configured spread, two-sided slippage, and round-turn commission estimates from each completed trade; financing/swap is not modeled."
+        ? "Net P&L deducts configured spread, two-sided slippage, and round-turn commission values; any cost input left at zero is assumed zero, and financing/swap is not modeled."
         : "WARNING: execution-cost inputs are all zero. P&L is gross of spread, commission, slippage, and financing and must not be interpreted as executable net performance.",
       "Historical simulation is not predictive of future performance.",
       "Data-quality gate rejects malformed/non-chronological OHLC candles and fails closed on empty or insufficient history; five-minute gaps are counted because session/holiday gaps may be legitimate.",
@@ -430,6 +430,8 @@ async function main() {
     `Period: ${START} to ${END}`,
     `5m candles: ${candles.length}`,
     `Train: ${TRAIN_DAYS} days | OOS test: ${TEST_DAYS} days | Step: ${STEP_DAYS} days`,
+    `Execution costs per round turn: ${estimatedRoundTurnCost().toFixed(2)} USD at ${FIXED_LOT} lots`,
+    COSTS_CONFIGURED ? "P&L is net of configured execution costs; swap/financing is excluded." : "WARNING: all execution costs are zero; results are gross and not executable net performance.",
     "",
     "## Aggregate OOS",
     "",
