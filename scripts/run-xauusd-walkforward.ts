@@ -162,7 +162,11 @@ function runWalkForward(candles: Candle[]) {
     const oosWarmupStartIndex = Math.max(0, purgedTrainEndIndex - WARMUP_CANDLES);
     const oosCandles = candles.slice(oosWarmupStartIndex, testEndIndex);
 
-    const trainStartIndex = Math.max(0, purgedTrainEndIndex - Math.ceil(TRAIN_DAYS * 24 * 12));
+    // Bound training by calendar time, not an assumed 288 candles per day.
+    // Weekends and provider closures mean a fixed candle count can reach back
+    // beyond the declared training window and violate the cross-fold embargo audit.
+    const trainStartIndex = candles.findIndex((c) => c.time >= trainStart.getTime());
+    if (trainStartIndex < 0 || trainStartIndex >= purgedTrainEndIndex) break;
     const trainCandles = candles.slice(trainStartIndex, purgedTrainEndIndex);
     const trainResult = runBacktest(trainCandles, INITIAL_BALANCE, 0.5, undefined, false);
     const costAdjustedTrainingTrades = trainResult.trades.map((trade) => ({
