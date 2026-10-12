@@ -41,8 +41,17 @@ function pnlForTrade(trade: BacktestTrade): number {
   return move * EXPOSURE_OZ;
 }
 
-function stats(trades: BacktestTrade[]) {
-  const pnls = trades.map(pnlForTrade);
+function estimatedRoundTurnCost(): number {
+  return (SPREAD_USD_PER_OZ + 2 * SLIPPAGE_USD_PER_SIDE_PER_OZ) * EXPOSURE_OZ +
+    COMMISSION_USD_PER_LOT_ROUND_TURN * FIXED_LOT;
+}
+
+function netPnlForTrade(trade: BacktestTrade): number {
+  return pnlForTrade(trade) - estimatedRoundTurnCost();
+}
+
+function stats(trades: BacktestTrade[], pnlAlreadyNet = false) {
+  const pnls = trades.map((trade) => pnlAlreadyNet ? trade.pnl : netPnlForTrade(trade));
   const wins = pnls.filter((p) => p > 0);
   const losses = pnls.filter((p) => p < 0);
   const grossWin = wins.reduce((s, p) => s + p, 0);
