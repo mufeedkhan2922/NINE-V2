@@ -83,7 +83,7 @@ function session(candle?: Candle): "ASIA" | "LONDON" | "NEW_YORK" | "OFF" {
   return "OFF";
 }
 
-function evaluateRegime(symbol: string, candles: Candle[]): StrategyConsensus["regime"] {
+function evaluateRegime(symbol: MarketSnapshot["symbol"], candles: Candle[]): StrategyConsensus["regime"] {
   if (candles.length < 40) return "MIXED";
   return buildRegimeIntelligence(symbol, candles).features.regime;
 }
