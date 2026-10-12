@@ -273,8 +273,10 @@ function runWalkForward(candles: Candle[]) {
 
 async function main() {
   if (!process.env.TWELVE_DATA_API_KEY) throw new Error("TWELVE_DATA_API_KEY is missing.");
-  if (!(INITIAL_BALANCE > 0) || !(FIXED_LOT > 0) || !(CONTRACT_SIZE_OZ > 0)) {
-    throw new Error("Invalid walk-forward configuration.");
+  if (!(INITIAL_BALANCE > 0) || !(FIXED_LOT > 0) || !(CONTRACT_SIZE_OZ > 0) ||
+      ![SPREAD_USD_PER_OZ, SLIPPAGE_USD_PER_SIDE_PER_OZ, COMMISSION_USD_PER_LOT_ROUND_TURN].every(Number.isFinite) ||
+      SPREAD_USD_PER_OZ < 0 || SLIPPAGE_USD_PER_SIDE_PER_OZ < 0 || COMMISSION_USD_PER_LOT_ROUND_TURN < 0) {
+    throw new Error("Invalid walk-forward configuration: balance/lot/contract size must be positive and cost inputs must be finite and non-negative.");
   }
 
   if (!Number.isFinite(new Date(`${START}T00:00:00Z`).getTime()) ||
@@ -317,6 +319,7 @@ async function main() {
       entryReason: "",
       exitReason: "",
     } as BacktestTrade)),
+    true,
   );
 
 
@@ -338,6 +341,7 @@ async function main() {
       entryReason: "",
       exitReason: "",
     } as BacktestTrade)),
+    true,
   );
 
   const positiveFolds = folds.filter((fold) => Number((fold.oos as Record<string, unknown>).netPnl ?? 0) > 0).length;
@@ -375,6 +379,13 @@ async function main() {
       fixedLot: FIXED_LOT,
       contractSizeOzPerLot: CONTRACT_SIZE_OZ,
       effectiveExposureOz: EXPOSURE_OZ,
+      estimatedExecutionCosts: {
+        spreadUsdPerOz: SPREAD_USD_PER_OZ,
+        slippageUsdPerSidePerOz: SLIPPAGE_USD_PER_SIDE_PER_OZ,
+        commissionUsdPerLotRoundTurn: COMMISSION_USD_PER_LOT_ROUND_TURN,
+        estimatedRoundTurnCostUsd: Number(estimatedRoundTurnCost().toFixed(4)),
+        configured: COSTS_CONFIGURED,
+      },
       warmupCandles: WARMUP_CANDLES,
     },
     dataPoints: candles.length,
@@ -402,9 +413,10 @@ async function main() {
       "The final research integrity gate must pass before this result is considered promotable.",
       "A setup is blocked only when its historical sample is large enough and its 95% Wilson upper win-rate bound remains below its break-even win rate with negative expectancy.",
       "Insufficient samples remain neutral; NINE does not delete setups merely because of a small losing sample.",
-      "No spread, commission, financing or slippage is included unless represented by source prices.",
+      COSTS_CONFIGURED
+        ? "Net P&L deducts the explicitly configured spread, two-sided slippage, and round-turn commission estimates from each completed trade; financing/swap is not modeled."
+        : "WARNING: execution-cost inputs are all zero. P&L is gross of spread, commission, slippage, and financing and must not be interpreted as executable net performance.",
       "Historical simulation is not predictive of future performance.",
-      "This report does not include broker-specific spread, commission, financing, or slippage unless those costs are represented in the source prices.",
       "Data-quality gate rejects malformed/non-chronological OHLC candles and fails closed on empty or insufficient history; five-minute gaps are counted because session/holiday gaps may be legitimate.",
     ],
   };
