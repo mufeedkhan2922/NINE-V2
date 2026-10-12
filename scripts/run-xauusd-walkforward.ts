@@ -59,6 +59,7 @@ async function fetchHistory(startDate: string, endDate: string): Promise<Candle[
   const start = new Date(`${startDate}T00:00:00Z`);
   const end = new Date(`${endDate}T00:00:00Z`);
   const byTime = new Map<number, Candle>();
+  let duplicateTimestamps = 0;
   let cursor = start;
 
   while (cursor < end) {
@@ -70,7 +71,10 @@ async function fetchHistory(startDate: string, endDate: string): Promise<Candle[
       iso(cursor),
       iso(boundedEnd),
     );
-    for (const candle of candles) byTime.set(candle.time, candle);
+    for (const candle of candles) {
+      if (byTime.has(candle.time)) duplicateTimestamps += 1;
+      byTime.set(candle.time, candle);
+    }
     cursor = boundedEnd;
   }
 
@@ -106,7 +110,7 @@ async function fetchHistory(startDate: string, endDate: string): Promise<Candle[
     dataQuality: {
       status: "VALID",
       candles: sorted.length,
-      duplicateTimestampsDeduplicated: 0,
+      duplicateTimestampsDeduplicated: duplicateTimestamps,
       gapsOverFiveMinutes: gaps,
       firstCandle: new Date(sorted[0]!.time).toISOString(),
       lastCandle: new Date(sorted.at(-1)!.time).toISOString(),
