@@ -18,7 +18,7 @@ export function runBacktestTest() {
   assert.ok(audit.valid, "OOS validation window should be valid");
 
   const learningTables = [
-    "loss_memory",
+    "trade_lessons",
     "causal_failure_memory",
     "counterfactual_results",
     "counterfactual_learning_memory",
