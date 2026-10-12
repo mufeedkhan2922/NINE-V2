@@ -160,7 +160,12 @@ function runWalkForward(candles: Candle[]) {
     const trainStartIndex = Math.max(0, purgedTrainEndIndex - Math.ceil(TRAIN_DAYS * 24 * 12));
     const trainCandles = candles.slice(trainStartIndex, purgedTrainEndIndex);
     const trainResult = runBacktest(trainCandles, INITIAL_BALANCE, 0.5, undefined, false);
-    const adaptiveFilter = buildAdaptiveLossFilter(trainResult.trades, {
+    const costAdjustedTrainingTrades = trainResult.trades.map((trade) => ({
+      ...trade,
+      pnl: netPnlForTrade(trade),
+      outcome: netPnlForTrade(trade) > 0 ? "WIN" as const : "LOSS" as const,
+    }));
+    const adaptiveFilter = buildAdaptiveLossFilter(costAdjustedTrainingTrades, {
       minimumTrades: 20,
       confidenceZ: 1.96,
       requireNegativeExpectancy: true,
